@@ -4,7 +4,7 @@
 	"name": "comfort_advisor development",
 	"context": "..",
 	"appPort": [
-		"8123:8123"
+		"8127:8123"
 	],
 	"postCreateCommand": "container install",
 	"extensions": [
