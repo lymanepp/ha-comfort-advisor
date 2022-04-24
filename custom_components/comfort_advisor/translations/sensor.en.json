@@ -1,12 +1,12 @@
 {
   "state": {
-    "thermal_comfort__frost_risk": {
+    "comfort_advisor__frost_risk": {
       "no_risk": "No risk",
       "unlikely": "Unlikely",
       "probable": "Probable",
       "high": "High probability"
     },
-    "thermal_comfort__thermal_perception": {
+    "comfort_advisor__thermal_perception": {
       "dry": "A bit dry for some",
       "very_comfortable": "Very comfortable",
       "comfortable": "Comfortable",
@@ -16,7 +16,7 @@
       "extremely_uncomfortable": "Extremely uncomfortable, oppressive",
       "severely_high": "Severely high, even deadly for asthma related illnesses"
     },
-    "thermal_comfort__simmer_zone": {
+    "comfort_advisor__simmer_zone": {
       "cool": "Cool",
       "slightly_cool": "Slightly cool",
       "comfortable": "Comfortable",

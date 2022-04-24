@@ -1,4 +1,4 @@
-"""Thermal Comfort config validator."""
+"""Comfort Advisor config validator."""
 
 from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
 from homeassistant.config import async_log_exception, config_without_domain

@@ -1,8 +1,8 @@
 """
-Custom integration to integrate thermal_comfort with Home Assistant.
+Custom integration to integrate comfort_advisor with Home Assistant.
 
 For more details about this integration, please refer to
-https://github.com/dolezsa/thermal_comfort
+https://github.com/lymanepp/ha-comfort-advisor
 """
 from __future__ import annotations
 
@@ -78,7 +78,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Set up the thermal_comfort integration."""
+    """Set up the comfort_advisor integration."""
     if DOMAIN in config:
         await _process_config(hass, config)
 

@@ -1,7 +1,7 @@
-# [![thermal_comfort](https://raw.githubusercontent.com/dolezsa/thermal_comfort/master/icons/logo.png)](https://github.com/dolezsa/thermal_comfort)
+# [![comfort_advisor](https://raw.githubusercontent.com/lymanepp/ha-comfort-advisor/master/icons/logo.png)](https://github.com/lymanepp/ha-comfort-advisor)
 [![hacs_badge](https://img.shields.io/badge/HACS-Default-41BDF5.svg?style=for-the-badge)](https://github.com/hacs/integration)
 
-Thermal Comfort provides the following calculated sensors for Home Assistant.
+Comfort Advisor provides the following calculated sensors for Home Assistant.
 
 ## Sensors:
 
@@ -46,27 +46,27 @@ Thermal Comfort provides the following calculated sensors for Home Assistant.
   </dd>
 </dl>
 
-![Custom Icons](https://raw.githubusercontent.com/dolezsa/thermal_comfort/master/screenshots/living_room.png)
+![Custom Icons](https://raw.githubusercontent.com/lymanepp/ha-comfort-advisor/master/screenshots/living_room.png)
 
 ## Usage
-To use Thermal Comfort check the documentation for your preferred way to setup
+To use Comfort Advisor check the documentation for your preferred way to setup
 sensors.
 
 **UI/Frontend (Config Flow)
- [1.4.3](https://github.com/dolezsa/thermal_comfort/blob/1.4.3/documentation/config_flow.md) /
- [master](https://github.com/dolezsa/thermal_comfort/blob/master/documentation/config_flow.md)**
+ [1.4.3](https://github.com/lymanepp/ha-comfort-advisor/blob/1.4.3/documentation/config_flow.md) /
+ [master](https://github.com/lymanepp/ha-comfort-advisor/blob/master/documentation/config_flow.md)**
 
 **YAML
- [1.4.3](https://github.com/dolezsa/thermal_comfort/blob/1.4.3/documentation/yaml.md) /
- [master](https://github.com/dolezsa/thermal_comfort/blob/master/documentation/yaml.md)**
+ [1.4.3](https://github.com/lymanepp/ha-comfort-advisor/blob/1.4.3/documentation/yaml.md) /
+ [master](https://github.com/lymanepp/ha-comfort-advisor/blob/master/documentation/yaml.md)**
 
-*Legacy YAML [1.4.3](https://github.com/dolezsa/thermal_comfort/blob/1.4.3/documentation/legacy_yaml.md)*
+*Legacy YAML [1.4.3](https://github.com/lymanepp/ha-comfort-advisor/blob/1.4.3/documentation/legacy_yaml.md)*
 
 ## Installation
 
 ### Using [HACS](https://hacs.xyz/) (recommended)
 
-This integration can be installed using HACS. To do it search for Thermal Comfort in the integrations section.
+This integration can be installed using HACS. To do it search for Comfort Advisor in the integrations section.
 
 ### Manual
 
@@ -75,8 +75,8 @@ To install this integration manually you can either
 * Use git:
 
 ```sh
-git clone https://github.com/dolezsa/thermal_comfort.git
-cd thermal_comfort
+git clone https://github.com/lymanepp/ha-comfort-advisor.git
+cd ha-comfort-advisor
 # if you want a specific version checkout its tag
 # e.g. git checkout 1.0.0
 
@@ -89,8 +89,8 @@ cp -r custom_components $hacs_config_folder
 Finally you need to restart home assistant before you can use it.
 
 ### Custom Icons
-[Install](https://github.com/rautesamtr/thermal_comfort_icons#install) Thermal Comforts icon pack.
+[Install](https://github.com/rautesamtr/thermal_comfort_icons#install) Comfort Advisors icon pack.
 
 Enable the custom icons options for your sensor in the
- [frontend](https://github.com/dolezsa/thermal_comfort/blob/master/documentation/config_flow.md#configuration-options)
- or in [yaml](https://github.com/dolezsa/thermal_comfort/blob/master/documentation/yaml.md#sensor-configuration-variables).
+ [frontend](https://github.com/lymanepp/ha-comfort-advisor/blob/master/documentation/config_flow.md#configuration-options)
+ or in [yaml](https://github.com/lymanepp/ha-comfort-advisor/blob/master/documentation/yaml.md#sensor-configuration-variables).

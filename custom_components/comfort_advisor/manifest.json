@@ -1,0 +1,10 @@
+{
+  "domain": "comfort_advisor",
+  "name": "Comfort Advisor",
+  "version": "0.0.0",
+  "documentation": "https://github.com/lymanepp/ha-comfort-advisor/blob/master/README.md",
+  "issue_tracker": "https://github.com/lymanepp/ha-comfort-advisor/issues",
+  "codeowners": ["@lymanepp"],
+  "iot_class": "cloud_polling",
+  "config_flow": true
+}

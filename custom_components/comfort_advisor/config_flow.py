@@ -279,7 +279,7 @@ def get_sensors_by_device_class(
         )
         return unit_of_measurement not in units_for_exclude
 
-    def filter_thermal_comfort_ids(entity_id: str) -> bool:
+    def filter_comfort_advisor_ids(entity_id: str) -> bool:
         """Filter out device_ids containing our SensorType."""
         return all(
             sensor_type.to_shortform() not in entity_id for sensor_type in SensorType
@@ -315,7 +315,7 @@ def get_sensors_by_device_class(
 
     result = list(
         filter(
-            filter_thermal_comfort_ids,
+            filter_comfort_advisor_ids,
             result,
         )
     )
@@ -448,14 +448,14 @@ def check_input(hass: HomeAssistant, user_input: dict) -> dict:
     return result
 
 
-class ThermalComfortConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Configuration flow for setting up new thermal_comfort entry."""
+class ComfortAdvisorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+    """Configuration flow for setting up new comfort_advisor entry."""
 
     @staticmethod
     @callback
     def async_get_options_flow(config_entry):
         """Get the options flow for this handler."""
-        return ThermalComfortOptionsFlow(config_entry)
+        return ComfortAdvisorOptionsFlow(config_entry)
 
     async def async_step_user(self, user_input=None):
         """Handle a flow initialized by the user."""
@@ -500,7 +500,7 @@ class ThermalComfortConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
 
-class ThermalComfortOptionsFlow(config_entries.OptionsFlow):
+class ComfortAdvisorOptionsFlow(config_entries.OptionsFlow):
     """Handle options."""
 
     def __init__(self, config_entry):

@@ -1,1 +1,1 @@
-"""Tests for Thermal Comfort component."""
+"""Tests for Comfort Advisor component."""

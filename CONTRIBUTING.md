@@ -1,8 +1,8 @@
-# Contributing to Thermal Comfort
-Everybody is invited and welcome to contribute to Thermal Comfort.
+# Contributing to Comfort Advisor
+Everybody is invited and welcome to contribute to Comfort Advisor.
 
-## Report bugs using Github's [issues](https://github.com/dolezsa/thermal_comfort/issues)
-We use GitHub issues to track public bugs. Report a bug by [opening a new issue](https://github.com/dolezsa/thermal_comfort/issues/new/choose).
+## Report bugs using Github's [issues](https://github.com/lymanepp/ha-comfort-advisor/issues)
+We use GitHub issues to track public bugs. Report a bug by [opening a new issue](https://github.com/lymanepp/ha-comfort-advisor/issues/new/choose).
 
 ## Write bug reports with detail, background, and sample code
 

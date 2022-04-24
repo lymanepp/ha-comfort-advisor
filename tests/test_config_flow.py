@@ -9,7 +9,7 @@ import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 import voluptuous as vol
 
-from custom_components.thermal_comfort.const import (
+from custom_components.comfort_advisor.const import (
     CONF_HUMIDITY_SENSOR,
     CONF_TEMPERATURE_SENSOR,
     DOMAIN,
@@ -23,7 +23,7 @@ from .test_sensor import DEFAULT_TEST_SENSORS
 def bypass_setup_fixture():
     """Prevent setup."""
     with patch(
-        "custom_components.thermal_comfort.async_setup_entry",
+        "custom_components.comfort_advisor.async_setup_entry",
         return_value=True,
     ):
         yield
@@ -114,7 +114,7 @@ async def test_options_flow(hass, start_ha):
 
 async def test_config_flow_enabled():
     """Test is manifest.json have 'config_flow': true."""
-    with open("custom_components/thermal_comfort/manifest.json") as f:
+    with open("custom_components/comfort_advisor/manifest.json") as f:
         manifest = json.load(f)
         assert manifest.get("config_flow") is True
 

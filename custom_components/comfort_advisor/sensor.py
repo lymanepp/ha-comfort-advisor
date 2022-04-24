@@ -1,4 +1,4 @@
-"""Sensor platform for thermal_comfort."""
+"""Sensor platform for comfort_advisor."""
 from asyncio import Lock
 from dataclasses import dataclass
 from datetime import timedelta
@@ -64,12 +64,12 @@ POLL_DEFAULT = False
 SCAN_INTERVAL_DEFAULT = 30
 
 
-class ThermalComfortDeviceClass(StrEnum):
-    """State class for thermal comfort sensors."""
+class ComfortAdvisorDeviceClass(StrEnum):
+    """State class for comfort_advisor sensors."""
 
-    FROST_RISK = "thermal_comfort__frost_risk"
-    SIMMER_ZONE = "thermal_comfort__simmer_zone"
-    THERMAL_PERCEPTION = "thermal_comfort__thermal_perception"
+    FROST_RISK = "comfort_advisor__frost_risk"
+    SIMMER_ZONE = "comfort_advisor__simmer_zone"
+    THERMAL_PERCEPTION = "comfort_advisor__thermal_perception"
 
 
 # Deprecate shortform in 2.0
@@ -145,7 +145,7 @@ SENSOR_TYPES = {
     },
     SensorType.FROST_RISK: {
         "key": SensorType.FROST_RISK,
-        "device_class": ThermalComfortDeviceClass.FROST_RISK,
+        "device_class": ComfortAdvisorDeviceClass.FROST_RISK,
         "icon": "mdi:snowflake-alert",
     },
     SensorType.HEAT_INDEX: {
@@ -164,12 +164,12 @@ SENSOR_TYPES = {
     },
     SensorType.SIMMER_ZONE: {
         "key": SensorType.SIMMER_ZONE,
-        "device_class": ThermalComfortDeviceClass.SIMMER_ZONE,
+        "device_class": ComfortAdvisorDeviceClass.SIMMER_ZONE,
         "icon": "tc:simmer-zone",
     },
     SensorType.THERMAL_PERCEPTION: {
         "key": SensorType.THERMAL_PERCEPTION,
-        "device_class": ThermalComfortDeviceClass.THERMAL_PERCEPTION,
+        "device_class": ComfortAdvisorDeviceClass.THERMAL_PERCEPTION,
         "icon": "tc:thermal-perception",
     },
 }
@@ -264,7 +264,7 @@ def compute_once_lock(sensor_type):
 
 
 async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
-    """Set up the Thermal Comfort sensors."""
+    """Set up the Comfort Advisor sensors."""
     if discovery_info is None:
         devices = [
             dict(device_config, **{CONF_NAME: device_name})
@@ -279,7 +279,7 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
 
     for device_config in devices:
         device_config = options | device_config
-        compute_device = DeviceThermalComfort(
+        compute_device = DeviceComfortAdvisor(
             hass=hass,
             name=device_config.get(CONF_NAME),
             unique_id=device_config.get(CONF_UNIQUE_ID),
@@ -292,7 +292,7 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
         )
 
         sensors += [
-            SensorThermalComfort(
+            SensorComfortAdvisor(
                 device=compute_device,
                 entity_description=SensorEntityDescription(
                     **SENSOR_TYPES[SensorType.from_string(sensor_type)]
@@ -329,7 +329,7 @@ async def async_setup_entry(
         data[CONF_SCAN_INTERVAL] = SCAN_INTERVAL_DEFAULT
 
     _LOGGER.debug(f"async_setup_entry: {data}")
-    compute_device = DeviceThermalComfort(
+    compute_device = DeviceComfortAdvisor(
         hass=hass,
         name=data[CONF_NAME],
         unique_id=f"{config_entry.unique_id}",
@@ -341,8 +341,8 @@ async def async_setup_entry(
         ),
     )
 
-    entities: list[SensorThermalComfort] = [
-        SensorThermalComfort(
+    entities: list[SensorComfortAdvisor] = [
+        SensorComfortAdvisor(
             device=compute_device,
             entity_description=SensorEntityDescription(**SENSOR_TYPES[sensor_type]),
             sensor_type=sensor_type,
@@ -369,12 +369,12 @@ def id_generator(unique_id: str, sensor_type: str) -> str:
     return unique_id + sensor_type
 
 
-class SensorThermalComfort(SensorEntity):
-    """Representation of a Thermal Comfort Sensor."""
+class SensorComfortAdvisor(SensorEntity):
+    """Representation of a Comfort Advisor Sensor."""
 
     def __init__(
         self,
-        device: "DeviceThermalComfort",
+        device: "DeviceComfortAdvisor",
         sensor_type: SensorType,
         entity_description: SensorEntityDescription,
         icon_template: Template = None,
@@ -478,14 +478,14 @@ class SensorThermalComfort(SensorEntity):
 
 @dataclass
 class ComputeState:
-    """Thermal Comfort Calculation State."""
+    """Comfort Advisor Calculation State."""
 
     needs_update: bool = False
     lock: Lock = None
 
 
-class DeviceThermalComfort:
-    """Representation of a Thermal Comfort Sensor."""
+class DeviceComfortAdvisor:
+    """Representation of a Comfort Advisor Sensor."""
 
     def __init__(
         self,

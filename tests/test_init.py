@@ -3,12 +3,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.thermal_comfort import (
+from custom_components.comfort_advisor import (
     async_setup_entry,
     async_unload_entry,
     async_update_options,
 )
-from custom_components.thermal_comfort.const import DOMAIN, PLATFORMS
+from custom_components.comfort_advisor.const import DOMAIN, PLATFORMS
 
 from .const import ADVANCED_USER_INPUT
 

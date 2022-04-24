@@ -1,6 +1,6 @@
 {
-  "name": "Thermal Comfort",
-  "home-assistant": "2021.12.0",
+  "name": "Comfort Advisor",
+  "home-assistant": "2022.4.0",
   "render_readme": true,
-  "filename": "thermal_comfort.zip"
+  "filename": "comfort_advisor.zip"
 }

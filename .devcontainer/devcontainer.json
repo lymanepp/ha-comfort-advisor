@@ -1,7 +1,7 @@
 // See https://aka.ms/vscode-remote/devcontainer.json for format details.
 {
 	"image": "ghcr.io/ludeeus/devcontainer/integration:stable",
-	"name": "thermal_comfort development",
+	"name": "comfort_advisor development",
 	"context": "..",
 	"appPort": [
 		"8123:8123"

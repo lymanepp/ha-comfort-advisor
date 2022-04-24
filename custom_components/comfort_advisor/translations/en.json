@@ -6,7 +6,7 @@
     },
     "step": {
       "init": {
-        "title": "Thermal comfort settings",
+        "title": "Comfort Advisor settings",
         "data": {
           "temperature_sensor": "Temperature sensor",
           "humidity_sensor": "Humidity sensor",
@@ -29,7 +29,7 @@
     },
     "step": {
       "user": {
-        "title": "Thermal comfort settings",
+        "title": "Comfort Advisor settings",
         "data": {
           "name": "Name",
           "temperature_sensor": "Temperature sensor",
