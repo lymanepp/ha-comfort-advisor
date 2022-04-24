@@ -1,13 +1,16 @@
 {
   "options": {
     "error": {
-      "temperature_not_found": "Temperature sensor not found",
-      "humidity_not_found": "Humidity sensor not found"
+      "inside_temperature_not_found": "Inside temperature sensor not found",
+      "inside_humidity_not_found": "Inside humidity sensor not found",
+      "outside_temperature_not_found": "Outside temperature sensor not found",
+      "outside_humidity_not_found": "Outside humidity sensor not found"
     },
     "step": {
       "init": {
         "title": "Comfort Advisor settings",
         "data": {
+          "api_key": "Weather provider API key",
           "temperature_sensor": "Temperature sensor",
           "humidity_sensor": "Humidity sensor",
           "poll": "Enable Polling",
@@ -24,16 +27,21 @@
       "no_sensors_advanced": "No temperature or humidity sensors found."
     },
     "error": {
-      "temperature_not_found": "Temperature sensor not found",
-      "humidity_not_found": "Humidity sensor not found"
+      "inside_temperature_not_found": "Inside temperature sensor not found",
+      "inside_humidity_not_found": "Inside humidity sensor not found",
+      "outside_temperature_not_found": "Outside temperature sensor not found",
+      "outside_humidity_not_found": "Outside humidity sensor not found"
     },
     "step": {
       "user": {
         "title": "Comfort Advisor settings",
         "data": {
           "name": "Name",
-          "temperature_sensor": "Temperature sensor",
-          "humidity_sensor": "Humidity sensor",
+          "api_key": "Weather provider API key",
+          "inside_temperature_sensor": "Inside temperature sensor",
+          "inside_humidity_sensor": "Inside humidity sensor",
+          "outside_temperature_sensor": "Outside temperature sensor",
+          "outside_humidity_sensor": "Outside humidity sensor",
           "poll": "Enable Polling",
           "scan_interval": "Poll interval (seconds)",
           "custom_icons": "Use custom icons pack",

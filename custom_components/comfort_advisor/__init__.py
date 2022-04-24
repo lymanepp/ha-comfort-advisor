@@ -8,9 +8,17 @@ from __future__ import annotations
 
 import logging
 
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.config import async_hass_config_yaml, async_process_component_config
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_NAME, SERVICE_RELOAD
+from homeassistant.const import (
+    CONF_API_KEY,
+    CONF_LATITUDE,
+    CONF_LOCATION,
+    CONF_LONGITUDE,
+)
 from homeassistant.core import Event, HomeAssistant, ServiceCall
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import discovery
@@ -20,17 +28,37 @@ from homeassistant.loader import async_get_integration
 
 from .config import OPTIONS_SCHEMA
 from .config_flow import get_value
-from .const import DOMAIN, PLATFORMS, UPDATE_LISTENER
+from .const import (
+    DOMAIN,
+    PLATFORMS,
+    UPDATE_LISTENER,
+    FORECAST_DATA_COORDINATOR,
+    REALTIME_DATA_COORDINATOR,
+    SCAN_INTERVAL_FORECAST,
+    SCAN_INTERVAL_REALTIME,
+)
 from .sensor import (
     CONF_CUSTOM_ICONS,
     CONF_ENABLED_SENSORS,
-    CONF_HUMIDITY_SENSOR,
+    CONF_INSIDE_HUMIDITY_SENSOR,
+    CONF_OUTSIDE_HUMIDITY_SENSOR,
+    CONF_OUTSIDE_TEMPERATURE_SENSOR,
     CONF_POLL,
     CONF_SCAN_INTERVAL,
-    CONF_TEMPERATURE_SENSOR,
+    CONF_INSIDE_TEMPERATURE_SENSOR,
 )
+from .provider import ComfortData, Provider
+from .tomorrowio import TomorrowioProvider
 
 _LOGGER = logging.getLogger(__name__)
+
+
+class RealtimeDataUpdateCoordinator(DataUpdateCoordinator[ComfortData]):
+    """TODO."""
+
+
+class ForecastDataUpdateCoordinator(DataUpdateCoordinator[list[ComfortData]]):
+    """TODO."""
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -38,8 +66,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = {
         CONF_NAME: get_value(entry, CONF_NAME),
-        CONF_TEMPERATURE_SENSOR: get_value(entry, CONF_TEMPERATURE_SENSOR),
-        CONF_HUMIDITY_SENSOR: get_value(entry, CONF_HUMIDITY_SENSOR),
+        CONF_INSIDE_TEMPERATURE_SENSOR: get_value(
+            entry, CONF_INSIDE_TEMPERATURE_SENSOR
+        ),
+        CONF_INSIDE_HUMIDITY_SENSOR: get_value(entry, CONF_INSIDE_HUMIDITY_SENSOR),
+        CONF_OUTSIDE_TEMPERATURE_SENSOR: get_value(
+            entry, CONF_OUTSIDE_TEMPERATURE_SENSOR
+        ),
+        CONF_OUTSIDE_HUMIDITY_SENSOR: get_value(entry, CONF_OUTSIDE_HUMIDITY_SENSOR),
         CONF_POLL: get_value(entry, CONF_POLL),
         CONF_SCAN_INTERVAL: get_value(entry, CONF_SCAN_INTERVAL),
         CONF_CUSTOM_ICONS: get_value(entry, CONF_CUSTOM_ICONS),
@@ -55,6 +89,36 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if entry.unique_id is None:
         # We have no unique_id yet, let's use backup.
         hass.config_entries.async_update_entry(entry, unique_id=entry.entry_id)
+
+    unit_system = "metric" if hass.config.units.is_metric else "imperial"
+    provider: Provider = TomorrowioProvider(
+        apikey=entry.data[CONF_API_KEY],
+        latitude=entry.data[CONF_LOCATION][CONF_LATITUDE],
+        longitude=entry.data[CONF_LOCATION][CONF_LONGITUDE],
+        unit_system=unit_system,
+        session=async_get_clientsession(hass),
+    )
+
+    realtime_coord = RealtimeDataUpdateCoordinator(
+        hass,
+        _LOGGER,
+        name=f"{DOMAIN}_{REALTIME_DATA_COORDINATOR}",
+        update_interval=SCAN_INTERVAL_REALTIME,
+        update_method=provider.realtime,
+    )
+    await realtime_coord.async_config_entry_first_refresh()
+
+    forecast_coord = ForecastDataUpdateCoordinator(
+        hass,
+        _LOGGER,
+        name=f"{DOMAIN}_{FORECAST_DATA_COORDINATOR}",
+        update_interval=SCAN_INTERVAL_FORECAST,
+        update_method=provider.forecast,
+    )
+    await forecast_coord.async_config_entry_first_refresh()
+
+    hass.data[DOMAIN][entry.entry_id][REALTIME_DATA_COORDINATOR] = realtime_coord
+    hass.data[DOMAIN][entry.entry_id][FORECAST_DATA_COORDINATOR] = forecast_coord
 
     hass.config_entries.async_setup_platforms(entry, PLATFORMS)
     update_listener = entry.add_update_listener(async_update_options)

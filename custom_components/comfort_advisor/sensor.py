@@ -56,8 +56,10 @@ CONF_SENSOR_TYPES = "sensor_types"
 CONF_CUSTOM_ICONS = "custom_icons"
 CONF_SCAN_INTERVAL = "scan_interval"
 
-CONF_TEMPERATURE_SENSOR = "temperature_sensor"
-CONF_HUMIDITY_SENSOR = "humidity_sensor"
+CONF_INSIDE_TEMPERATURE_SENSOR = "inside_temperature_sensor"
+CONF_INSIDE_HUMIDITY_SENSOR = "inside_humidity_sensor"
+CONF_OUTSIDE_TEMPERATURE_SENSOR = "outside_temperature_sensor"
+CONF_OUTSIDE_HUMIDITY_SENSOR = "outside_humidity_sensor"
 CONF_POLL = "poll"
 # Default values
 POLL_DEFAULT = False
@@ -188,8 +190,8 @@ PLATFORM_OPTIONS_SCHEMA = vol.Schema(
 
 LEGACY_SENSOR_SCHEMA = vol.Schema(
     {
-        vol.Required(CONF_TEMPERATURE_SENSOR): cv.entity_id,
-        vol.Required(CONF_HUMIDITY_SENSOR): cv.entity_id,
+        vol.Required(CONF_INSIDE_TEMPERATURE_SENSOR): cv.entity_id,
+        vol.Required(CONF_INSIDE_HUMIDITY_SENSOR): cv.entity_id,
         vol.Optional(CONF_ICON_TEMPLATE): cv.template,
         vol.Optional(CONF_ENTITY_PICTURE_TEMPLATE): cv.template,
         vol.Optional(CONF_FRIENDLY_NAME): cv.string,
@@ -283,8 +285,8 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
             hass=hass,
             name=device_config.get(CONF_NAME),
             unique_id=device_config.get(CONF_UNIQUE_ID),
-            temperature_entity=device_config.get(CONF_TEMPERATURE_SENSOR),
-            humidity_entity=device_config.get(CONF_HUMIDITY_SENSOR),
+            temperature_entity=device_config.get(CONF_INSIDE_TEMPERATURE_SENSOR),
+            humidity_entity=device_config.get(CONF_INSIDE_HUMIDITY_SENSOR),
             should_poll=device_config.get(CONF_POLL, POLL_DEFAULT),
             scan_interval=device_config.get(
                 CONF_SCAN_INTERVAL, timedelta(seconds=SCAN_INTERVAL_DEFAULT)
@@ -333,8 +335,8 @@ async def async_setup_entry(
         hass=hass,
         name=data[CONF_NAME],
         unique_id=f"{config_entry.unique_id}",
-        temperature_entity=data[CONF_TEMPERATURE_SENSOR],
-        humidity_entity=data[CONF_HUMIDITY_SENSOR],
+        temperature_entity=data[CONF_INSIDE_TEMPERATURE_SENSOR],
+        humidity_entity=data[CONF_INSIDE_HUMIDITY_SENSOR],
         should_poll=data[CONF_POLL],
         scan_interval=timedelta(
             seconds=data.get(CONF_SCAN_INTERVAL, SCAN_INTERVAL_DEFAULT)

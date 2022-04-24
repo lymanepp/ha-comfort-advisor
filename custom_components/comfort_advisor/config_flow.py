@@ -3,9 +3,17 @@ from __future__ import annotations
 
 import logging
 
+from homeassistant.helpers.selector import LocationSelector  # , LocationSelectorConfig
 from homeassistant import config_entries
 from homeassistant.components.sensor import SensorDeviceClass
-from homeassistant.const import CONF_NAME, Platform
+from homeassistant.const import (
+    CONF_NAME,
+    Platform,
+    CONF_API_KEY,
+    CONF_LOCATION,
+    CONF_LATITUDE,
+    CONF_LONGITUDE,
+)
 from homeassistant.core import HomeAssistant, State, callback
 from homeassistant.helpers import entity_registry
 import homeassistant.helpers.config_validation as cv
@@ -16,10 +24,12 @@ from .const import DEFAULT_NAME, DOMAIN
 from .sensor import (
     CONF_CUSTOM_ICONS,
     CONF_ENABLED_SENSORS,
-    CONF_HUMIDITY_SENSOR,
+    CONF_INSIDE_HUMIDITY_SENSOR,
+    CONF_OUTSIDE_HUMIDITY_SENSOR,
+    CONF_OUTSIDE_TEMPERATURE_SENSOR,
     CONF_POLL,
     CONF_SCAN_INTERVAL,
-    CONF_TEMPERATURE_SENSOR,
+    CONF_INSIDE_TEMPERATURE_SENSOR,
     POLL_DEFAULT,
     SCAN_INTERVAL_DEFAULT,
     SensorType,
@@ -300,7 +310,7 @@ def get_sensors_by_device_class(
     ]
 
     result.sort()
-    _LOGGER.debug(f"Results for {device_class} based on device class: {result}")
+    _LOGGER.debug(f"Results for {device_class} based on device class: %s", result)
 
     if include_all:
         additional_sensors = _hass.states.async_all()
@@ -310,7 +320,7 @@ def get_sensors_by_device_class(
         additional_entity_ids = [state.entity_id for state in additional_sensors]
         additional_entity_ids = list(set(additional_entity_ids) - set(result))
         additional_entity_ids.sort()
-        _LOGGER.debug(f"Additional results: {additional_entity_ids}")
+        _LOGGER.debug(f"Additional results: %s", additional_entity_ids)
         result += additional_entity_ids
 
     result = list(
@@ -320,7 +330,7 @@ def get_sensors_by_device_class(
         )
     )
 
-    _LOGGER.debug(f"Results after cleaning own entities: {result}")
+    _LOGGER.debug(f"Results after cleaning own entities: %s", result)
 
     return result
 
@@ -366,21 +376,47 @@ def build_schema(
     if not temperature_sensors or not humidity_sensors:
         return None
 
+    if (default_location := get_value(config_entry, CONF_LOCATION)) is None:
+        default_location = {
+            CONF_LATITUDE: hass.config.latitude,
+            CONF_LONGITUDE: hass.config.longitude,
+        }
+
     schema = vol.Schema(
         {
+            vol.Required(
+                CONF_API_KEY, default=get_value(config_entry, CONF_API_KEY)
+            ): str,
+            vol.Required(CONF_LOCATION, default=default_location,): LocationSelector(
+                config={"location": {}}  # TODO: LocationSelectorConfig(radius=False)
+            ),
             vol.Required(
                 CONF_NAME, default=get_value(config_entry, CONF_NAME, DEFAULT_NAME)
             ): str,
             vol.Required(
-                CONF_TEMPERATURE_SENSOR,
+                CONF_INSIDE_TEMPERATURE_SENSOR,
                 default=get_value(
-                    config_entry, CONF_TEMPERATURE_SENSOR, temperature_sensors[0]
+                    config_entry, CONF_INSIDE_TEMPERATURE_SENSOR, temperature_sensors[0]
                 ),
             ): vol.In(temperature_sensors),
             vol.Required(
-                CONF_HUMIDITY_SENSOR,
+                CONF_INSIDE_HUMIDITY_SENSOR,
                 default=get_value(
-                    config_entry, CONF_HUMIDITY_SENSOR, humidity_sensors[0]
+                    config_entry, CONF_INSIDE_HUMIDITY_SENSOR, humidity_sensors[0]
+                ),
+            ): vol.In(humidity_sensors),
+            vol.Required(
+                CONF_OUTSIDE_TEMPERATURE_SENSOR,
+                default=get_value(
+                    config_entry,
+                    CONF_OUTSIDE_TEMPERATURE_SENSOR,
+                    temperature_sensors[0],
+                ),
+            ): vol.In(temperature_sensors),
+            vol.Required(
+                CONF_OUTSIDE_HUMIDITY_SENSOR,
+                default=get_value(
+                    config_entry, CONF_OUTSIDE_HUMIDITY_SENSOR, humidity_sensors[0]
                 ),
             ): vol.In(humidity_sensors),
         },
@@ -433,14 +469,22 @@ def check_input(hass: HomeAssistant, user_input: dict) -> dict:
 
     result = {}
 
-    t_sensor = hass.states.get(user_input[CONF_TEMPERATURE_SENSOR])
-    p_sensor = hass.states.get(user_input[CONF_HUMIDITY_SENSOR])
+    it_sensor = hass.states.get(user_input[CONF_INSIDE_TEMPERATURE_SENSOR])
+    ih_sensor = hass.states.get(user_input[CONF_INSIDE_HUMIDITY_SENSOR])
+    ot_sensor = hass.states.get(user_input[CONF_OUTSIDE_TEMPERATURE_SENSOR])
+    oh_sensor = hass.states.get(user_input[CONF_OUTSIDE_HUMIDITY_SENSOR])
 
-    if t_sensor is None:
-        result["base"] = "temperature_not_found"
+    if it_sensor is None:
+        result["base"] = "inside_temperature_not_found"
 
-    if p_sensor is None:
-        result["base"] = "humidity_not_found"
+    if ih_sensor is None:
+        result["base"] = "inside_humidity_not_found"
+
+    if ot_sensor is None:
+        result["base"] = "outside_temperature_not_found"
+
+    if oh_sensor is None:
+        result["base"] = "outside_humidity_not_found"
 
     # ToDo: we should not trust user and check:
     #  - that CONF_TEMPERATURE_SENSOR is temperature sensor and have state_class measurement
@@ -465,13 +509,25 @@ class ComfortAdvisorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if not (errors := check_input(self.hass, user_input)):
                 er = entity_registry.async_get(self.hass)
 
-                t_sensor = er.async_get(user_input[CONF_TEMPERATURE_SENSOR])
-                p_sensor = er.async_get(user_input[CONF_HUMIDITY_SENSOR])
-                _LOGGER.debug(f"Going to use t_sensor {t_sensor}")
-                _LOGGER.debug(f"Going to use p_sensor {p_sensor}")
+                it_sensor = er.async_get(user_input[CONF_INSIDE_TEMPERATURE_SENSOR])
+                ih_sensor = er.async_get(user_input[CONF_INSIDE_HUMIDITY_SENSOR])
+                ot_sensor = er.async_get(user_input[CONF_OUTSIDE_TEMPERATURE_SENSOR])
+                oh_sensor = er.async_get(user_input[CONF_OUTSIDE_HUMIDITY_SENSOR])
+                _LOGGER.debug(
+                    "Going to use %s: %s", CONF_INSIDE_TEMPERATURE_SENSOR, it_sensor
+                )
+                _LOGGER.debug(
+                    "Going to use %s: %s", CONF_INSIDE_HUMIDITY_SENSOR, ih_sensor
+                )
+                _LOGGER.debug(
+                    "Going to use %s: %s", CONF_OUTSIDE_TEMPERATURE_SENSOR, ot_sensor
+                )
+                _LOGGER.debug(
+                    "Going to use %s: %s", CONF_OUTSIDE_HUMIDITY_SENSOR, oh_sensor
+                )
 
-                if t_sensor is not None and p_sensor is not None:
-                    unique_id = f"{t_sensor.unique_id}-{p_sensor.unique_id}"
+                if it_sensor and ih_sensor and ot_sensor and oh_sensor:
+                    unique_id = f"{it_sensor.unique_id}-{ih_sensor.unique_id}-{ot_sensor.unique_id}-{oh_sensor.unique_id}"
                     await self.async_set_unique_id(unique_id)
                     self._abort_if_unique_id_configured()
 
@@ -512,7 +568,7 @@ class ComfortAdvisorOptionsFlow(config_entries.OptionsFlow):
 
         errors = {}
         if user_input is not None:
-            _LOGGER.debug(f"OptionsFlow: going to update configuration {user_input}")
+            _LOGGER.debug(f"OptionsFlow: going to update configuration %s", user_input)
             if not (errors := check_input(self.hass, user_input)):
                 return self.async_create_entry(title="", data=user_input)
 
