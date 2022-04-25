@@ -3,33 +3,36 @@ from __future__ import annotations
 
 import logging
 
-from homeassistant.helpers.selector import LocationSelector  # , LocationSelectorConfig
 from homeassistant import config_entries
 from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.const import (
+    CONF_API_KEY,
+    CONF_LATITUDE,
+    CONF_LOCATION,
+    CONF_LONGITUDE,
     CONF_NAME,
     Platform,
-    CONF_API_KEY,
-    CONF_LOCATION,
-    CONF_LATITUDE,
-    CONF_LONGITUDE,
 )
 from homeassistant.core import HomeAssistant, State, callback
 from homeassistant.helpers import entity_registry
 import homeassistant.helpers.config_validation as cv
-from homeassistant.helpers.entity_registry import EntityRegistry
+from homeassistant.helpers.selector import LocationSelector  # , LocationSelectorConfig
+from homeassistant.helpers.typing import ConfigType
 import voluptuous as vol
+
+from custom_components.comfort_advisor.weather_provider import WEATHER_PROVIDER_NAMES
 
 from .const import DEFAULT_NAME, DOMAIN
 from .sensor import (
     CONF_CUSTOM_ICONS,
     CONF_ENABLED_SENSORS,
-    CONF_INSIDE_HUMIDITY_SENSOR,
-    CONF_OUTSIDE_HUMIDITY_SENSOR,
-    CONF_OUTSIDE_TEMPERATURE_SENSOR,
+    CONF_INDOOR_HUMIDITY_SENSOR,
+    CONF_INDOOR_TEMPERATURE_SENSOR,
+    CONF_OUTDOOR_HUMIDITY_SENSOR,
+    CONF_OUTDOOR_TEMPERATURE_SENSOR,
     CONF_POLL,
     CONF_SCAN_INTERVAL,
-    CONF_INSIDE_TEMPERATURE_SENSOR,
+    CONF_WEATHER_PROVIDER,
     POLL_DEFAULT,
     SCAN_INTERVAL_DEFAULT,
     SensorType,
@@ -39,27 +42,20 @@ _LOGGER = logging.getLogger(__name__)
 
 
 def get_sensors_by_device_class(
-    _er: EntityRegistry,
-    _hass: HomeAssistant,
+    hass: HomeAssistant,
     device_class: SensorDeviceClass,
-    include_all: bool = False,
 ) -> list:
     """Get sensors of required class from entity registry."""
 
     def filter_by_device_class(
         _state: State, _list: list[SensorDeviceClass], should_be_in: bool = True
     ) -> bool:
-        """Filter state objects by device class.
-
-        :param _state: state object for examination
-        :param _list: list of device classes
-        :param should_be_in: should the object's device_class be in the list to pass the filter or not
-        """
+        """Filter state objects by device class."""
         collected_device_class = _state.attributes.get(
             "device_class", _state.attributes.get("original_device_class")
         )
         # XNOR
-        return not ((collected_device_class in _list) ^ should_be_in)
+        return not (collected_device_class in _list) ^ should_be_in
 
     def filter_for_device_class_sensor(state: State) -> bool:
         """Filter states by Platform.SENSOR and required device class."""
@@ -67,271 +63,24 @@ def get_sensors_by_device_class(
             state, [device_class], should_be_in=True
         )
 
-    def filter_useless_device_class(state: State) -> bool:
-        """Filter out states with useless for us device class."""
-        device_class_for_exclude = [
-            SensorDeviceClass.AQI,
-            SensorDeviceClass.BATTERY,
-            SensorDeviceClass.CO,
-            SensorDeviceClass.CO2,
-            SensorDeviceClass.CURRENT,
-            SensorDeviceClass.DATE,
-            SensorDeviceClass.ENERGY,
-            SensorDeviceClass.FREQUENCY,
-            SensorDeviceClass.GAS,
-            SensorDeviceClass.ILLUMINANCE,
-            SensorDeviceClass.MONETARY,
-            SensorDeviceClass.NITROGEN_DIOXIDE,
-            SensorDeviceClass.NITROGEN_MONOXIDE,
-            SensorDeviceClass.NITROUS_OXIDE,
-            SensorDeviceClass.OZONE,
-            SensorDeviceClass.PM1,
-            SensorDeviceClass.PM10,
-            SensorDeviceClass.PM25,
-            SensorDeviceClass.POWER_FACTOR,
-            SensorDeviceClass.POWER,
-            SensorDeviceClass.PRESSURE,
-            SensorDeviceClass.SIGNAL_STRENGTH,
-            SensorDeviceClass.SULPHUR_DIOXIDE,
-            SensorDeviceClass.TIMESTAMP,
-            SensorDeviceClass.VOLATILE_ORGANIC_COMPOUNDS,
-            SensorDeviceClass.VOLTAGE,
-        ]
-        """We are sure that this device classes could not be useful as data source in any case"""
-        return filter_by_device_class(
-            state, device_class_for_exclude, should_be_in=False
-        )
-
-    def filter_useless_domain(state: State) -> bool:
-        """Filter states with useless for us domains."""
-        domains_for_exclude = [
-            Platform.AIR_QUALITY,
-            Platform.ALARM_CONTROL_PANEL,
-            Platform.BINARY_SENSOR,
-            Platform.BUTTON,
-            Platform.CALENDAR,
-            Platform.CAMERA,
-            Platform.CLIMATE,
-            Platform.COVER,
-            Platform.DEVICE_TRACKER,
-            Platform.FAN,
-            Platform.GEO_LOCATION,
-            Platform.IMAGE_PROCESSING,
-            Platform.LIGHT,
-            Platform.LOCK,
-            Platform.MAILBOX,
-            Platform.MEDIA_PLAYER,
-            Platform.NOTIFY,
-            Platform.REMOTE,
-            Platform.SCENE,
-            Platform.SIREN,
-            Platform.STT,
-            Platform.SWITCH,
-            Platform.TTS,
-            Platform.VACUUM,
-            "automation",
-            "person",
-            "script",
-            "scene",
-            "sun",
-            "timer",
-            "zone",
-        ]
-        """We are sure that this domains could not be useful as data source in any case"""
-        return state.domain not in domains_for_exclude
-
-    def filter_useless_units(state: State) -> bool:
-        """Filter out states with useless for us units of measurements."""
-        units_for_exclude = [
-            # Electric
-            "W",
-            "kW",
-            "VA",
-            "BTU/h" "Wh",
-            "kWh",
-            "MWh",
-            "mA",
-            "A",
-            "mV",
-            "V",
-            # Degree units
-            "°",
-            # Currency units
-            "€",
-            "$",
-            "¢",
-            # Time units
-            "μs",
-            "ms",
-            "s",
-            "min",
-            "h",
-            "d",
-            "w",
-            "m",
-            "y",
-            # Length units
-            "mm",
-            "cm",
-            "m",
-            "km",
-            "in",
-            "ft",
-            "yd",
-            "mi",
-            # Frequency units
-            "Hz",
-            "kHz",
-            "MHz",
-            "GHz",
-            # Pressure units
-            "Pa",
-            "hPa",
-            "kPa",
-            "bar",
-            "cbar",
-            "mbar",
-            "mmHg",
-            "inHg",
-            "psi",
-            # Sound pressure units
-            "dB",
-            "dBa",
-            # Volume units
-            "L",
-            "mL",
-            "m³",
-            "ft³",
-            "gal",
-            "fl. oz.",
-            # Volume Flow Rate units
-            "m³/h",
-            "ft³/m",
-            # Area units
-            "m²",
-            # Mass
-            "g",
-            "kg",
-            "mg",
-            "µg",
-            "oz",
-            "lb",
-            #
-            "µS/cm",
-            "lx",
-            "UV index",
-            "W/m²",
-            "BTU/(h×ft²)",
-            # Precipitation units
-            "mm/h",
-            "in",
-            "in/h",
-            # Concentration units
-            "µg/m³",
-            "mg/m³",
-            "μg/ft³",
-            "p/m³",
-            "ppm",
-            "ppb",
-            # Speed units
-            "mm/d",
-            "in/d",
-            "m/s",
-            "in/h",
-            "km/h",
-            "mph",
-            # Signal_strength units
-            "dB",
-            "dBm",
-            # Data units
-            "bit",
-            "kbit",
-            "Mbit",
-            "Gbit",
-            "B",
-            "kB",
-            "MB",
-            "GB",
-            "TB",
-            "PB",
-            "EB",
-            "ZB",
-            "YB",
-            "KiB",
-            "MiB",
-            "GiB",
-            "TiB",
-            "PiB",
-            "EiB",
-            "ZiB",
-            "YiB",
-            "bit/s",
-            "kbit/s",
-            "Mbit/s",
-            "Gbit/s",
-            "B/s",
-            "kB/s",
-            "MB/s",
-            "GB/s",
-            "KiB/s",
-            "MiB/s",
-            "GiB/s",
-        ]
-        """We are sure that entities with this units could not be useful as data source in any case"""
-        additional_units = {
-            SensorDeviceClass.HUMIDITY: ["°C", "°F", "K"],
-            SensorDeviceClass.TEMPERATURE: ["%"],
-        }
-        units_for_exclude += additional_units.get(device_class, [])
-
-        unit_of_measurement = state.attributes.get(
-            "unit_of_measurement", state.attributes.get("native_unit_of_measurement")
-        )
-        return unit_of_measurement not in units_for_exclude
-
     def filter_comfort_advisor_ids(entity_id: str) -> bool:
         """Filter out device_ids containing our SensorType."""
-        return all(
-            sensor_type.to_shortform() not in entity_id for sensor_type in SensorType
-        )
-
-    filters_for_additional_sensors: list[callable] = [
-        filter_useless_device_class,
-        filter_useless_domain,
-        filter_useless_units,
-    ]
+        return all(not entity_id.endswith(sensor_type) for sensor_type in SensorType)
 
     result = [
         state.entity_id
         for state in filter(
             filter_for_device_class_sensor,
-            _hass.states.async_all(),
+            hass.states.async_all(),
         )
     ]
 
     result.sort()
-    _LOGGER.debug(f"Results for {device_class} based on device class: %s", result)
+    _LOGGER.debug("Results for %s based on device class: %s", device_class, result)
 
-    if include_all:
-        additional_sensors = _hass.states.async_all()
-        for f in filters_for_additional_sensors:
-            additional_sensors = list(filter(f, additional_sensors))
+    result = list(filter(filter_comfort_advisor_ids, result))
 
-        additional_entity_ids = [state.entity_id for state in additional_sensors]
-        additional_entity_ids = list(set(additional_entity_ids) - set(result))
-        additional_entity_ids.sort()
-        _LOGGER.debug(f"Additional results: %s", additional_entity_ids)
-        result += additional_entity_ids
-
-    result = list(
-        filter(
-            filter_comfort_advisor_ids,
-            result,
-        )
-    )
-
-    _LOGGER.debug(f"Results after cleaning own entities: %s", result)
-
+    _LOGGER.debug("Results after cleaning own entities: %s", result)
     return result
 
 
@@ -345,16 +94,16 @@ def get_value(
     :param default: default value for parameter, defaults to None
     :returns: parameter value, or default value or None
     """
-    if config_entry is not None:
-        return config_entry.options.get(param, config_entry.data.get(param, default))
-    else:
-        return default
+    return (
+        default
+        if config_entry is None
+        else config_entry.options.get(param, config_entry.data.get(param, default))
+    )
 
 
 def build_schema(
     config_entry: config_entries | None,
     hass: HomeAssistant,
-    show_advanced: bool = False,
     step: str = "user",
 ) -> vol.Schema:
     """Build configuration schema.
@@ -365,12 +114,9 @@ def build_schema(
     :param step: for which step we should build schema
     :return: Configuration schema with default parameters
     """
-    entity_registry_instance = entity_registry.async_get(hass)
-    humidity_sensors = get_sensors_by_device_class(
-        entity_registry_instance, hass, SensorDeviceClass.HUMIDITY, show_advanced
-    )
+    humidity_sensors = get_sensors_by_device_class(hass, SensorDeviceClass.HUMIDITY)
     temperature_sensors = get_sensors_by_device_class(
-        entity_registry_instance, hass, SensorDeviceClass.TEMPERATURE, show_advanced
+        hass, SensorDeviceClass.TEMPERATURE
     )
 
     if not temperature_sensors or not humidity_sensors:
@@ -382,82 +128,80 @@ def build_schema(
             CONF_LONGITUDE: hass.config.longitude,
         }
 
+    # TODO: schema needs to be dynamic based on 'CONF_WEATHER_PROVIDER'
     schema = vol.Schema(
         {
             vol.Required(
+                CONF_WEATHER_PROVIDER,
+                default=get_value(config_entry, CONF_WEATHER_PROVIDER),
+            ): vol.In(WEATHER_PROVIDER_NAMES),
+            vol.Required(
                 CONF_API_KEY, default=get_value(config_entry, CONF_API_KEY)
             ): str,
-            vol.Required(CONF_LOCATION, default=default_location,): LocationSelector(
-                config={"location": {}}  # TODO: LocationSelectorConfig(radius=False)
+            vol.Required(CONF_LOCATION, default=default_location): LocationSelector(
+                config={"location": {}}  # future: LocationSelectorConfig(radius=False)
             ),
             vol.Required(
                 CONF_NAME, default=get_value(config_entry, CONF_NAME, DEFAULT_NAME)
             ): str,
             vol.Required(
-                CONF_INSIDE_TEMPERATURE_SENSOR,
+                CONF_INDOOR_TEMPERATURE_SENSOR,
                 default=get_value(
-                    config_entry, CONF_INSIDE_TEMPERATURE_SENSOR, temperature_sensors[0]
+                    config_entry, CONF_INDOOR_TEMPERATURE_SENSOR, temperature_sensors[0]
                 ),
             ): vol.In(temperature_sensors),
             vol.Required(
-                CONF_INSIDE_HUMIDITY_SENSOR,
+                CONF_INDOOR_HUMIDITY_SENSOR,
                 default=get_value(
-                    config_entry, CONF_INSIDE_HUMIDITY_SENSOR, humidity_sensors[0]
+                    config_entry, CONF_INDOOR_HUMIDITY_SENSOR, humidity_sensors[0]
                 ),
             ): vol.In(humidity_sensors),
             vol.Required(
-                CONF_OUTSIDE_TEMPERATURE_SENSOR,
+                CONF_OUTDOOR_TEMPERATURE_SENSOR,
                 default=get_value(
                     config_entry,
-                    CONF_OUTSIDE_TEMPERATURE_SENSOR,
+                    CONF_OUTDOOR_TEMPERATURE_SENSOR,
                     temperature_sensors[0],
                 ),
             ): vol.In(temperature_sensors),
             vol.Required(
-                CONF_OUTSIDE_HUMIDITY_SENSOR,
+                CONF_OUTDOOR_HUMIDITY_SENSOR,
                 default=get_value(
-                    config_entry, CONF_OUTSIDE_HUMIDITY_SENSOR, humidity_sensors[0]
+                    config_entry, CONF_OUTDOOR_HUMIDITY_SENSOR, humidity_sensors[0]
                 ),
             ): vol.In(humidity_sensors),
+            vol.Optional(
+                CONF_POLL, default=get_value(config_entry, CONF_POLL, POLL_DEFAULT)
+            ): bool,
+            vol.Optional(
+                CONF_SCAN_INTERVAL,
+                default=get_value(
+                    config_entry, CONF_SCAN_INTERVAL, SCAN_INTERVAL_DEFAULT
+                ),
+            ): vol.All(vol.Coerce(int), vol.Range(min=1)),
+            vol.Optional(
+                CONF_CUSTOM_ICONS,
+                default=get_value(config_entry, CONF_CUSTOM_ICONS, False),
+            ): bool,
         },
     )
-    if show_advanced:
+
+    if step == "user":
         schema = schema.extend(
             {
                 vol.Optional(
-                    CONF_POLL, default=get_value(config_entry, CONF_POLL, POLL_DEFAULT)
-                ): bool,
-                vol.Optional(
-                    CONF_SCAN_INTERVAL,
-                    default=get_value(
-                        config_entry, CONF_SCAN_INTERVAL, SCAN_INTERVAL_DEFAULT
-                    ),
-                ): vol.All(vol.Coerce(int), vol.Range(min=1)),
-                vol.Optional(
-                    CONF_CUSTOM_ICONS,
-                    default=get_value(config_entry, CONF_CUSTOM_ICONS, False),
-                ): bool,
+                    CONF_ENABLED_SENSORS,
+                    default=list(SensorType),
+                ): cv.multi_select(
+                    {sensor_type: sensor_type.to_title() for sensor_type in SensorType}
+                ),
             }
         )
-        if step == "user":
-            schema = schema.extend(
-                {
-                    vol.Optional(
-                        CONF_ENABLED_SENSORS,
-                        default=list(SensorType),
-                    ): cv.multi_select(
-                        {
-                            sensor_type: sensor_type.to_title()
-                            for sensor_type in SensorType
-                        }
-                    ),
-                }
-            )
 
     return schema
 
 
-def check_input(hass: HomeAssistant, user_input: dict) -> dict:
+def check_input(hass: HomeAssistant, user_input: ConfigType) -> dict[str, str]:
     """Check that we may use suggested configuration.
 
     :param hass: hass instance
@@ -465,31 +209,29 @@ def check_input(hass: HomeAssistant, user_input: dict) -> dict:
     :returns: dict with error.
     """
 
-    # ToDo: user_input have ConfigType type, but it in codebase since 2021.12.10
+    errors = {}
 
-    result = {}
-
-    it_sensor = hass.states.get(user_input[CONF_INSIDE_TEMPERATURE_SENSOR])
-    ih_sensor = hass.states.get(user_input[CONF_INSIDE_HUMIDITY_SENSOR])
-    ot_sensor = hass.states.get(user_input[CONF_OUTSIDE_TEMPERATURE_SENSOR])
-    oh_sensor = hass.states.get(user_input[CONF_OUTSIDE_HUMIDITY_SENSOR])
+    it_sensor = hass.states.get(user_input[CONF_INDOOR_TEMPERATURE_SENSOR])
+    ih_sensor = hass.states.get(user_input[CONF_INDOOR_HUMIDITY_SENSOR])
+    ot_sensor = hass.states.get(user_input[CONF_OUTDOOR_TEMPERATURE_SENSOR])
+    oh_sensor = hass.states.get(user_input[CONF_OUTDOOR_HUMIDITY_SENSOR])
 
     if it_sensor is None:
-        result["base"] = "inside_temperature_not_found"
+        errors["base"] = "indoor_temperature_not_found"
 
     if ih_sensor is None:
-        result["base"] = "inside_humidity_not_found"
+        errors["base"] = "indoor_humidity_not_found"
 
     if ot_sensor is None:
-        result["base"] = "outside_temperature_not_found"
+        errors["base"] = "outdoor_temperature_not_found"
 
     if oh_sensor is None:
-        result["base"] = "outside_humidity_not_found"
+        errors["base"] = "outdoor_humidity_not_found"
 
     # ToDo: we should not trust user and check:
     #  - that CONF_TEMPERATURE_SENSOR is temperature sensor and have state_class measurement
     #  - that CONF_HUMIDITY_SENSOR is humidity sensor and have state_class measurement
-    return result
+    return errors
 
 
 class ComfortAdvisorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -501,29 +243,34 @@ class ComfortAdvisorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Get the options flow for this handler."""
         return ComfortAdvisorOptionsFlow(config_entry)
 
-    async def async_step_user(self, user_input=None):
+    async def async_step_user(self, user_input: ConfigType = None):
         """Handle a flow initialized by the user."""
         errors = {}
 
         if user_input is not None:
             if not (errors := check_input(self.hass, user_input)):
-                er = entity_registry.async_get(self.hass)
+                ent_reg = entity_registry.async_get(self.hass)
 
-                it_sensor = er.async_get(user_input[CONF_INSIDE_TEMPERATURE_SENSOR])
-                ih_sensor = er.async_get(user_input[CONF_INSIDE_HUMIDITY_SENSOR])
-                ot_sensor = er.async_get(user_input[CONF_OUTSIDE_TEMPERATURE_SENSOR])
-                oh_sensor = er.async_get(user_input[CONF_OUTSIDE_HUMIDITY_SENSOR])
+                it_sensor = ent_reg.async_get(
+                    user_input[CONF_INDOOR_TEMPERATURE_SENSOR]
+                )
+                ih_sensor = ent_reg.async_get(user_input[CONF_INDOOR_HUMIDITY_SENSOR])
+                ot_sensor = ent_reg.async_get(
+                    user_input[CONF_OUTDOOR_TEMPERATURE_SENSOR]
+                )
+                oh_sensor = ent_reg.async_get(user_input[CONF_OUTDOOR_HUMIDITY_SENSOR])
+
                 _LOGGER.debug(
-                    "Going to use %s: %s", CONF_INSIDE_TEMPERATURE_SENSOR, it_sensor
+                    "Going to use %s, %s", CONF_INDOOR_TEMPERATURE_SENSOR, it_sensor
                 )
                 _LOGGER.debug(
-                    "Going to use %s: %s", CONF_INSIDE_HUMIDITY_SENSOR, ih_sensor
+                    "Going to use %s, %s", CONF_INDOOR_HUMIDITY_SENSOR, ih_sensor
                 )
                 _LOGGER.debug(
-                    "Going to use %s: %s", CONF_OUTSIDE_TEMPERATURE_SENSOR, ot_sensor
+                    "Going to use %s, %s", CONF_OUTDOOR_TEMPERATURE_SENSOR, ot_sensor
                 )
                 _LOGGER.debug(
-                    "Going to use %s: %s", CONF_OUTSIDE_HUMIDITY_SENSOR, oh_sensor
+                    "Going to use %s, %s", CONF_OUTDOOR_HUMIDITY_SENSOR, oh_sensor
                 )
 
                 if it_sensor and ih_sensor and ot_sensor and oh_sensor:
@@ -539,14 +286,10 @@ class ComfortAdvisorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         schema = build_schema(
             config_entry=None,
             hass=self.hass,
-            show_advanced=self.show_advanced_options,
         )
 
         if schema is None:
-            if self.show_advanced_options:
-                reason = "no_sensors_advanced"
-            else:
-                reason = "no_sensors"
+            reason = "no_sensors"
             return self.async_abort(reason=reason)
 
         return self.async_show_form(
@@ -563,12 +306,12 @@ class ComfortAdvisorOptionsFlow(config_entries.OptionsFlow):
         """Initialize options flow."""
         self.config_entry = config_entry
 
-    async def async_step_init(self, user_input=None):
+    async def async_step_init(self, user_input: ConfigType = None):
         """Manage the options."""
 
         errors = {}
         if user_input is not None:
-            _LOGGER.debug(f"OptionsFlow: going to update configuration %s", user_input)
+            _LOGGER.debug("OptionsFlow: going to update configuration %s", user_input)
             if not (errors := check_input(self.hass, user_input)):
                 return self.async_create_entry(title="", data=user_input)
 
@@ -577,7 +320,6 @@ class ComfortAdvisorOptionsFlow(config_entries.OptionsFlow):
             data_schema=build_schema(
                 config_entry=self.config_entry,
                 hass=self.hass,
-                show_advanced=self.show_advanced_options,
                 step="init",
             ),
             errors=errors,

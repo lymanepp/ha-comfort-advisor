@@ -1,15 +1,16 @@
 {
   "options": {
     "error": {
-      "inside_temperature_not_found": "Inside temperature sensor not found",
-      "inside_humidity_not_found": "Inside humidity sensor not found",
-      "outside_temperature_not_found": "Outside temperature sensor not found",
-      "outside_humidity_not_found": "Outside humidity sensor not found"
+      "indoor_temperature_not_found": "Indoor temperature sensor not found",
+      "indoor_humidity_not_found": "Indoor humidity sensor not found",
+      "outdoor_temperature_not_found": "Outdoor temperature sensor not found",
+      "outdoor_humidity_not_found": "Outdoor humidity sensor not found"
     },
     "step": {
       "init": {
         "title": "Comfort Advisor settings",
         "data": {
+          "weather_provider": "Weather provider",
           "api_key": "Weather provider API key",
           "temperature_sensor": "Temperature sensor",
           "humidity_sensor": "Humidity sensor",
@@ -27,21 +28,22 @@
       "no_sensors_advanced": "No temperature or humidity sensors found."
     },
     "error": {
-      "inside_temperature_not_found": "Inside temperature sensor not found",
-      "inside_humidity_not_found": "Inside humidity sensor not found",
-      "outside_temperature_not_found": "Outside temperature sensor not found",
-      "outside_humidity_not_found": "Outside humidity sensor not found"
+      "indoor_temperature_not_found": "Indoor temperature sensor not found",
+      "indoor_humidity_not_found": "Indoor humidity sensor not found",
+      "outdoor_temperature_not_found": "Outdoor temperature sensor not found",
+      "outdoor_humidity_not_found": "Outdoor humidity sensor not found"
     },
     "step": {
       "user": {
         "title": "Comfort Advisor settings",
         "data": {
           "name": "Name",
+          "weather_provider": "Weather provider",
           "api_key": "Weather provider API key",
-          "inside_temperature_sensor": "Inside temperature sensor",
-          "inside_humidity_sensor": "Inside humidity sensor",
-          "outside_temperature_sensor": "Outside temperature sensor",
-          "outside_humidity_sensor": "Outside humidity sensor",
+          "indoor_temperature_sensor": "Indoor temperature sensor",
+          "indoor_humidity_sensor": "Indoor humidity sensor",
+          "outdoor_temperature_sensor": "Outdoor temperature sensor",
+          "outdoor_humidity_sensor": "Outdoor humidity sensor",
           "poll": "Enable Polling",
           "scan_interval": "Poll interval (seconds)",
           "custom_icons": "Use custom icons pack",

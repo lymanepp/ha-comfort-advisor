@@ -1,5 +1,8 @@
 """Sensor platform for comfort_advisor."""
+from __future__ import annotations
+
 from asyncio import Lock
+from copy import copy
 from dataclasses import dataclass
 from datetime import timedelta
 from functools import wraps
@@ -9,6 +12,10 @@ from typing import Any
 
 from homeassistant import util
 from homeassistant.backports.enum import StrEnum
+from homeassistant.components.binary_sensor import (
+    BinarySensorDeviceClass,
+    BinarySensorEntityDescription,
+)
 from homeassistant.components.sensor import (
     ENTITY_ID_FORMAT,
     PLATFORM_SCHEMA,
@@ -35,7 +42,7 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import TemplateError
 import homeassistant.helpers.config_validation as cv
-from homeassistant.helpers.entity import DeviceInfo, async_generate_entity_id
+from homeassistant.helpers.entity import DeviceInfo, Entity, async_generate_entity_id
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import (
     async_track_state_change_event,
@@ -56,10 +63,11 @@ CONF_SENSOR_TYPES = "sensor_types"
 CONF_CUSTOM_ICONS = "custom_icons"
 CONF_SCAN_INTERVAL = "scan_interval"
 
-CONF_INSIDE_TEMPERATURE_SENSOR = "inside_temperature_sensor"
-CONF_INSIDE_HUMIDITY_SENSOR = "inside_humidity_sensor"
-CONF_OUTSIDE_TEMPERATURE_SENSOR = "outside_temperature_sensor"
-CONF_OUTSIDE_HUMIDITY_SENSOR = "outside_humidity_sensor"
+CONF_WEATHER_PROVIDER = "weather_provider"
+CONF_INDOOR_TEMPERATURE_SENSOR = "indoor_temperature_sensor"
+CONF_INDOOR_HUMIDITY_SENSOR = "indoor_humidity_sensor"
+CONF_OUTDOOR_TEMPERATURE_SENSOR = "outdoor_temperature_sensor"
+CONF_OUTDOOR_HUMIDITY_SENSOR = "outdoor_humidity_sensor"
 CONF_POLL = "poll"
 # Default values
 POLL_DEFAULT = False
@@ -74,10 +82,10 @@ class ComfortAdvisorDeviceClass(StrEnum):
     THERMAL_PERCEPTION = "comfort_advisor__thermal_perception"
 
 
-# Deprecate shortform in 2.0
 class SensorType(StrEnum):
     """Sensor type enum."""
 
+    OPEN_WINDOWS = "open_windows"
     ABSOLUTE_HUMIDITY = "absolute_humidity"
     DEW_POINT = "dew_point"
     FROST_POINT = "frost_point"
@@ -87,96 +95,72 @@ class SensorType(StrEnum):
     SIMMER_ZONE = "simmer_zone"
     THERMAL_PERCEPTION = "thermal_perception"
 
-    def to_title(self) -> str:
-        """Return the title of the sensor type."""
-        return self.value.replace("_", " ").title()
 
-    def to_shortform(self) -> str:
-        """Return the shortform of the sensor type."""
-        if self.value == "thermal_perception":
-            return "perception"
-        else:
-            return self.value.replace("_", "")
+BINARY_SENSOR_DESCRIPTIONS: list[BinarySensorEntityDescription] = [
+    BinarySensorEntityDescription(
+        key=SensorType.OPEN_WINDOWS,
+        device_class=BinarySensorDeviceClass.WINDOW,
+        icon="mdi:window",
+    ),
+]
 
-    @classmethod
-    def from_string(cls, string: str) -> "SensorType":
-        """Return the sensor type from string."""
-        if string in list(cls):
-            return cls(string)
-        elif string == "absolutehumidity":
-            return cls.ABSOLUTE_HUMIDITY
-        elif string == "dewpoint":
-            return cls.DEW_POINT
-        elif string == "frostpoint":
-            return cls.FROST_POINT
-        elif string == "frostrisk":
-            return cls.FROST_RISK
-        elif string == "heatindex":
-            return cls.HEAT_INDEX
-        elif string == "simmerindex":
-            return cls.SIMMER_INDEX
-        elif string == "simmerzone":
-            return cls.SIMMER_ZONE
-        elif string == "perception":
-            return cls.THERMAL_PERCEPTION
-        else:
-            raise ValueError(f"Unknown sensor type: {string}")
+SENSOR_DESCRIPTIONS: list[SensorEntityDescription] = [
+    SensorEntityDescription(
+        key=SensorType.ABSOLUTE_HUMIDITY,
+        device_class=SensorDeviceClass.HUMIDITY,
+        native_unit_of_measurement="g/m³",
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:water",
+    ),
+    SensorEntityDescription(
+        key=SensorType.DEW_POINT,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        native_unit_of_measurement=TEMP_CELSIUS,
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="tc:dew-point",
+    ),
+    SensorEntityDescription(
+        key=SensorType.FROST_POINT,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        native_unit_of_measurement=TEMP_CELSIUS,
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="tc:frost-point",
+    ),
+    SensorEntityDescription(
+        key=SensorType.FROST_RISK,
+        device_class=ComfortAdvisorDeviceClass.FROST_RISK,
+        icon="mdi:snowflake-alert",
+    ),
+    SensorEntityDescription(
+        key=SensorType.HEAT_INDEX,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        native_unit_of_measurement=TEMP_CELSIUS,
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="tc:heat-index",
+    ),
+    SensorEntityDescription(
+        key=SensorType.SIMMER_INDEX,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        native_unit_of_measurement=TEMP_CELSIUS,
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="tc:simmer-index",
+    ),
+    SensorEntityDescription(
+        key=SensorType.SIMMER_ZONE,
+        device_class=ComfortAdvisorDeviceClass.SIMMER_ZONE,
+        icon="tc:simmer-zone",
+    ),
+    SensorEntityDescription(
+        key=SensorType.THERMAL_PERCEPTION,
+        device_class=ComfortAdvisorDeviceClass.THERMAL_PERCEPTION,
+        icon="tc:thermal-perception",
+    ),
+]
 
 
-SENSOR_TYPES = {
-    SensorType.ABSOLUTE_HUMIDITY: {
-        "key": SensorType.ABSOLUTE_HUMIDITY,
-        "device_class": SensorDeviceClass.HUMIDITY,
-        "native_unit_of_measurement": "g/m³",
-        "state_class": SensorStateClass.MEASUREMENT,
-        "icon": "mdi:water",
-    },
-    SensorType.DEW_POINT: {
-        "key": SensorType.DEW_POINT,
-        "device_class": SensorDeviceClass.TEMPERATURE,
-        "native_unit_of_measurement": TEMP_CELSIUS,
-        "state_class": SensorStateClass.MEASUREMENT,
-        "icon": "tc:dew-point",
-    },
-    SensorType.FROST_POINT: {
-        "key": SensorType.FROST_POINT,
-        "device_class": SensorDeviceClass.TEMPERATURE,
-        "native_unit_of_measurement": TEMP_CELSIUS,
-        "state_class": SensorStateClass.MEASUREMENT,
-        "icon": "tc:frost-point",
-    },
-    SensorType.FROST_RISK: {
-        "key": SensorType.FROST_RISK,
-        "device_class": ComfortAdvisorDeviceClass.FROST_RISK,
-        "icon": "mdi:snowflake-alert",
-    },
-    SensorType.HEAT_INDEX: {
-        "key": SensorType.HEAT_INDEX,
-        "device_class": SensorDeviceClass.TEMPERATURE,
-        "native_unit_of_measurement": TEMP_CELSIUS,
-        "state_class": SensorStateClass.MEASUREMENT,
-        "icon": "tc:heat-index",
-    },
-    SensorType.SIMMER_INDEX: {
-        "key": SensorType.SIMMER_INDEX,
-        "device_class": SensorDeviceClass.TEMPERATURE,
-        "native_unit_of_measurement": TEMP_CELSIUS,
-        "state_class": SensorStateClass.MEASUREMENT,
-        "icon": "tc:simmer-index",
-    },
-    SensorType.SIMMER_ZONE: {
-        "key": SensorType.SIMMER_ZONE,
-        "device_class": ComfortAdvisorDeviceClass.SIMMER_ZONE,
-        "icon": "tc:simmer-zone",
-    },
-    SensorType.THERMAL_PERCEPTION: {
-        "key": SensorType.THERMAL_PERCEPTION,
-        "device_class": ComfortAdvisorDeviceClass.THERMAL_PERCEPTION,
-        "icon": "tc:thermal-perception",
-    },
-}
+SENSOR_TYPES = {desc.key: desc for desc in SENSOR_DESCRIPTIONS}
 
-DEFAULT_SENSOR_TYPES = list(SENSOR_TYPES.keys())
+DEFAULT_SENSOR_TYPES = list(SENSOR_TYPES)
 
 PLATFORM_OPTIONS_SCHEMA = vol.Schema(
     {
@@ -190,8 +174,8 @@ PLATFORM_OPTIONS_SCHEMA = vol.Schema(
 
 LEGACY_SENSOR_SCHEMA = vol.Schema(
     {
-        vol.Required(CONF_INSIDE_TEMPERATURE_SENSOR): cv.entity_id,
-        vol.Required(CONF_INSIDE_HUMIDITY_SENSOR): cv.entity_id,
+        vol.Required(CONF_INDOOR_TEMPERATURE_SENSOR): cv.entity_id,
+        vol.Required(CONF_INDOOR_HUMIDITY_SENSOR): cv.entity_id,
         vol.Optional(CONF_ICON_TEMPLATE): cv.template,
         vol.Optional(CONF_ENTITY_PICTURE_TEMPLATE): cv.template,
         vol.Optional(CONF_FRIENDLY_NAME): cv.string,
@@ -253,11 +237,12 @@ def compute_once_lock(sensor_type):
 
     def wrapper(func):
         @wraps(func)
-        async def wrapped(self, *args, **kwargs):
-            async with self._compute_states[sensor_type].lock:
-                if self._compute_states[sensor_type].needs_update:
+        async def wrapped(self: ComfortAdvisorDevice, *args, **kwargs):
+            compute_state = self.get_compute_state(sensor_type)
+            async with compute_state.lock:
+                if compute_state.needs_update:
                     setattr(self, f"_{sensor_type}", await func(self, *args, **kwargs))
-                    self._compute_states[sensor_type].needs_update = False
+                    compute_state.needs_update = False
                 return getattr(self, f"_{sensor_type}")
 
         return wrapped
@@ -281,12 +266,16 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
 
     for device_config in devices:
         device_config = options | device_config
-        compute_device = DeviceComfortAdvisor(
+        compute_device = ComfortAdvisorDevice(
             hass=hass,
             name=device_config.get(CONF_NAME),
             unique_id=device_config.get(CONF_UNIQUE_ID),
-            temperature_entity=device_config.get(CONF_INSIDE_TEMPERATURE_SENSOR),
-            humidity_entity=device_config.get(CONF_INSIDE_HUMIDITY_SENSOR),
+            indoor_temperature_entity=device_config.get(CONF_INDOOR_TEMPERATURE_SENSOR),
+            indoor_humidity_entity=device_config.get(CONF_INDOOR_HUMIDITY_SENSOR),
+            outdoor_temperature_entity=device_config.get(
+                CONF_OUTDOOR_TEMPERATURE_SENSOR
+            ),
+            outdoor_humidity_entity=device_config.get(CONF_OUTDOOR_HUMIDITY_SENSOR),
             should_poll=device_config.get(CONF_POLL, POLL_DEFAULT),
             scan_interval=device_config.get(
                 CONF_SCAN_INTERVAL, timedelta(seconds=SCAN_INTERVAL_DEFAULT)
@@ -294,20 +283,19 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
         )
 
         sensors += [
-            SensorComfortAdvisor(
+            ComfortAdvisorSensor(
                 device=compute_device,
-                entity_description=SensorEntityDescription(
-                    **SENSOR_TYPES[SensorType.from_string(sensor_type)]
-                ),
+                entity_description=SENSOR_TYPES[SensorType(sensor_type)],
                 icon_template=device_config.get(CONF_ICON_TEMPLATE),
                 entity_picture_template=device_config.get(CONF_ENTITY_PICTURE_TEMPLATE),
-                sensor_type=SensorType.from_string(sensor_type),
+                sensor_type=SensorType(sensor_type),
                 friendly_name=device_config.get(CONF_FRIENDLY_NAME),
                 custom_icons=device_config.get(CONF_CUSTOM_ICONS, False),
             )
             for sensor_type in device_config.get(
                 CONF_SENSOR_TYPES, DEFAULT_SENSOR_TYPES
             )
+            if sensor_type in SENSOR_TYPES
         ]
 
     async_add_entities(sensors)
@@ -330,28 +318,31 @@ async def async_setup_entry(
         ] = SCAN_INTERVAL_DEFAULT
         data[CONF_SCAN_INTERVAL] = SCAN_INTERVAL_DEFAULT
 
-    _LOGGER.debug(f"async_setup_entry: {data}")
-    compute_device = DeviceComfortAdvisor(
+    _LOGGER.debug("async_setup_entry: %s", data)
+    compute_device = ComfortAdvisorDevice(
         hass=hass,
         name=data[CONF_NAME],
         unique_id=f"{config_entry.unique_id}",
-        temperature_entity=data[CONF_INSIDE_TEMPERATURE_SENSOR],
-        humidity_entity=data[CONF_INSIDE_HUMIDITY_SENSOR],
+        indoor_temperature_entity=data[CONF_INDOOR_TEMPERATURE_SENSOR],
+        indoor_humidity_entity=data[CONF_INDOOR_HUMIDITY_SENSOR],
+        outdoor_temperature_entity=data[CONF_OUTDOOR_TEMPERATURE_SENSOR],
+        outdoor_humidity_entity=data[CONF_OUTDOOR_HUMIDITY_SENSOR],
         should_poll=data[CONF_POLL],
         scan_interval=timedelta(
             seconds=data.get(CONF_SCAN_INTERVAL, SCAN_INTERVAL_DEFAULT)
         ),
     )
 
-    entities: list[SensorComfortAdvisor] = [
-        SensorComfortAdvisor(
+    entities: list[Entity] = [
+        ComfortAdvisorSensor(
             device=compute_device,
-            entity_description=SensorEntityDescription(**SENSOR_TYPES[sensor_type]),
+            entity_description=copy(SENSOR_TYPES[sensor_type]),
             sensor_type=sensor_type,
             custom_icons=data[CONF_CUSTOM_ICONS],
         )
         for sensor_type in SensorType
     ]
+
     if CONF_ENABLED_SENSORS in data:
         for entity in entities:
             if entity.entity_description.key not in data[CONF_ENABLED_SENSORS]:
@@ -371,12 +362,12 @@ def id_generator(unique_id: str, sensor_type: str) -> str:
     return unique_id + sensor_type
 
 
-class SensorComfortAdvisor(SensorEntity):
+class ComfortAdvisorSensor(SensorEntity):
     """Representation of a Comfort Advisor Sensor."""
 
     def __init__(
         self,
-        device: "DeviceComfortAdvisor",
+        device: ComfortAdvisorDevice,
         sensor_type: SensorType,
         entity_description: SensorEntityDescription,
         icon_template: Template = None,
@@ -386,41 +377,40 @@ class SensorComfortAdvisor(SensorEntity):
     ) -> None:
         """Initialize the sensor."""
         self._device = device
-        # TODO deprecate shortform in 2.0
         self._sensor_type = sensor_type
-        self.entity_description = entity_description
+        self.entity_description = copy(entity_description)
+
         if friendly_name is None:
-            self.entity_description.name = (
-                f"{self._device.name} {self._sensor_type.to_title()}"
-            )
+            self.entity_description.name = f"{self._device.name} {self._sensor_type}"
         else:
-            self.entity_description.name = (
-                f"{friendly_name} {self._sensor_type.to_title()}"
-            )
-        # TODO deprecate shortform in 2.0
+            self.entity_description.name = f"{friendly_name} {self._sensor_type}"
+
         self.entity_id = async_generate_entity_id(
             ENTITY_ID_FORMAT,
-            f"{self._device.name}_{self._sensor_type.to_shortform()}",
+            f"{self._device.name}_{self._sensor_type}",
             hass=self._device.hass,
         )
+
         if not custom_icons:
-            if "tc" in self.entity_description.icon:
+            if self.entity_description.icon.startswith("tc:"):
                 self._attr_icon = None
+
         self._icon_template = icon_template
         self._entity_picture_template = entity_picture_template
+
         self._attr_native_value = None
         self._attr_extra_state_attributes = {}
-        if self._device.unique_id is not None:
+        if self._device.unique_id:
             self._attr_unique_id = id_generator(self._device.unique_id, sensor_type)
         self._attr_should_poll = False
 
     @property
-    def device_info(self) -> dict[str, Any]:
+    def device_info(self) -> DeviceInfo:
         """Return device information."""
         return self._device.device_info
 
     @property
-    def extra_state_attributes(self):
+    def extra_state_attributes(self) -> dict[str, Any]:
         """Return the state attributes."""
         return dict(
             self._device.extra_state_attributes, **self._attr_extra_state_attributes
@@ -433,7 +423,7 @@ class SensorComfortAdvisor(SensorEntity):
             self._icon_template.hass = self.hass
         if self._entity_picture_template is not None:
             self._entity_picture_template.hass = self.hass
-        if self._device.compute_states[self._sensor_type].needs_update:
+        if self._device.get_compute_state(self._sensor_type).needs_update:
             self.async_schedule_update_ha_state(True)
 
     async def async_update(self):
@@ -486,7 +476,7 @@ class ComputeState:
     lock: Lock = None
 
 
-class DeviceComfortAdvisor:
+class ComfortAdvisorDevice:
     """Representation of a Comfort Advisor Sensor."""
 
     def __init__(
@@ -494,8 +484,10 @@ class DeviceComfortAdvisor:
         hass: HomeAssistant,
         name: str,
         unique_id: str,
-        temperature_entity: str,
-        humidity_entity: str,
+        indoor_temperature_entity: str,
+        indoor_humidity_entity: str,
+        outdoor_temperature_entity: str,
+        outdoor_humidity_entity: str,
         should_poll: bool,
         scan_interval: timedelta,
     ):
@@ -508,31 +500,36 @@ class DeviceComfortAdvisor:
             manufacturer=DEFAULT_NAME,
             model="Virtual Device",
         )
+        self._indoor_temperature_entity = indoor_temperature_entity
+        self._indoor_humidity_entity = indoor_humidity_entity
+        self._outdoor_temperature_entity = outdoor_temperature_entity
+        self._outdoor_humidity_entity = outdoor_humidity_entity
+
+        self._indoor_temperature = None
+        self._indoor_humidity = None
+        self._outdoor_temperature = None
+        self._outdoor_humidity = None
+
         self.extra_state_attributes = {}
-        self._temperature_entity = temperature_entity
-        self._humidity_entity = humidity_entity
-        self._temperature = None
-        self._humidity = None
         self._should_poll = should_poll
         self.sensors = []
         self._compute_states = {
-            sensor_type: ComputeState(lock=Lock())
-            for sensor_type in SENSOR_TYPES.keys()
+            sensor_type: ComputeState(lock=Lock()) for sensor_type in SENSOR_TYPES
         }
 
         async_track_state_change_event(
-            self.hass, self._temperature_entity, self.temperature_state_listener
+            self.hass, self._indoor_temperature_entity, self.temperature_state_listener
         )
 
         async_track_state_change_event(
-            self.hass, self._humidity_entity, self.humidity_state_listener
+            self.hass, self._indoor_humidity_entity, self.humidity_state_listener
         )
 
         hass.async_create_task(
-            self._new_temperature_state(hass.states.get(temperature_entity))
+            self._new_temperature_state(hass.states.get(indoor_temperature_entity))
         )
         hass.async_create_task(
-            self._new_humidity_state(hass.states.get(humidity_entity))
+            self._new_humidity_state(hass.states.get(indoor_humidity_entity))
         )
 
         hass.async_create_task(self._set_version())
@@ -563,7 +560,7 @@ class DeviceComfortAdvisor:
             # convert to celsius if necessary
             if unit == TEMP_FAHRENHEIT:
                 temp = util.temperature.fahrenheit_to_celsius(temp)
-            self._temperature = temp
+            self._indoor_temperature = temp
             await self.async_update()
 
     async def humidity_state_listener(self, event):
@@ -572,20 +569,20 @@ class DeviceComfortAdvisor:
 
     async def _new_humidity_state(self, state):
         if _is_valid_state(state):
-            self._humidity = float(state.state)
-            self.extra_state_attributes[ATTR_HUMIDITY] = self._humidity
+            self._indoor_humidity = float(state.state)
+            self.extra_state_attributes[ATTR_HUMIDITY] = self._indoor_humidity
             await self.async_update()
 
     @compute_once_lock(SensorType.DEW_POINT)
     async def dew_point(self) -> float:
         """Dew Point <http://wahiduddin.net/calc/density_algorithms.htm>."""
-        A0 = 373.15 / (273.15 + self._temperature)
+        A0 = 373.15 / (273.15 + self._indoor_temperature)
         SUM = -7.90298 * (A0 - 1)
         SUM += 5.02808 * math.log(A0, 10)
         SUM += -1.3816e-7 * (pow(10, (11.344 * (1 - 1 / A0))) - 1)
         SUM += 8.1328e-3 * (pow(10, (-3.49149 * (A0 - 1))) - 1)
         SUM += math.log(1013.246, 10)
-        VP = pow(10, SUM - 3) * self._humidity
+        VP = pow(10, SUM - 3) * self._indoor_humidity
         Td = math.log(VP / 0.61078)
         Td = (241.88 * Td) / (17.558 - Td)
         return round(Td, 2)
@@ -593,27 +590,32 @@ class DeviceComfortAdvisor:
     @compute_once_lock(SensorType.HEAT_INDEX)
     async def heat_index(self) -> float:
         """Heat Index <http://www.wpc.ncep.noaa.gov/html/heatindex_equation.shtml>."""
-        fahrenheit = util.temperature.celsius_to_fahrenheit(self._temperature)
+        fahrenheit = util.temperature.celsius_to_fahrenheit(self._indoor_temperature)
         hi = 0.5 * (
-            fahrenheit + 61.0 + ((fahrenheit - 68.0) * 1.2) + (self._humidity * 0.094)
+            fahrenheit
+            + 61.0
+            + ((fahrenheit - 68.0) * 1.2)
+            + (self._indoor_humidity * 0.094)
         )
 
         if hi > 79:
-            hi = -42.379 + 2.04901523 * fahrenheit
-            hi = hi + 10.14333127 * self._humidity
-            hi = hi + -0.22475541 * fahrenheit * self._humidity
-            hi = hi + -0.00683783 * pow(fahrenheit, 2)
-            hi = hi + -0.05481717 * pow(self._humidity, 2)
-            hi = hi + 0.00122874 * pow(fahrenheit, 2) * self._humidity
-            hi = hi + 0.00085282 * fahrenheit * pow(self._humidity, 2)
-            hi = hi + -0.00000199 * pow(fahrenheit, 2) * pow(self._humidity, 2)
+            hi = (
+                (-42.379 + 2.04901523 * fahrenheit)
+                + (10.14333127 * self._indoor_humidity)
+                + (-0.22475541 * fahrenheit * self._indoor_humidity)
+                + (-0.00683783 * pow(fahrenheit, 2))
+                + (-0.05481717 * pow(self._indoor_humidity, 2))
+                + (0.00122874 * pow(fahrenheit, 2) * self._indoor_humidity)
+                + (0.00085282 * fahrenheit * pow(self._indoor_humidity, 2))
+                + (-0.00000199 * pow(fahrenheit, 2) * pow(self._indoor_humidity, 2))
+            )
 
-        if self._humidity < 13 and fahrenheit >= 80 and fahrenheit <= 112:
-            hi = hi - ((13 - self._humidity) * 0.25) * math.sqrt(
+        if self._indoor_humidity < 13 and 80 <= fahrenheit <= 112:
+            hi -= ((13 - self._indoor_humidity) * 0.25) * math.sqrt(
                 (17 - abs(fahrenheit - 95)) * 0.05882
             )
-        elif self._humidity > 85 and fahrenheit >= 80 and fahrenheit <= 87:
-            hi = hi + ((self._humidity - 85) * 0.1) * ((87 - fahrenheit) * 0.2)
+        elif self._indoor_humidity > 85 and 80 <= fahrenheit <= 87:
+            hi += ((self._indoor_humidity - 85) * 0.1) * ((87 - fahrenheit) * 0.2)
 
         return round(util.temperature.fahrenheit_to_celsius(hi), 2)
 
@@ -621,32 +623,33 @@ class DeviceComfortAdvisor:
     async def thermal_perception(self) -> ThermalPerception:
         """Dew Point <https://en.wikipedia.org/wiki/Dew_point>."""
         dewpoint = await self.dew_point()
-        if dewpoint < 10:
-            return ThermalPerception.DRY
-        elif dewpoint < 13:
-            return ThermalPerception.VERY_COMFORTABLE
-        elif dewpoint < 16:
-            return ThermalPerception.COMFORTABLE
-        elif dewpoint < 18:
-            return ThermalPerception.OK_BUT_HUMID
-        elif dewpoint < 21:
-            return ThermalPerception.SOMEWHAT_UNCOMFORTABLE
-        elif dewpoint < 24:
-            return ThermalPerception.QUITE_UNCOMFORTABLE
-        elif dewpoint < 26:
-            return ThermalPerception.EXTREMELY_UNCOMFORTABLE
-        else:
-            return ThermalPerception.SEVERELY_HIGH
+        return (
+            ThermalPerception.DRY
+            if dewpoint < 10
+            else ThermalPerception.VERY_COMFORTABLE
+            if dewpoint < 13
+            else ThermalPerception.COMFORTABLE
+            if dewpoint < 16
+            else ThermalPerception.OK_BUT_HUMID
+            if dewpoint < 18
+            else ThermalPerception.SOMEWHAT_UNCOMFORTABLE
+            if dewpoint < 21
+            else ThermalPerception.QUITE_UNCOMFORTABLE
+            if dewpoint < 24
+            else ThermalPerception.EXTREMELY_UNCOMFORTABLE
+            if dewpoint < 26
+            else ThermalPerception.SEVERELY_HIGH
+        )
 
     @compute_once_lock(SensorType.ABSOLUTE_HUMIDITY)
     async def absolute_humidity(self) -> float:
         """Absolute Humidity <https://carnotcycle.wordpress.com/2012/08/04/how-to-convert-relative-humidity-to-absolute-humidity/>."""
-        abs_temperature = self._temperature + 273.15
+        abs_temperature = self._indoor_temperature + 273.15
         abs_humidity = 6.112
         abs_humidity *= math.exp(
-            (17.67 * self._temperature) / (243.5 + self._temperature)
+            (17.67 * self._indoor_temperature) / (243.5 + self._indoor_temperature)
         )
-        abs_humidity *= self._humidity
+        abs_humidity *= self._indoor_humidity
         abs_humidity *= 2.1674
         abs_humidity /= abs_temperature
         return round(abs_humidity, 2)
@@ -655,7 +658,7 @@ class DeviceComfortAdvisor:
     async def frost_point(self) -> float:
         """Frost Point <https://pon.fr/dzvents-alerte-givre-et-calcul-humidite-absolue/>."""
         dewpoint = await self.dew_point()
-        T = self._temperature + 273.15
+        T = self._indoor_temperature + 273.15
         Td = dewpoint + 273.15
         return round(
             (Td + (2671.02 / ((2954.61 / T) + 2.193665 * math.log(T) - 13.3448)) - T)
@@ -666,30 +669,35 @@ class DeviceComfortAdvisor:
     @compute_once_lock(SensorType.FROST_RISK)
     async def frost_risk(self) -> int:
         """Frost Risk Level."""
-        thresholdAbsHumidity = 2.8
-        absolutehumidity = await self.absolute_humidity()
-        frostpoint = await self.frost_point()
-        if self._temperature <= 1 and frostpoint <= 0:
-            if absolutehumidity <= thresholdAbsHumidity:
-                return 1  # Frost unlikely despite the temperature
-            else:
-                return 3  # high probability of frost
-        elif (
-            self._temperature <= 4
-            and frostpoint <= 0.5
-            and absolutehumidity > thresholdAbsHumidity
-        ):
-            return 2  # Frost probable despite the temperature
-        return 0  # No risk of frost
+        abs_humidity_threshold = 2.8
+        abs_humidity = await self.absolute_humidity()
+        frost_point = await self.frost_point()
+        if self._indoor_temperature <= 1 and frost_point <= 0:
+            return (
+                1  # Frost unlikely despite the temperature
+                if abs_humidity <= abs_humidity_threshold
+                else 3  # high probability of frost
+            )
+
+        return (
+            2  # Frost probable despite the temperature
+            if self._indoor_temperature <= 4
+            and frost_point <= 0.5
+            and abs_humidity > abs_humidity_threshold
+            else 0  # No risk of frost
+        )
 
     @compute_once_lock(SensorType.SIMMER_INDEX)
     async def simmer_index(self) -> float:
         """<https://www.vcalc.com/wiki/rklarsen/Summer+Simmer+Index>."""
-        fahrenheit = util.temperature.celsius_to_fahrenheit(self._temperature)
+        fahrenheit = util.temperature.celsius_to_fahrenheit(self._indoor_temperature)
 
         si = (
             1.98
-            * (fahrenheit - (0.55 - (0.0055 * self._humidity)) * (fahrenheit - 58.0))
+            * (
+                fahrenheit
+                - (0.55 - (0.0055 * self._indoor_humidity)) * (fahrenheit - 58.0)
+            )
             - 56.83
         )
 
@@ -702,30 +710,32 @@ class DeviceComfortAdvisor:
     async def simmer_zone(self) -> SimmerZone:
         """<http://summersimmer.com/default.asp>."""
         si = await self.simmer_index()
-        if si < 21.1:
-            return SimmerZone.COOL
-        elif si < 25.0:
-            return SimmerZone.SLIGHTLY_COOL
-        elif si < 28.3:
-            return SimmerZone.COMFORTABLE
-        elif si < 32.8:
-            return SimmerZone.SLIGHTLY_WARM
-        elif si < 37.8:
-            return SimmerZone.INCREASING_DISCOMFORT
-        elif si < 44.4:
-            return SimmerZone.EXTREMELY_WARM
-        elif si < 51.7:
-            return SimmerZone.DANGER_OF_HEATSTROKE
-        elif si < 65.6:
-            return SimmerZone.EXTREME_DANGER_OF_HEATSTROKE
-        else:
-            return SimmerZone.CIRCULATORY_COLLAPSE_IMMINENT
+
+        return (
+            SimmerZone.COOL
+            if si < 21.1
+            else SimmerZone.SLIGHTLY_COOL
+            if si < 25.0
+            else SimmerZone.COMFORTABLE
+            if si < 28.3
+            else SimmerZone.SLIGHTLY_WARM
+            if si < 32.8
+            else SimmerZone.INCREASING_DISCOMFORT
+            if si < 38.8
+            else SimmerZone.EXTREMELY_WARM
+            if si < 44.4
+            else SimmerZone.DANGER_OF_HEATSTROKE
+            if si < 51.7
+            else SimmerZone.EXTREME_DANGER_OF_HEATSTROKE
+            if si < 65.6
+            else SimmerZone.CIRCULATORY_COLLAPSE_IMMINENT
+        )
 
     async def async_update(self):
         """Update the state."""
-        if self._temperature is not None and self._humidity is not None:
-            for sensor_type in SENSOR_TYPES.keys():
-                self._compute_states[sensor_type].needs_update = True
+        if self._indoor_temperature is not None and self._indoor_humidity is not None:
+            for sensor_type in SENSOR_TYPES:
+                self.get_compute_state(sensor_type).needs_update = True
             if not self._should_poll:
                 await self.async_update_sensors(True)
 
@@ -734,10 +744,9 @@ class DeviceComfortAdvisor:
         for sensor in self.sensors:
             sensor.async_schedule_update_ha_state(force_refresh)
 
-    @property
-    def compute_states(self) -> dict[SensorType, ComputeState]:
-        """Compute states of configured sensors."""
-        return self._compute_states
+    def get_compute_state(self, sensor_type: str) -> ComputeState:
+        """TODO."""
+        return self._compute_states[sensor_type]
 
     @property
     def unique_id(self) -> str:

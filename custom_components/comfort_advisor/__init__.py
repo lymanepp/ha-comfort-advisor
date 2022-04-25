@@ -8,80 +8,75 @@ from __future__ import annotations
 
 import logging
 
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.config import async_hass_config_yaml, async_process_component_config
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_NAME, SERVICE_RELOAD
 from homeassistant.const import (
     CONF_API_KEY,
     CONF_LATITUDE,
     CONF_LOCATION,
     CONF_LONGITUDE,
+    CONF_NAME,
 )
-from homeassistant.core import Event, HomeAssistant, ServiceCall
-from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers import discovery
-from homeassistant.helpers.reload import async_reload_integration_platforms
-from homeassistant.helpers.typing import ConfigType
-from homeassistant.loader import async_get_integration
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
-from .config import OPTIONS_SCHEMA
 from .config_flow import get_value
 from .const import (
+    CONF_WEATHER_PROVIDER,
     DOMAIN,
+    FORECAST_SERVICE,
     PLATFORMS,
-    UPDATE_LISTENER,
-    FORECAST_DATA_COORDINATOR,
-    REALTIME_DATA_COORDINATOR,
+    REALTIME_SERVICE,
     SCAN_INTERVAL_FORECAST,
     SCAN_INTERVAL_REALTIME,
+    UPDATE_LISTENER,
 )
 from .sensor import (
     CONF_CUSTOM_ICONS,
     CONF_ENABLED_SENSORS,
-    CONF_INSIDE_HUMIDITY_SENSOR,
-    CONF_OUTSIDE_HUMIDITY_SENSOR,
-    CONF_OUTSIDE_TEMPERATURE_SENSOR,
+    CONF_INDOOR_HUMIDITY_SENSOR,
+    CONF_INDOOR_TEMPERATURE_SENSOR,
+    CONF_OUTDOOR_HUMIDITY_SENSOR,
+    CONF_OUTDOOR_TEMPERATURE_SENSOR,
     CONF_POLL,
     CONF_SCAN_INTERVAL,
-    CONF_INSIDE_TEMPERATURE_SENSOR,
 )
-from .provider import ComfortData, Provider
-from .tomorrowio import TomorrowioProvider
+from .weather_provider import (
+    WEATHER_PROVIDERS,
+    WeatherData,
+    WeatherProviderError,
+    load_weather_provider_module,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class RealtimeDataUpdateCoordinator(DataUpdateCoordinator[ComfortData]):
+class RealtimeDataUpdateCoordinator(DataUpdateCoordinator[WeatherData]):
     """TODO."""
 
 
-class ForecastDataUpdateCoordinator(DataUpdateCoordinator[list[ComfortData]]):
+class ForecastDataUpdateCoordinator(DataUpdateCoordinator[list[WeatherData]]):
     """TODO."""
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up entry configured from user interface."""
-    hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN][entry.entry_id] = {
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = entry_data = {
         CONF_NAME: get_value(entry, CONF_NAME),
-        CONF_INSIDE_TEMPERATURE_SENSOR: get_value(
-            entry, CONF_INSIDE_TEMPERATURE_SENSOR
+        CONF_INDOOR_TEMPERATURE_SENSOR: get_value(
+            entry, CONF_INDOOR_TEMPERATURE_SENSOR
         ),
-        CONF_INSIDE_HUMIDITY_SENSOR: get_value(entry, CONF_INSIDE_HUMIDITY_SENSOR),
-        CONF_OUTSIDE_TEMPERATURE_SENSOR: get_value(
-            entry, CONF_OUTSIDE_TEMPERATURE_SENSOR
+        CONF_INDOOR_HUMIDITY_SENSOR: get_value(entry, CONF_INDOOR_HUMIDITY_SENSOR),
+        CONF_OUTDOOR_TEMPERATURE_SENSOR: get_value(
+            entry, CONF_OUTDOOR_TEMPERATURE_SENSOR
         ),
-        CONF_OUTSIDE_HUMIDITY_SENSOR: get_value(entry, CONF_OUTSIDE_HUMIDITY_SENSOR),
+        CONF_OUTDOOR_HUMIDITY_SENSOR: get_value(entry, CONF_OUTDOOR_HUMIDITY_SENSOR),
         CONF_POLL: get_value(entry, CONF_POLL),
         CONF_SCAN_INTERVAL: get_value(entry, CONF_SCAN_INTERVAL),
         CONF_CUSTOM_ICONS: get_value(entry, CONF_CUSTOM_ICONS),
     }
-    if get_value(entry, CONF_ENABLED_SENSORS):
-        hass.data[DOMAIN][entry.entry_id][CONF_ENABLED_SENSORS] = get_value(
-            entry, CONF_ENABLED_SENSORS
-        )
+
+    if (enabled_sensors := get_value(entry, CONF_ENABLED_SENSORS)) is not None:
+        entry_data[CONF_ENABLED_SENSORS] = enabled_sensors
         data = dict(entry.data)
         data.pop(CONF_ENABLED_SENSORS)
         hass.config_entries.async_update_entry(entry, data=data)
@@ -90,39 +85,44 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # We have no unique_id yet, let's use backup.
         hass.config_entries.async_update_entry(entry, unique_id=entry.entry_id)
 
-    unit_system = "metric" if hass.config.units.is_metric else "imperial"
-    provider: Provider = TomorrowioProvider(
+    name = entry.data.get(CONF_WEATHER_PROVIDER, "tomorrowio")  # TODO!
+
+    if (provider := WEATHER_PROVIDERS.get(name)) is None:
+        await load_weather_provider_module(hass, name)
+        if (provider := WEATHER_PROVIDERS.get(name)) is None:
+            raise WeatherProviderError(f"Weather provider {'tomorrowio'} was not found")
+
+    weather_provider = provider(
+        hass=hass,
         apikey=entry.data[CONF_API_KEY],
         latitude=entry.data[CONF_LOCATION][CONF_LATITUDE],
         longitude=entry.data[CONF_LOCATION][CONF_LONGITUDE],
-        unit_system=unit_system,
-        session=async_get_clientsession(hass),
     )
 
-    realtime_coord = RealtimeDataUpdateCoordinator(
+    realtime_service = RealtimeDataUpdateCoordinator(
         hass,
         _LOGGER,
-        name=f"{DOMAIN}_{REALTIME_DATA_COORDINATOR}",
+        name=f"{DOMAIN}_{REALTIME_SERVICE}",
         update_interval=SCAN_INTERVAL_REALTIME,
-        update_method=provider.realtime,
+        update_method=weather_provider.realtime,
     )
-    await realtime_coord.async_config_entry_first_refresh()
+    await realtime_service.async_config_entry_first_refresh()
 
-    forecast_coord = ForecastDataUpdateCoordinator(
+    forecast_service = ForecastDataUpdateCoordinator(
         hass,
         _LOGGER,
-        name=f"{DOMAIN}_{FORECAST_DATA_COORDINATOR}",
+        name=f"{DOMAIN}_{FORECAST_SERVICE}",
         update_interval=SCAN_INTERVAL_FORECAST,
-        update_method=provider.forecast,
+        update_method=weather_provider.forecast,
     )
-    await forecast_coord.async_config_entry_first_refresh()
+    await forecast_service.async_config_entry_first_refresh()
 
-    hass.data[DOMAIN][entry.entry_id][REALTIME_DATA_COORDINATOR] = realtime_coord
-    hass.data[DOMAIN][entry.entry_id][FORECAST_DATA_COORDINATOR] = forecast_coord
+    entry_data[REALTIME_SERVICE] = realtime_service
+    entry_data[FORECAST_SERVICE] = forecast_service
 
     hass.config_entries.async_setup_platforms(entry, PLATFORMS)
     update_listener = entry.add_update_listener(async_update_options)
-    hass.data[DOMAIN][entry.entry_id][UPDATE_LISTENER] = update_listener
+    entry_data[UPDATE_LISTENER] = update_listener
     return True
 
 
@@ -139,56 +139,3 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         update_listener()
         hass.data[DOMAIN].pop(entry.entry_id)
     return unload_ok
-
-
-async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Set up the comfort_advisor integration."""
-    if DOMAIN in config:
-        await _process_config(hass, config)
-
-    async def _reload_config(call: Event | ServiceCall) -> None:
-        """Reload top-level + platforms."""
-        try:
-            unprocessed_conf = await async_hass_config_yaml(hass)
-        except HomeAssistantError as err:
-            _LOGGER.error(err)
-            return
-
-        conf = await async_process_component_config(
-            hass, unprocessed_conf, await async_get_integration(hass, DOMAIN)
-        )
-
-        if conf is None:
-            return
-
-        await async_reload_integration_platforms(hass, DOMAIN, PLATFORMS)
-
-        if DOMAIN in conf:
-            await _process_config(hass, conf)
-
-        hass.bus.async_fire(f"event_{DOMAIN}_reloaded", context=call.context)
-
-    hass.helpers.service.async_register_admin_service(
-        DOMAIN, SERVICE_RELOAD, _reload_config
-    )
-
-    return True
-
-
-async def _process_config(hass: HomeAssistant, hass_config: ConfigType) -> None:
-    """Process config."""
-    for conf_section in hass_config[DOMAIN]:
-        for platform_domain in PLATFORMS:
-            if platform_domain in conf_section:
-                hass.async_create_task(
-                    discovery.async_load_platform(
-                        hass,
-                        platform_domain,
-                        DOMAIN,
-                        {
-                            "devices": conf_section[platform_domain],
-                            "options": OPTIONS_SCHEMA(conf_section),
-                        },
-                        hass_config,
-                    )
-                )

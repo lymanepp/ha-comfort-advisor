@@ -30,35 +30,53 @@ _LOGGER = logging.getLogger(__name__)
 
 TEST_NAME = "sensor.test_comfort_advisor"
 
-TEMPERATURE_TEST_SENSOR = {
+INDOOR_TEMPERATURE_TEST_SENSOR = {
     "platform": COMMAND_LINE_DOMAIN,
     "command": "echo 0",
-    "name": "test_temperature_sensor",
+    "name": "test_indoor_temperature_sensor",
     "value_template": "{{ 25.0 | float }}",
 }
 
-HUMIDITY_TEST_SENSOR = {
+INDOOR_HUMIDITY_TEST_SENSOR = {
     "platform": COMMAND_LINE_DOMAIN,
     "command": "echo 0",
-    "name": "test_humidity_sensor",
+    "name": "test_indoor_humidity_sensor",
     "value_template": "{{ 50.0 | float }}",
+}
+
+OUTDOOR_TEMPERATURE_TEST_SENSOR = {
+    "platform": COMMAND_LINE_DOMAIN,
+    "command": "echo 0",
+    "name": "test_outdoor_temperature_sensor",
+    "value_template": "{{ 20.0 | float }}",
+}
+
+OUTDOOR_HUMIDITY_TEST_SENSOR = {
+    "platform": COMMAND_LINE_DOMAIN,
+    "command": "echo 0",
+    "name": "test_outdoor_humidity_sensor",
+    "value_template": "{{ 55.0 | float }}",
 }
 
 DEFAULT_TEST_SENSORS = [
     "domains, config",
     [
         (
-            [(PLATFORM_DOMAIN, 3)],
+            [(PLATFORM_DOMAIN, 4)],
             {
                 PLATFORM_DOMAIN: [
-                    TEMPERATURE_TEST_SENSOR,
-                    HUMIDITY_TEST_SENSOR,
+                    INDOOR_TEMPERATURE_TEST_SENSOR,
+                    INDOOR_HUMIDITY_TEST_SENSOR,
+                    OUTDOOR_TEMPERATURE_TEST_SENSOR,
+                    OUTDOOR_HUMIDITY_TEST_SENSOR,
                     {
                         "platform": DOMAIN,
                         "sensors": {
                             "test_comfort_advisor": {
-                                "temperature_sensor": "sensor.test_temperature_sensor",
-                                "humidity_sensor": "sensor.test_humidity_sensor",
+                                "indoor_temperature_sensor": "sensor.test_indoor_temperature_sensor",
+                                "indoor_humidity_sensor": "sensor.test_indoor_humidity_sensor",
+                                "outdoor_temperature_sensor": "sensor.test_outdoor_temperature_sensor",
+                                "outdoor_humidity_sensor": "sensor.test_outdoor_humidity_sensor",
                             },
                         },
                     },
@@ -66,17 +84,22 @@ DEFAULT_TEST_SENSORS = [
             },
         ),
         (
-            [(PLATFORM_DOMAIN, 2), (DOMAIN, 1)],
+            [(PLATFORM_DOMAIN, 4), (DOMAIN, 1)],
             {
                 PLATFORM_DOMAIN: [
-                    TEMPERATURE_TEST_SENSOR,
-                    HUMIDITY_TEST_SENSOR,
+                    INDOOR_TEMPERATURE_TEST_SENSOR,
+                    INDOOR_HUMIDITY_TEST_SENSOR,
+                    OUTDOOR_TEMPERATURE_TEST_SENSOR,
+                    OUTDOOR_HUMIDITY_TEST_SENSOR,
                 ],
                 DOMAIN: {
                     PLATFORM_DOMAIN: {
                         "name": "test_comfort_advisor",
-                        "temperature_sensor": "sensor.test_temperature_sensor",
-                        "humidity_sensor": "sensor.test_humidity_sensor",
+                        "api_key": "test_api_key",
+                        "indoor_temperature_sensor": "sensor.test_indoor_temperature_sensor",
+                        "indoor_humidity_sensor": "sensor.test_indoor_humidity_sensor",
+                        "outdoor_temperature_sensor": "sensor.test_outdoor_temperature_sensor",
+                        "outdoor_humidity_sensor": "sensor.test_outdoor_humidity_sensor",
                     },
                 },
             },
@@ -374,24 +397,26 @@ async def test_simmer_zone(hass, start_ha):
             [(PLATFORM_DOMAIN, 3)],
             {
                 PLATFORM_DOMAIN: [
-                    TEMPERATURE_TEST_SENSOR,
-                    HUMIDITY_TEST_SENSOR,
+                    INDOOR_TEMPERATURE_TEST_SENSOR,
+                    INDOOR_HUMIDITY_TEST_SENSOR,
+                    OUTDOOR_TEMPERATURE_TEST_SENSOR,
+                    OUTDOOR_HUMIDITY_TEST_SENSOR,
                     {
                         "platform": DOMAIN,
                         "sensors": {
                             "test_comfort_advisor": {
-                                "temperature_sensor": "sensor.test_temperature_sensor",
-                                "humidity_sensor": "sensor.test_humidity_sensor",
+                                "indoor_temperature_sensor": "sensor.test_temperature_sensor",
+                                "indoor_humidity_sensor": "sensor.test_humidity_sensor",
                                 "unique_id": "unique",
                             },
                             "test_comfort_advisor_not_unique1": {
-                                "temperature_sensor": "sensor.test_temperature_sensor",
-                                "humidity_sensor": "sensor.test_humidity_sensor",
+                                "indoor_temperature_sensor": "sensor.test_temperature_sensor",
+                                "indoor_humidity_sensor": "sensor.test_humidity_sensor",
                                 "unique_id": "not-so-unique-anymore",
                             },
                             "test_comfort_advisor_not_unique2": {
-                                "temperature_sensor": "sensor.test_temperature_sensor",
-                                "humidity_sensor": "sensor.test_humidity_sensor",
+                                "indoor_temperature_sensor": "sensor.test_temperature_sensor",
+                                "indoor_humidity_sensor": "sensor.test_humidity_sensor",
                                 "unique_id": "not-so-unique-anymore",
                             },
                         },
@@ -403,27 +428,29 @@ async def test_simmer_zone(hass, start_ha):
             [(PLATFORM_DOMAIN, 2), (DOMAIN, 1)],
             {
                 PLATFORM_DOMAIN: [
-                    TEMPERATURE_TEST_SENSOR,
-                    HUMIDITY_TEST_SENSOR,
+                    INDOOR_TEMPERATURE_TEST_SENSOR,
+                    INDOOR_HUMIDITY_TEST_SENSOR,
+                    OUTDOOR_TEMPERATURE_TEST_SENSOR,
+                    OUTDOOR_HUMIDITY_TEST_SENSOR,
                 ],
                 DOMAIN: {
                     PLATFORM_DOMAIN: [
                         {
                             "name": "test_comfort_advisor",
-                            "temperature_sensor": "sensor.test_temperature_sensor",
-                            "humidity_sensor": "sensor.test_humidity_sensor",
+                            "indoor_temperature_sensor": "sensor.test_temperature_sensor",
+                            "indoor_humidity_sensor": "sensor.test_humidity_sensor",
                             "unique_id": "unique",
                         },
                         {
                             "name": "test_comfort_advisor_not_unique1",
-                            "temperature_sensor": "sensor.test_temperature_sensor",
-                            "humidity_sensor": "sensor.test_humidity_sensor",
+                            "indoor_temperature_sensor": "sensor.test_temperature_sensor",
+                            "indoor_humidity_sensor": "sensor.test_humidity_sensor",
                             "unique_id": "not-so-unique-anymore",
                         },
                         {
                             "name": "test_comfort_advisor_not_unique2",
-                            "temperature_sensor": "sensor.test_temperature_sensor",
-                            "humidity_sensor": "sensor.test_humidity_sensor",
+                            "indoor_temperature_sensor": "sensor.test_temperature_sensor",
+                            "indoor_humidity_sensor": "sensor.test_humidity_sensor",
                             "unique_id": "not-so-unique-anymore",
                         },
                     ]
@@ -464,14 +491,16 @@ async def test_unique_id(hass, start_ha):
             [(PLATFORM_DOMAIN, 3)],
             {
                 PLATFORM_DOMAIN: [
-                    TEMPERATURE_TEST_SENSOR,
-                    HUMIDITY_TEST_SENSOR,
+                    INDOOR_TEMPERATURE_TEST_SENSOR,
+                    INDOOR_HUMIDITY_TEST_SENSOR,
+                    OUTDOOR_TEMPERATURE_TEST_SENSOR,
+                    OUTDOOR_HUMIDITY_TEST_SENSOR,
                     {
                         "platform": DOMAIN,
                         "sensors": {
                             "test_comfort_advisor": {
-                                "temperature_sensor": "sensor.test_temperature_sensor",
-                                "humidity_sensor": "sensor.test_humidity_sensor",
+                                "indoor_temperature_sensor": "sensor.test_temperature_sensor",
+                                "indoor_humidity_sensor": "sensor.test_humidity_sensor",
                                 "icon_template": "mdi:thermometer",
                             },
                         },
@@ -483,14 +512,16 @@ async def test_unique_id(hass, start_ha):
             [(PLATFORM_DOMAIN, 2), (DOMAIN, 1)],
             {
                 PLATFORM_DOMAIN: [
-                    TEMPERATURE_TEST_SENSOR,
-                    HUMIDITY_TEST_SENSOR,
+                    INDOOR_TEMPERATURE_TEST_SENSOR,
+                    INDOOR_HUMIDITY_TEST_SENSOR,
+                    OUTDOOR_TEMPERATURE_TEST_SENSOR,
+                    OUTDOOR_HUMIDITY_TEST_SENSOR,
                 ],
                 DOMAIN: {
                     PLATFORM_DOMAIN: {
                         "name": "test_comfort_advisor",
-                        "temperature_sensor": "sensor.test_temperature_sensor",
-                        "humidity_sensor": "sensor.test_humidity_sensor",
+                        "indoor_temperature_sensor": "sensor.test_temperature_sensor",
+                        "indoor_humidity_sensor": "sensor.test_humidity_sensor",
                         "icon_template": "mdi:thermometer",
                     },
                 },
@@ -522,14 +553,16 @@ async def test_zero_degree_celcius(hass, start_ha):
             [(PLATFORM_DOMAIN, 3)],
             {
                 PLATFORM_DOMAIN: [
-                    TEMPERATURE_TEST_SENSOR,
-                    HUMIDITY_TEST_SENSOR,
+                    INDOOR_TEMPERATURE_TEST_SENSOR,
+                    INDOOR_HUMIDITY_TEST_SENSOR,
+                    OUTDOOR_TEMPERATURE_TEST_SENSOR,
+                    OUTDOOR_HUMIDITY_TEST_SENSOR,
                     {
                         "platform": "comfort_advisor",
                         "sensors": {
                             "test_comfort_advisor": {
-                                "temperature_sensor": "sensor.test_temperature_sensor",
-                                "humidity_sensor": "sensor.test_humidity_sensor",
+                                "indoor_temperature_sensor": "sensor.test_temperature_sensor",
+                                "indoor_humidity_sensor": "sensor.test_humidity_sensor",
                                 "sensor_types": [
                                     SensorType.ABSOLUTE_HUMIDITY,
                                     SensorType.DEW_POINT,
@@ -544,14 +577,16 @@ async def test_zero_degree_celcius(hass, start_ha):
             [(PLATFORM_DOMAIN, 2), (DOMAIN, 1)],
             {
                 PLATFORM_DOMAIN: [
-                    TEMPERATURE_TEST_SENSOR,
-                    HUMIDITY_TEST_SENSOR,
+                    INDOOR_TEMPERATURE_TEST_SENSOR,
+                    INDOOR_HUMIDITY_TEST_SENSOR,
+                    OUTDOOR_TEMPERATURE_TEST_SENSOR,
+                    OUTDOOR_HUMIDITY_TEST_SENSOR,
                 ],
                 DOMAIN: {
                     PLATFORM_DOMAIN: {
                         "name": "test_comfort_advisor",
-                        "temperature_sensor": "sensor.test_temperature_sensor",
-                        "humidity_sensor": "sensor.test_humidity_sensor",
+                        "indoor_temperature_sensor": "sensor.test_temperature_sensor",
+                        "indoor_humidity_sensor": "sensor.test_humidity_sensor",
                         "sensor_types": [
                             SensorType.ABSOLUTE_HUMIDITY,
                             SensorType.DEW_POINT,
@@ -596,8 +631,8 @@ async def get_sensor_types(hass, start_ha):
                         "platform": DOMAIN,
                         "sensors": {
                             "test_comfort_advisor": {
-                                "temperature_sensor": "sensor.test_temperature_sensor",
-                                "humidity_sensor": "sensor.test_humidity_sensor",
+                                "indoor_temperature_sensor": "sensor.test_temperature_sensor",
+                                "indoor_humidity_sensor": "sensor.test_humidity_sensor",
                             },
                         },
                     },
@@ -624,8 +659,8 @@ async def get_sensor_types(hass, start_ha):
                 DOMAIN: {
                     PLATFORM_DOMAIN: {
                         "name": "test_comfort_advisor",
-                        "temperature_sensor": "sensor.test_temperature_sensor",
-                        "humidity_sensor": "sensor.test_humidity_sensor",
+                        "indoor_temperature_sensor": "sensor.test_temperature_sensor",
+                        "indoor_humidity_sensor": "sensor.test_humidity_sensor",
                     },
                 },
             },
@@ -663,8 +698,8 @@ async def get_sensor_is_nan(hass, start_ha):
                         "platform": DOMAIN,
                         "sensors": {
                             "test_comfort_advisor": {
-                                "temperature_sensor": "sensor.test_temperature_sensor",
-                                "humidity_sensor": "sensor.test_humidity_sensor",
+                                "indoor_temperature_sensor": "sensor.test_temperature_sensor",
+                                "indoor_humidity_sensor": "sensor.test_humidity_sensor",
                             },
                         },
                     },
@@ -691,8 +726,8 @@ async def get_sensor_is_nan(hass, start_ha):
                 DOMAIN: {
                     PLATFORM_DOMAIN: {
                         "name": "test_comfort_advisor",
-                        "temperature_sensor": "sensor.test_temperature_sensor",
-                        "humidity_sensor": "sensor.test_humidity_sensor",
+                        "indoor_temperature_sensor": "sensor.test_temperature_sensor",
+                        "indoor_humidity_sensor": "sensor.test_humidity_sensor",
                     },
                 },
             },
@@ -774,8 +809,8 @@ async def test_sensor_type_from_shortform() -> None:
                         "platform": "comfort_advisor",
                         "sensors": {
                             "test_comfort_advisor": {
-                                "temperature_sensor": "sensor.test_temperature_sensor",
-                                "humidity_sensor": "sensor.test_humidity_sensor",
+                                "indoor_temperature_sensor": "sensor.test_temperature_sensor",
+                                "indoor_humidity_sensor": "sensor.test_humidity_sensor",
                                 "sensor_types": [
                                     SensorType.THERMAL_PERCEPTION.to_shortform(),
                                     SensorType.ABSOLUTE_HUMIDITY,
@@ -792,8 +827,8 @@ async def test_sensor_type_from_shortform() -> None:
                 DOMAIN: {
                     PLATFORM_DOMAIN: {
                         "name": "test_comfort_advisor",
-                        "temperature_sensor": "sensor.test_temperature_sensor",
-                        "humidity_sensor": "sensor.test_humidity_sensor",
+                        "indoor_temperature_sensor": "sensor.test_temperature_sensor",
+                        "indoor_humidity_sensor": "sensor.test_humidity_sensor",
                         "sensor_types": [
                             SensorType.THERMAL_PERCEPTION.to_shortform(),
                             SensorType.ABSOLUTE_HUMIDITY,
@@ -831,8 +866,8 @@ async def test_sensor_type_names(hass: HomeAssistant, start_ha: Callable) -> Non
                     PLATFORM_DOMAIN: [
                         {
                             "name": "test_comfort_advisor",
-                            "temperature_sensor": "sensor.test_temperature_sensor",
-                            "humidity_sensor": "sensor.test_humidity_sensor",
+                            "indoor_temperature_sensor": "sensor.test_temperature_sensor",
+                            "indoor_humidity_sensor": "sensor.test_humidity_sensor",
                             "sensor_types": [
                                 SensorType.THERMAL_PERCEPTION,
                                 SensorType.ABSOLUTE_HUMIDITY,
@@ -840,8 +875,8 @@ async def test_sensor_type_names(hass: HomeAssistant, start_ha: Callable) -> Non
                         },
                         {
                             "name": "test_comfort_advisor2",
-                            "temperature_sensor": "sensor.test_temperature_sensor",
-                            "humidity_sensor": "sensor.test_humidity_sensor",
+                            "indoor_temperature_sensor": "sensor.test_temperature_sensor",
+                            "indoor_humidity_sensor": "sensor.test_humidity_sensor",
                         },
                     ],
                 },

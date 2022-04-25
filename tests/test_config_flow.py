@@ -9,10 +9,12 @@ import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 import voluptuous as vol
 
-from custom_components.comfort_advisor.const import (
-    CONF_HUMIDITY_SENSOR,
-    CONF_TEMPERATURE_SENSOR,
-    DOMAIN,
+from custom_components.comfort_advisor.const import DOMAIN
+from custom_components.comfort_advisor.sensor import (
+    CONF_INDOOR_HUMIDITY_SENSOR,
+    CONF_INDOOR_TEMPERATURE_SENSOR,
+    CONF_OUTDOOR_HUMIDITY_SENSOR,
+    CONF_OUTDOOR_TEMPERATURE_SENSOR,
 )
 
 from .const import ADVANCED_USER_INPUT, USER_INPUT
@@ -120,7 +122,15 @@ async def test_config_flow_enabled():
 
 
 @pytest.mark.parametrize(*DEFAULT_TEST_SENSORS)
-@pytest.mark.parametrize("sensor", [CONF_TEMPERATURE_SENSOR, CONF_HUMIDITY_SENSOR])
+@pytest.mark.parametrize(
+    "sensor",
+    [
+        CONF_INDOOR_TEMPERATURE_SENSOR,
+        CONF_INDOOR_HUMIDITY_SENSOR,
+        CONF_OUTDOOR_TEMPERATURE_SENSOR,
+        CONF_OUTDOOR_HUMIDITY_SENSOR,
+    ],
+)
 async def test_missed_sensors(hass, sensor, start_ha):
     """Test is we show message if sensor missed."""
 
