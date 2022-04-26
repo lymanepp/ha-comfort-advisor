@@ -82,7 +82,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     device = ComfortAdvisorDevice(
         hass=hass,
-        entry=entry,
+        config_entry=entry,
         realtime_service=realtime_service,
         forecast_service=forecast_service,
     )

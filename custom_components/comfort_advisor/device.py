@@ -64,16 +64,16 @@ class ComfortAdvisorDevice:
     def __init__(
         self,
         hass: HomeAssistant,
-        entry: ConfigEntry,
+        config_entry: ConfigEntry,
         realtime_service=RealtimeDataUpdateCoordinator,
         forecast_service=ForecastDataUpdateCoordinator,
     ):
         """Initialize the device."""
         # device = hass.data[DOMAIN][entry.unique_id]
-        config = entry.data | entry.options or {}
+        config = config_entry.data | config_entry.options or {}
 
         self.hass = hass
-        self._unique_id = entry.unique_id
+        self._unique_id = config_entry.unique_id
         self._device_info = DeviceInfo(
             identifiers={(DOMAIN, self.unique_id)},
             name=config[CONF_NAME],
@@ -93,10 +93,10 @@ class ComfortAdvisorDevice:
         self.extra_state_attributes = {}
         self.sensors: list[Entity] = []
 
-        entry.async_on_unload(
+        config_entry.async_on_unload(
             self._realtime_service.async_add_listener(self._realtime_updated)
         )
-        entry.async_on_unload(
+        config_entry.async_on_unload(
             self._forecast_service.async_add_listener(self._forecast_updated)
         )
 

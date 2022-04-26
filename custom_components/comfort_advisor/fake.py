@@ -9,7 +9,6 @@ from homeassistant.util.dt import utcnow
 import voluptuous as vol
 
 from .weather_provider import (
-    WEATHER_PROVIDER_DATA_SCHEMA,
     WEATHER_PROVIDERS,
     WeatherData,
     WeatherProvider,
@@ -18,11 +17,6 @@ from .weather_provider import (
 REQUIREMENTS = []
 
 CONFIG_SCHEMA = vol.Schema({})
-
-DATA_SCHEMA = WEATHER_PROVIDER_DATA_SCHEMA.extend(
-    CONFIG_SCHEMA.schema,
-    extra=vol.schema_builder.PREVENT_EXTRA,
-)
 
 
 @WEATHER_PROVIDERS.register("fake")

@@ -71,9 +71,10 @@ async def weather_provider_from_config(
     if not weather_provider:
         raise WeatherProviderError("missing_config")
 
-    module_name: str = weather_provider.get(CONF_TYPE)
-    if not module_name:
-        raise WeatherProviderError("invalid_config")
+    try:
+        module_name: str = weather_provider.pop(CONF_TYPE)
+    except KeyError as exc:
+        raise WeatherProviderError("invalid_config") from exc
 
     try:
         module = await load_module(hass, module_name)
@@ -81,7 +82,7 @@ async def weather_provider_from_config(
         raise WeatherProviderError("provider_not_found", module_name) from exc
 
     try:
-        config = module.DATA_SCHEMA(weather_provider)
+        config = module.CONFIG_SCHEMA(weather_provider)
     except vol.Invalid as exc:
         _LOGGER.error(
             "Invalid configuration for weather provider %s: %s",

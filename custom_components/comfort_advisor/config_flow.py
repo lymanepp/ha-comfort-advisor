@@ -89,7 +89,7 @@ def get_sensors_by_device_class(
 
 def build_schema(
     hass: HomeAssistant,
-    entry: ConfigEntry | None,
+    config_entry: ConfigEntry | None,
     step: str = "user",
 ) -> vol.Schema:
     """Build configuration schema.
@@ -108,7 +108,7 @@ def build_schema(
     if not temperature_sensors or not humidity_sensors:
         return None
 
-    config = entry.data | entry.options or {} if entry else {}
+    config = config_entry.data | config_entry.options or {} if config_entry else {}
 
     default_location = {
         CONF_LATITUDE: hass.config.latitude,
@@ -379,7 +379,7 @@ class ComfortAdvisorOptionsFlow(OptionsFlow):
         return self.async_show_form(
             step_id="init",
             data_schema=build_schema(
-                hass=self.hass, entry=self.config_entry, step="init"
+                hass=self.hass, config_entry=self.config_entry, step="init"
             ),
             errors=errors,
         )

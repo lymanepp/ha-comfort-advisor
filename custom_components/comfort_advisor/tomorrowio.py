@@ -21,7 +21,6 @@ from pytomorrowio.exceptions import (
 import voluptuous as vol
 
 from .weather_provider import (
-    WEATHER_PROVIDER_DATA_SCHEMA,
     WEATHER_PROVIDERS,
     WeatherData,
     WeatherProvider,
@@ -36,11 +35,6 @@ CONFIG_SCHEMA = vol.Schema(
         vol.Required(CONF_LOCATION): selector({"location": {"radius": False}}),
     },
     extra=vol.PREVENT_EXTRA,
-)
-
-DATA_SCHEMA = WEATHER_PROVIDER_DATA_SCHEMA.extend(
-    dict(CONFIG_SCHEMA.schema),
-    extra=vol.schema_builder.PREVENT_EXTRA,
 )
 
 TMRW_ATTR_TIMESTAMP = "startTime"
