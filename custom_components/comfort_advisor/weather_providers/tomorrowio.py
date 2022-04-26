@@ -8,6 +8,7 @@ from homeassistant.const import CONF_API_KEY, CONF_LOCATION
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import LocationSelector  # , LocationSelectorConfig
+from homeassistant.helpers.ratelimit import KeyedRateLimit  # TODO: implement this!
 from homeassistant.util.dt import parse_datetime, utcnow
 from pytomorrowio import TomorrowioV4
 import voluptuous as vol
@@ -28,7 +29,7 @@ CONFIG_SCHEMA = WEATHER_PROVIDER_SCHEMA.extend(
             config={"location": {}}  # TODO: LocationSelectorConfig(radius=False)
         ),
     },
-    extra=vol.PREVENT_EXTRA,
+    # extra=vol.PREVENT_EXTRA, # TODO: remove
 )
 
 TMRW_ATTR_TIMESTAMP = "startTime"
@@ -53,20 +54,17 @@ FIELDS = [
 class TomorrowioWeatherProvider(WeatherProvider):
     """TODO."""
 
-    def __init__(
-        self,
-        *,
-        hass: HomeAssistant,
-        apikey: str,
-        latitude: str | float | int,
-        longitude: str | float | int,
-        **kwargs,
-    ) -> None:
+    def __init__(self, hass: HomeAssistant, /, **kwargs) -> None:
         """TODO."""
+        api_key: str = kwargs.pop("api_key")
+        location = kwargs.pop("location")
+        latitude = float(location["latitude"])
+        longitude = float(location["longitude"])
+
         unit_system = "metric" if hass.config.units.is_metric else "imperial"
         session = async_get_clientsession(hass)
         self._api = TomorrowioV4(
-            apikey=apikey,
+            apikey=api_key,
             latitude=latitude,
             longitude=longitude,
             unit_system=unit_system,
@@ -90,7 +88,8 @@ class TomorrowioWeatherProvider(WeatherProvider):
     async def realtime(self) -> WeatherData:
         """TODO."""
         realtime = await self._api.realtime(FIELDS)
-        return self._to_weather_data(utcnow(), realtime)
+        result = self._to_weather_data(utcnow().replace(microsecond=0), realtime)
+        return result
 
     async def forecast(self) -> list[WeatherData]:
         """TODO."""

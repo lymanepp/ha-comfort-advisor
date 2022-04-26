@@ -1,9 +1,9 @@
 {
   "options": {
     "error": {
-      "indoor_temperature_not_found": "Indoor temperature sensor not found",
+      "indoor_temp_not_found": "Indoor temperature sensor not found",
       "indoor_humidity_not_found": "Indoor humidity sensor not found",
-      "outdoor_temperature_not_found": "Outdoor temperature sensor not found",
+      "outdoor_temp_not_found": "Outdoor temperature sensor not found",
       "outdoor_humidity_not_found": "Outdoor humidity sensor not found"
     },
     "step": {
@@ -15,7 +15,7 @@
           "temperature_sensor": "Temperature sensor",
           "humidity_sensor": "Humidity sensor",
           "poll": "Enable Polling",
-          "scan_interval": "Poll interval (seconds)",
+          "poll_interval": "Poll interval (seconds)",
           "custom_icons": "Use custom icons pack"
         }
       }
@@ -28,9 +28,9 @@
       "no_sensors_advanced": "No temperature or humidity sensors found."
     },
     "error": {
-      "indoor_temperature_not_found": "Indoor temperature sensor not found",
+      "indoor_temp_not_found": "Indoor temperature sensor not found",
       "indoor_humidity_not_found": "Indoor humidity sensor not found",
-      "outdoor_temperature_not_found": "Outdoor temperature sensor not found",
+      "outdoor_temp_not_found": "Outdoor temperature sensor not found",
       "outdoor_humidity_not_found": "Outdoor humidity sensor not found"
     },
     "step": {
@@ -40,12 +40,12 @@
           "name": "Name",
           "weather_provider": "Weather provider",
           "api_key": "Weather provider API key",
-          "indoor_temperature_sensor": "Indoor temperature sensor",
+          "indoor_temp_sensor": "Indoor temperature sensor",
           "indoor_humidity_sensor": "Indoor humidity sensor",
-          "outdoor_temperature_sensor": "Outdoor temperature sensor",
+          "outdoor_temp_sensor": "Outdoor temperature sensor",
           "outdoor_humidity_sensor": "Outdoor humidity sensor",
           "poll": "Enable Polling",
-          "scan_interval": "Poll interval (seconds)",
+          "poll_interval": "Poll interval (seconds)",
           "custom_icons": "Use custom icons pack",
           "enabled_sensors": "Enabled sensors"
         }

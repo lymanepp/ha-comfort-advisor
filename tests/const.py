@@ -9,7 +9,7 @@ from custom_components.comfort_advisor.sensor import (
     CONF_INDOOR_TEMPERATURE_SENSOR,
     CONF_OUTDOOR_HUMIDITY_SENSOR,
     CONF_OUTDOOR_TEMPERATURE_SENSOR,
-    CONF_SCAN_INTERVAL,
+    CONF_POLL_INTERVAL,
 )
 
 USER_INPUT = {
@@ -20,7 +20,7 @@ USER_INPUT = {
     CONF_OUTDOOR_HUMIDITY_SENSOR: "sensor.test_humidity_sensor",
     CONF_POLL: False,
     CONF_CUSTOM_ICONS: False,
-    CONF_SCAN_INTERVAL: 30,
+    CONF_POLL_INTERVAL: 30,
 }
 
 ADVANCED_USER_INPUT = {

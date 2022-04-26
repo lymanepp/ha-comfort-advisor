@@ -9,7 +9,9 @@ import voluptuous as vol
 
 from . import sensor as sensor_platform
 from .const import DOMAIN
-from .sensor import PLATFORM_OPTIONS_SCHEMA as SENSOR_OPTIONS_SCHEMA
+from .sensor import (
+    PLATFORM_OPTIONS_SCHEMA as SENSOR_OPTIONS_SCHEMA,
+)  # TODO: this is only one platform!
 
 PACKAGE_MERGE_HINT = "list"
 

@@ -10,34 +10,33 @@ from types import ModuleType
 from typing import Any, TypedDict
 
 from homeassistant import requirements
-from homeassistant.const import CONF_NAME, CONF_TYPE
+from homeassistant.const import CONF_TYPE
 from homeassistant.core import HomeAssistant
 from homeassistant.util.decorator import Registry
 import voluptuous as vol
 from voluptuous.humanize import humanize_error
 
-from custom_components.comfort_advisor.const import DOMAIN
+from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
-DATA_REQS = "weather_provider_reqs_processed"
+DATA_REQS = "reqs_processed"
 
 WEATHER_PROVIDERS: Registry[str, type[WeatherProvider]] = Registry()
 
 WEATHER_PROVIDER_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_TYPE): str,
-        vol.Optional(CONF_NAME): str,
     },
     extra=vol.ALLOW_EXTRA,
 )
 
-WEATHER_PROVIDER_NAMES = ["tomorrowio"]
+WEATHER_PROVIDER_NAMES = ["tomorrowio", "fake"]
 
 
 @dataclass
 class WeatherData(TypedDict, total=False):
-    """Data type returned by weather provider."""
+    """TODO."""
 
     date_time: datetime
     temp: float
@@ -81,7 +80,11 @@ async def weather_provider_from_config(
         )
         raise
 
-    return WEATHER_PROVIDERS[provider_name](hass, config)
+    # TODO: use factory method instead of Registry?
+    if (create_provider := WEATHER_PROVIDERS.get(provider_name)) is None:
+        raise WeatherProviderError(f"Weather provider '{provider_name}' was not found")
+
+    return create_provider(hass, **config)
 
 
 async def load_weather_provider_module(

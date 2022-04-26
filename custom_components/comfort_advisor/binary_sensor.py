@@ -7,13 +7,12 @@ import logging
 from typing import Any
 
 from homeassistant.backports.enum import StrEnum
-from homeassistant.components.sensor import (
+from homeassistant.components.binary_sensor import (
+    BinarySensorDeviceClass,
+    BinarySensorEntity,
+    BinarySensorEntityDescription,
     ENTITY_ID_FORMAT,
     PLATFORM_SCHEMA,
-    SensorDeviceClass,
-    SensorEntity,
-    SensorEntityDescription,
-    SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
@@ -50,15 +49,15 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 
-class ComfortAdvisorSensor(SensorEntity):
-    """Representation of a Comfort Advisor Sensor."""
+class ComfortAdvisorBinarySensor(BinarySensorEntity):
+    """Representation of a Comfort Advisor binary sensor."""
 
     def __init__(
         self,
         *,
         device: ComfortAdvisorDevice,
-        sensor_type: SensorType,
-        entity_description: SensorEntityDescription,
+        sensor_type: BinarySensorType,
+        entity_description: BinarySensorEntityDescription,
         icon_template: Template = None,
         entity_picture_template: Template = None,
         friendly_name: str = None,
@@ -154,37 +153,33 @@ class ComfortAdvisorSensor(SensorEntity):
 
     async def async_update(self):
         """Update the state of the sensor."""
-        # self._attr_native_value = await getattr(self._device, self._sensor_type)()
+        # self._attr_native_value = False
         # self.update_template_values()
 
 
-class SensorType(StrEnum):
-    """Sensor type enum."""
+class BinarySensorType(StrEnum):
+    """Binary Sensor type enum."""
 
-    ABSOLUTE_HUMIDITY = "absolute_humidity"
+    OPEN_WINDOWS = "open_windows"
 
 
 @dataclass
-class MySensorEntityDescription(SensorEntityDescription):
+class MyBinarySensorEntityDescription(BinarySensorEntityDescription):
     """TODO."""
 
     sensor_class: type | None = None
 
 
-SENSOR_DESCRIPTIONS: list[MySensorEntityDescription] = [
-    MySensorEntityDescription(
-        sensor_class=ComfortAdvisorSensor,
-        key=SensorType.ABSOLUTE_HUMIDITY,
-        device_class=SensorDeviceClass.HUMIDITY,
-        native_unit_of_measurement="g/m³",
-        state_class=SensorStateClass.MEASUREMENT,
-        icon="mdi:water",
+BINARY_SENSOR_DESCRIPTIONS: list[MyBinarySensorEntityDescription] = [
+    MyBinarySensorEntityDescription(
+        sensor_class=ComfortAdvisorBinarySensor,
+        key=BinarySensorType.OPEN_WINDOWS,
+        device_class=BinarySensorDeviceClass.WINDOW,
+        icon="mdi:window",
     ),
 ]
 
-SENSOR_TYPES = {desc.key: desc for desc in SENSOR_DESCRIPTIONS}
-
-DEFAULT_SENSOR_TYPES = list(SENSOR_TYPES)
+BINARY_SENSOR_TYPES = {desc.key: desc for desc in BINARY_SENSOR_DESCRIPTIONS}
 
 PLATFORM_OPTIONS_SCHEMA = vol.Schema(
     {
@@ -234,14 +229,14 @@ async def async_setup_entry(
 
     _LOGGER.debug("async_setup_entry: %s", entry)
 
-    entities: list[SensorEntity] = [
+    entities: list[BinarySensorEntity] = [
         sensor_description.sensor_class(
             device=device,
             entity_description=sensor_description,
             sensor_type=sensor_type,
             custom_icons=config.get(CONF_CUSTOM_ICONS),
         )
-        for sensor_type, sensor_description in SENSOR_TYPES.items()
+        for sensor_type, sensor_description in BINARY_SENSOR_TYPES.items()
     ]
 
     if enabled_sensors := config.get(CONF_ENABLED_SENSORS):
