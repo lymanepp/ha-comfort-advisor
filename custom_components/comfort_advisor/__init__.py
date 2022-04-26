@@ -24,7 +24,6 @@ from .const import (
     DATA_REALTIME_SERVICE,
     SCAN_INTERVAL_FORECAST,
     SCAN_INTERVAL_REALTIME,
-    CONF_CUSTOM_ICONS,
     CONF_ENABLED_SENSORS,
     CONF_INDOOR_HUMIDITY_SENSOR,
     CONF_INDOOR_TEMPERATURE_SENSOR,
@@ -52,7 +51,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         CONF_OUTDOOR_HUMIDITY_SENSOR: config.get(CONF_OUTDOOR_HUMIDITY_SENSOR),
         CONF_POLL: config.get(CONF_POLL),
         CONF_POLL_INTERVAL: config.get(CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL),
-        CONF_CUSTOM_ICONS: config.get(CONF_CUSTOM_ICONS),
     }
 
     if (enabled_sensors := config.get(CONF_ENABLED_SENSORS)) is not None:

@@ -4,34 +4,29 @@ from __future__ import annotations
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
-import importlib
 import logging
-from types import ModuleType
 from typing import Any, TypedDict
 
-from homeassistant import requirements
 from homeassistant.const import CONF_TYPE
 from homeassistant.core import HomeAssistant
 from homeassistant.util.decorator import Registry
 import voluptuous as vol
 from voluptuous.humanize import humanize_error
 
-from .const import DOMAIN
+from custom_components.comfort_advisor.const import CONF_WEATHER_PROVIDER
+
+from .helpers import load_module
 
 _LOGGER = logging.getLogger(__name__)
 
-DATA_REQS = "reqs_processed"
-
 WEATHER_PROVIDERS: Registry[str, type[WeatherProvider]] = Registry()
 
-WEATHER_PROVIDER_SCHEMA = vol.Schema(
+WEATHER_PROVIDER_DATA_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_TYPE): str,
     },
     extra=vol.ALLOW_EXTRA,
 )
-
-WEATHER_PROVIDER_NAMES = ["tomorrowio", "fake"]
 
 
 @dataclass
@@ -47,6 +42,12 @@ class WeatherData(TypedDict, total=False):
 
 class WeatherProviderError(Exception):
     """TODO."""
+
+    def __init__(self, error_key: str, extra_info: str | None = None) -> None:
+        """TODO."""
+        super().__init__()
+        self.error_key = error_key
+        self.extra_info = extra_info
 
 
 class WeatherProvider(metaclass=ABCMeta):
@@ -67,51 +68,30 @@ async def weather_provider_from_config(
     hass: HomeAssistant, config: dict[str, Any]
 ) -> WeatherProvider:
     """Initialize a weather provider from a config."""
-    provider_name: str = config[CONF_TYPE]
-    module = await load_weather_provider_module(hass, provider_name)
+    weather_provider: str = config.get(CONF_WEATHER_PROVIDER)
+    if not weather_provider:
+        raise WeatherProviderError("missing_config")
+
+    module_name: str = weather_provider.get(CONF_TYPE)
+    if not module_name:
+        raise WeatherProviderError("invalid_config")
 
     try:
-        config = module.CONFIG_SCHEMA(config)
-    except vol.Invalid as err:
+        module = await load_module(hass, module_name)
+    except ImportError as exc:
+        raise WeatherProviderError("provider_not_found", module_name) from exc
+
+    try:
+        config = module.DATA_SCHEMA(weather_provider)
+    except vol.Invalid as exc:
         _LOGGER.error(
             "Invalid configuration for weather provider %s: %s",
-            provider_name,
-            humanize_error(config, err),
+            module_name,
+            humanize_error(config, exc),
         )
-        raise
+        raise WeatherProviderError("invalid_config", module_name) from exc
 
-    # TODO: use factory method instead of Registry?
-    if (create_provider := WEATHER_PROVIDERS.get(provider_name)) is None:
-        raise WeatherProviderError(f"Weather provider '{provider_name}' was not found")
+    if (provider_factory := WEATHER_PROVIDERS.get(module_name)) is None:
+        raise WeatherProviderError("provider_not_found", module_name)
 
-    return create_provider(hass, **config)
-
-
-async def load_weather_provider_module(
-    hass: HomeAssistant, provider: str
-) -> ModuleType:
-    """Load a weather provider."""
-    try:
-        module = importlib.import_module(
-            f"custom_components.comfort_advisor.weather_providers.{provider}"
-        )
-    except ImportError as err:
-        _LOGGER.error("Unable to load weather provider %s: %s", provider, err)
-        raise WeatherProviderError(
-            f"Unable to load weather provider {provider}: {err}"
-        ) from err
-
-    if hass.config.skip_pip or not hasattr(module, "REQUIREMENTS"):
-        return module
-
-    processed = hass.data[DOMAIN].setdefault(DATA_REQS, set())
-    if provider in processed:
-        return module
-
-    reqs = module.REQUIREMENTS
-    await requirements.async_process_requirements(
-        hass, f"weather provider {provider}", reqs
-    )
-
-    processed.add(provider)
-    return module
+    return provider_factory(hass, **config)

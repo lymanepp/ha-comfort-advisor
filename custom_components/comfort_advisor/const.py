@@ -15,7 +15,6 @@ ATTR_HUMIDITY = "humidity"
 ATTR_FROST_RISK_LEVEL = "frost_risk_level"
 CONF_ENABLED_SENSORS = "enabled_sensors"
 CONF_SENSOR_TYPES = "sensor_types"
-CONF_CUSTOM_ICONS = "custom_icons"
 CONF_POLL_INTERVAL = "poll_interval"
 
 CONF_WEATHER_PROVIDER = "weather_provider"
@@ -35,3 +34,5 @@ SCAN_INTERVAL_FORECAST = timedelta(hours=1)
 # Default values
 POLL_DEFAULT = False
 DEFAULT_POLL_INTERVAL = 30
+
+WEATHER_PROVIDER_NAMES = ["tomorrowio", "fake"]

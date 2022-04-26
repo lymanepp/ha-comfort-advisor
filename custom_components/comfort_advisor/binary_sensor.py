@@ -36,7 +36,6 @@ import voluptuous as vol
 
 from .device import ComfortAdvisorDevice
 from .const import (
-    CONF_CUSTOM_ICONS,
     CONF_ENABLED_SENSORS,
     CONF_INDOOR_HUMIDITY_SENSOR,
     CONF_INDOOR_TEMPERATURE_SENSOR,
@@ -61,7 +60,6 @@ class ComfortAdvisorBinarySensor(BinarySensorEntity):
         icon_template: Template = None,
         entity_picture_template: Template = None,
         friendly_name: str = None,
-        custom_icons: bool = False,
     ) -> None:
         """Initialize the sensor."""
         self._device = device
@@ -78,9 +76,6 @@ class ComfortAdvisorBinarySensor(BinarySensorEntity):
             f"{self._device.name}_{self._sensor_type}",
             hass=self._device.hass,
         )
-
-        if not custom_icons and self.entity_description.icon.startswith("tc:"):
-            self._attr_icon = None
 
         self._icon_template = icon_template
         self._entity_picture_template = entity_picture_template
@@ -185,7 +180,6 @@ PLATFORM_OPTIONS_SCHEMA = vol.Schema(
     {
         vol.Optional(CONF_POLL): cv.boolean,
         vol.Optional(CONF_POLL_INTERVAL): cv.time_period,
-        vol.Optional(CONF_CUSTOM_ICONS): cv.boolean,
         vol.Optional(CONF_SENSOR_TYPES): cv.ensure_list,
     },
     extra=vol.REMOVE_EXTRA,
@@ -234,7 +228,6 @@ async def async_setup_entry(
             device=device,
             entity_description=sensor_description,
             sensor_type=sensor_type,
-            custom_icons=config.get(CONF_CUSTOM_ICONS),
         )
         for sensor_type, sensor_description in BINARY_SENSOR_TYPES.items()
     ]

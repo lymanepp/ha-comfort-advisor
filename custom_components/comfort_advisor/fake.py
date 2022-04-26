@@ -2,24 +2,26 @@
 from __future__ import annotations
 
 from datetime import timedelta
+import voluptuous as vol
 
 from homeassistant.const import SPEED_MILES_PER_HOUR, TEMP_FAHRENHEIT
 from homeassistant.core import HomeAssistant
 from homeassistant.util.dt import utcnow
-import voluptuous as vol
 
-from ..weather_provider import (  # pylint: disable=relative-beyond-top-level
-    WEATHER_PROVIDER_SCHEMA,
+from .weather_provider import (
     WEATHER_PROVIDERS,
+    WEATHER_PROVIDER_DATA_SCHEMA,
     WeatherData,
     WeatherProvider,
 )
 
 REQUIREMENTS = []
 
-CONFIG_SCHEMA = WEATHER_PROVIDER_SCHEMA.extend(
-    {},
-    extra=vol.ALLOW_EXTRA,  # TODO: PREVENT_EXTRA
+CONFIG_SCHEMA = vol.Schema({})
+
+DATA_SCHEMA = WEATHER_PROVIDER_DATA_SCHEMA.extend(
+    CONFIG_SCHEMA.schema,
+    extra=vol.schema_builder.PREVENT_EXTRA,
 )
 
 

@@ -1,27 +1,28 @@
 """Tests for config flows."""
 from __future__ import annotations
+from hashlib import sha1
 
 import logging
+from typing import Any
 
 from homeassistant.config_entries import ConfigEntry, OptionsFlow, ConfigFlow
 from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.const import (
-    CONF_API_KEY,
+    CONF_TYPE,
     CONF_LATITUDE,
     CONF_LOCATION,
     CONF_LONGITUDE,
     CONF_NAME,
     Platform,
 )
-from homeassistant.core import HomeAssistant, State, callback
+from homeassistant.core import HomeAssistant, State #, callback
 from homeassistant.helpers import entity_registry
 import homeassistant.helpers.config_validation as cv
-from homeassistant.helpers.selector import LocationSelector  # , LocationSelectorConfig
 from homeassistant.helpers.typing import ConfigType
+from homeassistant.data_entry_flow import FlowResult
 import voluptuous as vol
 
 from .const import (
-    CONF_CUSTOM_ICONS,
     CONF_ENABLED_SENSORS,
     CONF_INDOOR_HUMIDITY_SENSOR,
     CONF_INDOOR_TEMPERATURE_SENSOR,
@@ -34,9 +35,11 @@ from .const import (
     DEFAULT_POLL_INTERVAL,
     DOMAIN,
     POLL_DEFAULT,
+    WEATHER_PROVIDER_NAMES,
 )
+from .helpers import load_module
 from .sensor import SensorType
-from .weather_provider import WEATHER_PROVIDER_NAMES
+from .weather_provider import WEATHER_PROVIDERS, WeatherProviderError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -44,7 +47,7 @@ _LOGGER = logging.getLogger(__name__)
 def get_sensors_by_device_class(
     hass: HomeAssistant,
     device_class: SensorDeviceClass,
-) -> list:
+) -> list[str]:
     """Get sensors of required class from entity registry."""
 
     def filter_by_device_class(
@@ -113,67 +116,42 @@ def build_schema(
     }
     default_location = config.get(CONF_LOCATION, default_location)
 
-    # TODO: schema needs to be dynamic based on 'CONF_WEATHER_PROVIDER'
-    schema = vol.Schema(
-        {
-            # TODO: this needs to be dynamic based on the weather provider!!!!
-            vol.Required(
-                CONF_WEATHER_PROVIDER,
-                default=config.get(CONF_WEATHER_PROVIDER),
-            ): vol.In(WEATHER_PROVIDER_NAMES),
-            vol.Required(CONF_API_KEY, default=config.get(CONF_API_KEY)): str,
-            vol.Required(CONF_LOCATION, default=default_location): LocationSelector(
-                config={"location": {}}  # future: LocationSelectorConfig(radius=False)
-            ),
-            vol.Required(CONF_NAME, default=config.get(CONF_NAME, DEFAULT_NAME)): str,
-            vol.Required(
-                CONF_INDOOR_TEMPERATURE_SENSOR,
-                default=config.get(
-                    CONF_INDOOR_TEMPERATURE_SENSOR, temperature_sensors[0]
-                ),
-            ): vol.In(temperature_sensors),
-            vol.Required(
-                CONF_INDOOR_HUMIDITY_SENSOR,
-                default=config.get(CONF_INDOOR_HUMIDITY_SENSOR, humidity_sensors[0]),
-            ): vol.In(humidity_sensors),
-            vol.Required(
-                CONF_OUTDOOR_TEMPERATURE_SENSOR,
-                default=config.get(
-                    CONF_OUTDOOR_TEMPERATURE_SENSOR, temperature_sensors[0]
-                ),
-            ): vol.In(temperature_sensors),
-            vol.Required(
-                CONF_OUTDOOR_HUMIDITY_SENSOR,
-                default=config.get(CONF_OUTDOOR_HUMIDITY_SENSOR, humidity_sensors[0]),
-            ): vol.In(humidity_sensors),
-            vol.Optional(CONF_POLL, default=config.get(CONF_POLL, POLL_DEFAULT)): bool,
-            vol.Optional(
-                CONF_POLL_INTERVAL,
-                default=config.get(CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL),
-            ): vol.All(vol.Coerce(int), vol.Range(min=1)),
-            vol.Optional(
-                CONF_CUSTOM_ICONS,
-                default=config.get(CONF_CUSTOM_ICONS, False),
-            ): bool,
-        },
-    )
+    schema = {
+        vol.Required(CONF_NAME, default=config.get(CONF_NAME, DEFAULT_NAME)): str,
+        vol.Required(
+            CONF_INDOOR_TEMPERATURE_SENSOR,
+            default=config.get(CONF_INDOOR_TEMPERATURE_SENSOR, temperature_sensors[0]),
+        ): vol.In(temperature_sensors),
+        vol.Required(
+            CONF_INDOOR_HUMIDITY_SENSOR,
+            default=config.get(CONF_INDOOR_HUMIDITY_SENSOR, humidity_sensors[0]),
+        ): vol.In(humidity_sensors),
+        vol.Required(
+            CONF_OUTDOOR_TEMPERATURE_SENSOR,
+            default=config.get(CONF_OUTDOOR_TEMPERATURE_SENSOR, temperature_sensors[0]),
+        ): vol.In(temperature_sensors),
+        vol.Required(
+            CONF_OUTDOOR_HUMIDITY_SENSOR,
+            default=config.get(CONF_OUTDOOR_HUMIDITY_SENSOR, humidity_sensors[0]),
+        ): vol.In(humidity_sensors),
+        vol.Optional(CONF_POLL, default=config.get(CONF_POLL, POLL_DEFAULT)): bool,
+        vol.Optional(
+            CONF_POLL_INTERVAL,
+            default=config.get(CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL),
+        ): vol.All(vol.Coerce(int), vol.Range(min=1)),
+    }
 
     if step == "user":
-        schema = schema.extend(
-            {
-                vol.Optional(
-                    CONF_ENABLED_SENSORS,
-                    default=list(SensorType),
-                ): cv.multi_select(
-                    {
-                        sensor_type: str(sensor_type).title()
-                        for sensor_type in SensorType
-                    }
-                ),
-            }
-        )
+        schema |= {
+            vol.Optional(
+                CONF_ENABLED_SENSORS,
+                default=list(SensorType),
+            ): cv.multi_select(
+                {sensor_type: str(sensor_type).title() for sensor_type in SensorType}
+            ),
+        }
 
-    return schema
+    return vol.Schema(schema)
 
 
 def check_input(hass: HomeAssistant, user_input: ConfigType) -> dict[str, str]:
@@ -203,78 +181,188 @@ def check_input(hass: HomeAssistant, user_input: ConfigType) -> dict[str, str]:
     if oh_sensor is None:
         errors["base"] = "outdoor_humidity_not_found"
 
-    # ToDo: we should not trust user and check:
-    #  - that CONF_TEMPERATURE_SENSOR is temperature sensor and have state_class measurement
-    #  - that CONF_HUMIDITY_SENSOR is humidity sensor and have state_class measurement
     return errors
 
 
 class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):
     """Configuration flow for setting up new comfort_advisor entry."""
 
-    @staticmethod
-    @callback
-    def async_get_options_flow(config_entry):
-        """Get the options flow for this handler."""
-        return ComfortAdvisorOptionsFlow(config_entry)
+    def __init__(self) -> None:
+        self._provider_type: str | None = None
+        self._provider_options: dict[str, Any] | None = None
 
-    async def async_step_user(self, user_input: ConfigType = None):
-        """Handle a flow initialized by the user."""
-        errors = {}
+    # @staticmethod
+    # @callback
+    # def async_get_options_flow(config_entry: ConfigEntry):
+    #    """Get the options flow for this handler."""
+    #    return ComfortAdvisorOptionsFlow(config_entry)
 
+    async def async_step_user(self, user_input: ConfigType | None = None) -> FlowResult:
+        """Handle a flow initialized by the user. Choose a weather provider."""
+        user_input = user_input or {}
         if user_input:
-            if not (errors := check_input(self.hass, user_input)):
-                ent_reg = entity_registry.async_get(self.hass)
+            self._provider_type = user_input[CONF_WEATHER_PROVIDER]
+            return await self.async_step_weather()
 
-                it_sensor = ent_reg.async_get(
-                    user_input[CONF_INDOOR_TEMPERATURE_SENSOR]
-                )
-                ih_sensor = ent_reg.async_get(user_input[CONF_INDOOR_HUMIDITY_SENSOR])
-                ot_sensor = ent_reg.async_get(
-                    user_input[CONF_OUTDOOR_TEMPERATURE_SENSOR]
-                )
-                oh_sensor = ent_reg.async_get(user_input[CONF_OUTDOOR_HUMIDITY_SENSOR])
+        if len(WEATHER_PROVIDER_NAMES) == 1:
+            self._provider_type = WEATHER_PROVIDER_NAMES[0]
+            return await self.async_step_weather()
 
-                _LOGGER.debug(
-                    "Going to use %s: %s", CONF_INDOOR_TEMPERATURE_SENSOR, it_sensor
-                )
-                _LOGGER.debug(
-                    "Going to use %s: %s", CONF_INDOOR_HUMIDITY_SENSOR, ih_sensor
-                )
-                _LOGGER.debug(
-                    "Going to use %s: %s", CONF_OUTDOOR_TEMPERATURE_SENSOR, ot_sensor
-                )
-                _LOGGER.debug(
-                    "Going to use %s: %s", CONF_OUTDOOR_HUMIDITY_SENSOR, oh_sensor
-                )
+        config_schema = vol.Schema(
+            {vol.Required(CONF_WEATHER_PROVIDER): vol.In(WEATHER_PROVIDER_NAMES)}
+        )
+        return self.async_show_form(step_id="user", data_schema=config_schema)
 
-                if it_sensor and ih_sensor and ot_sensor and oh_sensor:
-                    unique_id = f"{it_sensor.unique_id}-{ih_sensor.unique_id}-{ot_sensor.unique_id}-{oh_sensor.unique_id}"
-                    await self.async_set_unique_id(unique_id)
-                    self._abort_if_unique_id_configured()
+    async def async_step_weather(
+        self, user_input: ConfigType | None = None
+    ) -> FlowResult:
+        """Enter weather provider configuration."""
+        user_input = user_input or {}
+        errors = {}
+        if user_input:
+            await self._async_test_weather_data(user_input, errors)
+            if not errors:
+                self._provider_options = dict(user_input)
+                return await self.async_step_sensors()
 
-                return self.async_create_entry(
-                    title=user_input[CONF_NAME],
-                    data=user_input,
-                )
+        config_schema = await self._async_create_weather_schema(user_input)
+        if config_schema is None:
+            self._provider_options = {}
+            return await self.async_step_sensors()
 
-        schema = build_schema(hass=self.hass, entry=None)
+        return self.async_show_form(
+            step_id="weather", data_schema=config_schema, errors=errors
+        )
 
-        if schema is None:
+    async def async_step_sensors(
+        self, user_input: ConfigType | None = None
+    ) -> FlowResult:
+        """Select temperature and humidity sensors."""
+        user_input = user_input or {}
+        errors = {}
+        if user_input:
+            unique_id = self._create_unique_id(user_input)
+            await self.async_set_unique_id(unique_id)
+            self._abort_if_unique_id_configured()
+
+            weather_provider = dict(
+                {CONF_TYPE: self._provider_type}, **self._provider_options
+            )
+            config = dict({CONF_WEATHER_PROVIDER: weather_provider}, **user_input)
+
+            return self.async_create_entry(
+                title=user_input[CONF_NAME],
+                data=config,
+            )
+
+        if (config_schema := self._create_sensors_schema(user_input)) is None:
             reason = "no_sensors"
             return self.async_abort(reason=reason)
 
         return self.async_show_form(
-            step_id="user",
-            data_schema=schema,
-            errors=errors,
+            step_id="sensors", data_schema=config_schema, errors=errors
         )
 
+    async def _async_create_weather_schema(
+        self, user_input: ConfigType
+    ) -> vol.Schema | None:
+        module = await load_module(self.hass, self._provider_type)
+        config_schema: vol.Schema = module.CONFIG_SCHEMA
+        if not config_schema.schema:
+            return None
 
+        default_location = (
+            user_input[CONF_LOCATION]
+            if CONF_LOCATION in user_input
+            else {
+                CONF_LATITUDE: self.hass.config.latitude,
+                CONF_LONGITUDE: self.hass.config.longitude,
+            }
+        )
+        # Update imported provider schema to include default location
+        return vol.Schema(
+            {
+                (
+                    vol.Required(CONF_LOCATION, default=default_location)
+                    if key == CONF_LOCATION
+                    else key
+                ): value
+                for key, value in config_schema.schema.items()
+            }
+        )
+
+    async def _async_test_weather_data(
+        self, user_input: ConfigType, errors: dict[str, str]
+    ) -> None:
+        provider_factory = WEATHER_PROVIDERS.get(self._provider_type)
+        provider = provider_factory(self.hass, **user_input)
+        try:
+            await provider.realtime()
+        except WeatherProviderError as exc:
+            errors["base"] = exc.error_key
+
+    def _create_sensors_schema(self, user_input: ConfigType) -> vol.Schema | None:
+        temp_sensors = get_sensors_by_device_class(
+            self.hass, SensorDeviceClass.TEMPERATURE
+        )
+        humidity_sensors = get_sensors_by_device_class(
+            self.hass, SensorDeviceClass.HUMIDITY
+        )
+        if not temp_sensors or not humidity_sensors:
+            return None
+
+        return vol.Schema(
+            {
+                vol.Required(
+                    CONF_NAME, default=user_input.get(CONF_NAME, DEFAULT_NAME)
+                ): str,
+                vol.Required(
+                    CONF_INDOOR_TEMPERATURE_SENSOR,
+                    default=user_input.get(CONF_INDOOR_TEMPERATURE_SENSOR),
+                ): vol.In(temp_sensors),
+                vol.Required(
+                    CONF_INDOOR_HUMIDITY_SENSOR,
+                    default=user_input.get(CONF_INDOOR_HUMIDITY_SENSOR),
+                ): vol.In(humidity_sensors),
+                vol.Required(
+                    CONF_OUTDOOR_TEMPERATURE_SENSOR,
+                    default=user_input.get(CONF_OUTDOOR_TEMPERATURE_SENSOR),
+                ): vol.In(temp_sensors),
+                vol.Required(
+                    CONF_OUTDOOR_HUMIDITY_SENSOR,
+                    default=user_input.get(CONF_OUTDOOR_HUMIDITY_SENSOR),
+                ): vol.In(humidity_sensors),
+                vol.Optional(
+                    CONF_POLL, default=user_input.get(CONF_POLL, POLL_DEFAULT)
+                ): bool,
+                vol.Optional(
+                    CONF_POLL_INTERVAL,
+                    default=user_input.get(CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL),
+                ): vol.All(vol.Coerce(int), vol.Range(min=1)),
+            }
+        )
+
+    def _create_unique_id(self, user_input: ConfigType) -> str:
+        ent_reg = entity_registry.async_get(self.hass)
+        values = [
+            ent_reg.async_get(user_input[key]).unique_id
+            for key in (
+                CONF_INDOOR_TEMPERATURE_SENSOR,
+                CONF_INDOOR_HUMIDITY_SENSOR,
+                CONF_OUTDOOR_TEMPERATURE_SENSOR,
+                CONF_OUTDOOR_HUMIDITY_SENSOR,
+            )
+        ]
+        values.append(self._provider_type)
+        values.append(self._provider_options)
+        return sha1(str(values).encode("utf8")).hexdigest()
+
+
+# TODO: support options...
 class ComfortAdvisorOptionsFlow(OptionsFlow):
     """Handle options."""
 
-    def __init__(self, config_entry):
+    def __init__(self, config_entry: ConfigEntry):
         """Initialize options flow."""
         self.config_entry = config_entry
 
