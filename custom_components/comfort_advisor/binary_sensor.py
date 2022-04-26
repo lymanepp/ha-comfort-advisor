@@ -8,11 +8,11 @@ from typing import Any
 
 from homeassistant.backports.enum import StrEnum
 from homeassistant.components.binary_sensor import (
+    ENTITY_ID_FORMAT,
+    PLATFORM_SCHEMA,
     BinarySensorDeviceClass,
     BinarySensorEntity,
     BinarySensorEntityDescription,
-    ENTITY_ID_FORMAT,
-    PLATFORM_SCHEMA,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
@@ -26,15 +26,11 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import TemplateError
 import homeassistant.helpers.config_validation as cv
-from homeassistant.helpers.entity import (
-    DeviceInfo,
-    async_generate_entity_id,
-)
+from homeassistant.helpers.entity import DeviceInfo, async_generate_entity_id
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.template import Template
 import voluptuous as vol
 
-from .device import ComfortAdvisorDevice
 from .const import (
     CONF_ENABLED_SENSORS,
     CONF_INDOOR_HUMIDITY_SENSOR,
@@ -44,6 +40,7 @@ from .const import (
     CONF_SENSOR_TYPES,
     DOMAIN,
 )
+from .device import ComfortAdvisorDevice
 
 _LOGGER = logging.getLogger(__name__)
 

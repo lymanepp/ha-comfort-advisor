@@ -13,8 +13,7 @@ from homeassistant.util.decorator import Registry
 import voluptuous as vol
 from voluptuous.humanize import humanize_error
 
-from custom_components.comfort_advisor.const import CONF_WEATHER_PROVIDER
-
+from .const import CONF_WEATHER_PROVIDER
 from .helpers import load_module
 
 _LOGGER = logging.getLogger(__name__)

@@ -1,5 +1,4 @@
-"""
-Custom integration to integrate comfort_advisor with Home Assistant.
+"""Custom integration to integrate comfort_advisor with Home Assistant.
 
 For more details about this integration, please refer to
 https://github.com/lymanepp/ha-comfort-advisor
@@ -12,18 +11,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_NAME, CONF_TYPE
 from homeassistant.core import HomeAssistant
 
-from .device import (
-    ComfortAdvisorDevice,
-    ForecastDataUpdateCoordinator,
-    RealtimeDataUpdateCoordinator,
-)
 from .const import (
-    DOMAIN,
-    DATA_FORECAST_SERVICE,
-    PLATFORMS,
-    DATA_REALTIME_SERVICE,
-    SCAN_INTERVAL_FORECAST,
-    SCAN_INTERVAL_REALTIME,
     CONF_ENABLED_SENSORS,
     CONF_INDOOR_HUMIDITY_SENSOR,
     CONF_INDOOR_TEMPERATURE_SENSOR,
@@ -31,7 +19,18 @@ from .const import (
     CONF_OUTDOOR_TEMPERATURE_SENSOR,
     CONF_POLL,
     CONF_POLL_INTERVAL,
+    DATA_FORECAST_SERVICE,
+    DATA_REALTIME_SERVICE,
     DEFAULT_POLL_INTERVAL,
+    DOMAIN,
+    PLATFORMS,
+    SCAN_INTERVAL_FORECAST,
+    SCAN_INTERVAL_REALTIME,
+)
+from .device import (
+    ComfortAdvisorDevice,
+    ForecastDataUpdateCoordinator,
+    RealtimeDataUpdateCoordinator,
 )
 from .weather_provider import weather_provider_from_config
 
@@ -62,10 +61,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if entry.unique_id is None:
         # We have no unique_id yet, let's use backup.
         hass.config_entries.async_update_entry(entry, unique_id=entry.entry_id)
-
-    #  TODO: temp hack
-    if CONF_TYPE not in config:
-        config[CONF_TYPE] = "fake"
 
     weather_provider = await weather_provider_from_config(hass, config)
 

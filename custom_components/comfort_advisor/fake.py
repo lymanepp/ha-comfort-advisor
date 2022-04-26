@@ -2,15 +2,15 @@
 from __future__ import annotations
 
 from datetime import timedelta
-import voluptuous as vol
 
 from homeassistant.const import SPEED_MILES_PER_HOUR, TEMP_FAHRENHEIT
 from homeassistant.core import HomeAssistant
 from homeassistant.util.dt import utcnow
+import voluptuous as vol
 
 from .weather_provider import (
-    WEATHER_PROVIDERS,
     WEATHER_PROVIDER_DATA_SCHEMA,
+    WEATHER_PROVIDERS,
     WeatherData,
     WeatherProvider,
 )
@@ -29,7 +29,7 @@ DATA_SCHEMA = WEATHER_PROVIDER_DATA_SCHEMA.extend(
 class FakeWeatherProvider(WeatherProvider):
     """TODO."""
 
-    def __init__(self, hass: HomeAssistant, **kwargs):
+    def __init__(self, hass: HomeAssistant):
         """TODO."""
         self._units = hass.config.units
 

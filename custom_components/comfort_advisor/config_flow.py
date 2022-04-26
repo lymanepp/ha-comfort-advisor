@@ -1,25 +1,25 @@
 """Tests for config flows."""
 from __future__ import annotations
-from hashlib import sha1
 
+from hashlib import sha1
 import logging
 from typing import Any
 
-from homeassistant.config_entries import ConfigEntry, OptionsFlow, ConfigFlow
 from homeassistant.components.sensor import SensorDeviceClass
+from homeassistant.config_entries import ConfigEntry, ConfigFlow, OptionsFlow
 from homeassistant.const import (
-    CONF_TYPE,
     CONF_LATITUDE,
     CONF_LOCATION,
     CONF_LONGITUDE,
     CONF_NAME,
+    CONF_TYPE,
     Platform,
 )
-from homeassistant.core import HomeAssistant, State #, callback
+from homeassistant.core import HomeAssistant, State  # , callback
+from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import entity_registry
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.typing import ConfigType
-from homeassistant.data_entry_flow import FlowResult
 import voluptuous as vol
 
 from .const import (

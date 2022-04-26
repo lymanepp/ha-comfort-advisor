@@ -6,16 +6,15 @@ import logging
 import math
 from xml.dom.minidom import Entity
 
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant import util
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     ATTR_TEMPERATURE,
     ATTR_UNIT_OF_MEASUREMENT,
+    CONF_NAME,
     STATE_UNAVAILABLE,
     STATE_UNKNOWN,
     TEMP_FAHRENHEIT,
-    CONF_NAME,
 )
 from homeassistant.core import Event, HomeAssistant, State
 from homeassistant.helpers.entity import DeviceInfo
@@ -23,6 +22,7 @@ from homeassistant.helpers.event import (
     async_track_state_change_event,
     async_track_time_interval,
 )
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.loader import async_get_custom_components
 
 from .const import (
@@ -37,7 +37,6 @@ from .const import (
     DOMAIN,
 )
 from .weather_provider import WeatherData
-
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -196,28 +195,14 @@ class ComfortAdvisorDevice:
 
     @staticmethod
     def _get_new_state(event: Event) -> State | None:
-        new_state: State = event.data.get("new_state")
-        return new_state if ComfortAdvisorDevice._is_valid_state(new_state) else None
-
-    @staticmethod
-    def _is_valid_state(state: State) -> bool:
-        if state.state in (None, STATE_UNKNOWN, STATE_UNAVAILABLE):
-            return False
-        try:
-            return not math.isnan(float(state.state))
-        except ValueError:
-            return False
-
-    # TODO: pattern?
-    async def _new_indoor_temp_state(self, state: State):
-        if state and self._is_valid_state(state):
-            unit = state.attributes.get(ATTR_UNIT_OF_MEASUREMENT)
-            temp = util.convert(state.state, float)
-            self.extra_state_attributes[ATTR_TEMPERATURE] = temp
-            if unit == TEMP_FAHRENHEIT:
-                temp = util.temperature.fahrenheit_to_celsius(temp)
-            self._indoor_temp_state = temp
-            await self.async_update()
+        state: State = event.data.get("new_state")
+        if state.state not in (None, STATE_UNKNOWN, STATE_UNAVAILABLE):
+            try:
+                if not math.isnan(float(state.state)):
+                    return state
+            except ValueError:
+                pass
+        return None
 
     async def async_update(self) -> None:
         """Update the state."""

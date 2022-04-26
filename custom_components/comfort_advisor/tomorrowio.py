@@ -13,16 +13,16 @@ from homeassistant.helpers.selector import selector
 from homeassistant.util.dt import parse_datetime, utcnow
 from pytomorrowio import TomorrowioV4
 from pytomorrowio.exceptions import (
+    CantConnectException,
     InvalidAPIKeyException,
     RateLimitedException,
-    CantConnectException,
     TomorrowioException,
 )
 import voluptuous as vol
 
 from .weather_provider import (
-    WEATHER_PROVIDERS,
     WEATHER_PROVIDER_DATA_SCHEMA,
+    WEATHER_PROVIDERS,
     WeatherData,
     WeatherProvider,
     WeatherProviderError,
