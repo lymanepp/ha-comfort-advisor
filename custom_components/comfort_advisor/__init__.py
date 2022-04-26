@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_NAME, CONF_TYPE
+from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant
 
 from .const import (

@@ -6,15 +6,12 @@ import logging
 import math
 from xml.dom.minidom import Entity
 
-from homeassistant import util
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
-    ATTR_TEMPERATURE,
     ATTR_UNIT_OF_MEASUREMENT,
     CONF_NAME,
     STATE_UNAVAILABLE,
     STATE_UNKNOWN,
-    TEMP_FAHRENHEIT,
 )
 from homeassistant.core import Event, HomeAssistant, State
 from homeassistant.helpers.entity import DeviceInfo

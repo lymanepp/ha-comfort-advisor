@@ -188,6 +188,7 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):
     """Configuration flow for setting up new comfort_advisor entry."""
 
     def __init__(self) -> None:
+        """TODO."""
         self._provider_type: str | None = None
         self._provider_options: dict[str, Any] | None = None
 
