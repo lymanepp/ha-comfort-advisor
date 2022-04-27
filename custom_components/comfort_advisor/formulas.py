@@ -1,4 +1,4 @@
-"""TODO."""
+"""Weather formulas."""
 from __future__ import annotations
 
 from enum import IntEnum
@@ -21,7 +21,10 @@ class FrostRisk(IntEnum):
 
 
 def dew_point(temp: float, rh: float, temp_unit: str) -> float:
-    """Dew Point <https://pon.fr/dzvents-alerte-givre-et-calcul-humidite-absolue/>."""
+    """Calculate dew point from temperature and humidity.
+
+    https://pon.fr/dzvents-alerte-givre-et-calcul-humidite-absolue
+    """
     T = convert_temp(temp, temp_unit, TEMP_CELSIUS)
     b, c = 17.67, 243.5
     gamma = math.log(rh / 100) + b * T / (c + T)
@@ -30,7 +33,10 @@ def dew_point(temp: float, rh: float, temp_unit: str) -> float:
 
 
 def heat_index(temp: float, rh: float, temp_unit: str) -> float:
-    """Heat Index <http://www.wpc.ncep.noaa.gov/html/heatindex_equation.shtml>."""
+    """Calculate heat index from temperature and humidity.
+
+    http://www.wpc.ncep.noaa.gov/html/heatindex_equation.shtml
+    """
     T = convert_temp(temp, temp_unit, TEMP_FAHRENHEIT)
     HI = 0.5 * (T + 61.0 + ((T - 68.0) * 1.2) + (rh * 0.094))
     if ((T + HI) / 2) >= 80:
@@ -54,7 +60,10 @@ def heat_index(temp: float, rh: float, temp_unit: str) -> float:
 
 
 def absolute_humidity(temp: float, rh: float, temp_unit: str) -> float:
-    """Absolute Humidity <https://carnotcycle.wordpress.com/2012/08/04/how-to-convert-relative-humidity-to-absolute-humidity/>."""
+    """Calculate absolute humidity from temperature and humidity.
+
+    https://carnotcycle.wordpress.com/2012/08/04/how-to-convert-relative-humidity-to-absolute-humidity
+    """
     Tc = convert_temp(temp, temp_unit, TEMP_CELSIUS)
     abs_humidity = (6.112 * math.exp((17.67 * Tc) / (243.5 + Tc)) * rh * 2.1674) / (
         Tc + 273.15
@@ -63,7 +72,10 @@ def absolute_humidity(temp: float, rh: float, temp_unit: str) -> float:
 
 
 def frost_point(temp: float, rh: float, temp_unit: str) -> float:
-    """Frost Point <https://pon.fr/dzvents-alerte-givre-et-calcul-humidite-absolue/>."""
+    """Calculate frost point from temperature and humidity.
+
+    https://pon.fr/dzvents-alerte-givre-et-calcul-humidite-absolue
+    """
     dp = dew_point(temp, rh, temp_unit)
     T = convert_temp(temp, temp_unit, TEMP_KELVIN)
     Td = convert_temp(dp, temp_unit, TEMP_KELVIN)
@@ -76,7 +88,7 @@ def frost_point(temp: float, rh: float, temp_unit: str) -> float:
 
 
 def frost_risk(temp: float, rh: float, temp_unit: str) -> FrostRisk:
-    """Frost Risk Level."""
+    """Calculate frost risk from temperature and humidity."""
     abshum = absolute_humidity(temp, rh, temp_unit)
     frostpoint = frost_point(temp, rh, temp_unit)
 
@@ -99,7 +111,10 @@ def frost_risk(temp: float, rh: float, temp_unit: str) -> FrostRisk:
 
 
 def simmer_index(temp: float, rh: float, temp_unit: str) -> float:
-    """Summer Simmer Index <https://www.vcalc.com/wiki/rklarsen/Summer+Simmer+Index>."""
+    """Calculate summer simmer index from temperature and humidity.
+
+    https://www.vcalc.com/wiki/rklarsen/Summer+Simmer+Index
+    """
     Tf = convert_temp(temp, temp_unit, TEMP_FAHRENHEIT)
     ssi = 1.98 * (Tf - (0.55 - (0.0055 * rh)) * (Tf - 58)) - 56.83
     return round(convert_temp(ssi, TEMP_FAHRENHEIT, temp_unit), 2)

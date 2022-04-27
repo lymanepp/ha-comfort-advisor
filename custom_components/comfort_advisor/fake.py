@@ -8,11 +8,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.util.dt import utcnow
 import voluptuous as vol
 
-from .weather_provider import (
-    WEATHER_PROVIDERS,
-    WeatherData,
-    WeatherProvider,
-)
+from .weather_provider import WEATHER_PROVIDERS, WeatherData, WeatherProvider
 
 REQUIREMENTS = []
 

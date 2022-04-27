@@ -56,6 +56,7 @@ class ComfortAdvisorSensor(SensorEntity):
     async def async_added_to_hass(self):
         """Run when entity about to be added to hass."""
         self._device.sensors.append(self)
+        # self.async_schedule_update_ha_state(True)
 
         # TODO: schedule first update?
         # if self._device.get_compute_state(self._sensor_type).needs_update:
@@ -67,6 +68,7 @@ class ComfortAdvisorSensor(SensorEntity):
 
     async def async_update(self):
         """Update the state of the sensor."""
+        pass
         # TODO
         # self._attr_native_value = await getattr(self._device, self._sensor_type)()
 

@@ -1,31 +1,11 @@
 {
   "state": {
-    "comfort_advisor__frost_risk": {
-      "no_risk": "No risk",
-      "unlikely": "Unlikely",
-      "probable": "Probable",
-      "high": "High probability"
-    },
-    "comfort_advisor__thermal_perception": {
-      "dry": "A bit dry for some",
-      "very_comfortable": "Very comfortable",
-      "comfortable": "Comfortable",
-      "ok_but_humid": "OK for most, but humid",
-      "somewhat_uncomfortable": "Somewhat uncomfortable",
-      "quite_uncomfortable": "Very humid, quite uncomfortable",
-      "extremely_uncomfortable": "Extremely uncomfortable, oppressive",
-      "severely_high": "Severely high, even deadly for asthma related illnesses"
-    },
-    "comfort_advisor__simmer_zone": {
-      "cool": "Cool",
-      "slightly_cool": "Slightly cool",
-      "comfortable": "Comfortable",
-      "slightly_warm": "Slightly warm",
-      "increasing_discomfort": "Increasing discomfort",
-      "extremely_warm": "Extremely warm",
-      "danger_of_heatstroke": "Danger of heatstroke",
-      "extreme_danger_of_heatstroke": "Extreme danger of heatstroke",
-      "circulatory_collapse_imminent": "Circulatory collapse imminent"
+    "open_windows_reason": {
+      "more_comfortable_indoors": "It is more comfortable indoors",
+      "outdoor_ssi_too_high": "Outdoor simmer index is too high",
+      "outdoor_dewp_too_high": "Outdoor dew point is too high",
+      "outdoor_rh_too_high": "Outdoor relative humidity is too high",
+      "outdoor_will_be_cool": "Outdoor will be cool for next 24 hours"
     }
   }
 }

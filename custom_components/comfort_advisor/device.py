@@ -55,7 +55,7 @@ class DeviceState:
     outdoor_temp: float | None = None
     outdoor_humidity: float | None = None
     current: WeatherData | None = None
-    forecast: WeatherData | None = None
+    forecast: list[WeatherData] | None = None
 
 
 class ComfortAdvisorDevice:
