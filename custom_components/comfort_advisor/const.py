@@ -27,4 +27,8 @@ SCAN_INTERVAL_FORECAST: Final = timedelta(hours=1)
 POLL_DEFAULT: Final = False
 DEFAULT_POLL_INTERVAL: Final = 30
 
-WEATHER_PROVIDER_NAMES: Final = ["tomorrowio", "fake"]
+WEATHER_PROVIDER_NAMES: Final = {
+    "tomorrowio": "Tomorrow.io",
+    # "nws": "National Weather Service",
+    "fake": "Fake!",
+}

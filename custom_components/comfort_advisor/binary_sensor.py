@@ -87,10 +87,7 @@ async def async_setup_entry(
     config_entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up entity configured via user interface.
-
-    Called via async_setup_platforms(, SENSOR) from __init__.py
-    """
+    """Set up entity configured via user interface."""
     config = config_entry.data | config_entry.options or {}
     device = hass.data[DOMAIN][config_entry.entry_id]
 

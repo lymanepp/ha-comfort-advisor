@@ -1,6 +1,6 @@
 {
   "state": {
-    "open_windows_reason": {
+    "comfort_advisor__open_windows_reason": {
       "in_more_comfortable": "It is more comfortable indoors",
       "out_more_comfortable": "It is more comfortable outdoors",
       "out_ssi_too_high": "Outdoor simmer index is too high",

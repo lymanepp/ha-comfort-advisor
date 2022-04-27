@@ -10,7 +10,7 @@
       "init": {
         "title": "Comfort Advisor settings",
         "data": {
-          "weather_provider": "Weather provider",
+          "weather_provider": "Select a weather provider",
           "api_key": "Weather provider API key",
           "temperature_sensor": "Temperature sensor",
           "humidity_sensor": "Humidity sensor",
@@ -40,7 +40,7 @@
         "title": "Comfort Advisor settings",
         "data": {
           "name": "Name",
-          "weather_provider": "Weather provider",
+          "weather_provider": "Select a weather provider",
           "api_key": "Weather provider API key",
           "in_temp_sensor": "Indoor temperature sensor",
           "in_humidity_sensor": "Indoor humidity sensor",

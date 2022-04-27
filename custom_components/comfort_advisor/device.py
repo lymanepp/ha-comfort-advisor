@@ -223,8 +223,8 @@ class ComfortAdvisorDevice:
         if (
             self._state.in_temp is not None
             and self._state.in_humidity is not None
-            and self._state.in_temp is not None
-            and self._state.in_humidity is not None
+            and self._state.out_temp is not None
+            and self._state.out_humidity is not None
             and self._state.current is not None
             and self._state.forecast is not None
         ):
@@ -263,9 +263,9 @@ class ComfortAdvisorDevice:
         hourly_ssi: list[float] = []
 
         for data in state.forecast:
-            dewp = dew_point(data.temp, data.humidity, self.temp_unit)
-            ssi = simmer_index(data.temp, data.humidity, self.temp_unit)
-            hourly_comfort.append(is_comfortable(dewp, ssi, data.humidity))
+            dewp = dew_point(data["temp"], data["humidity"], self.temp_unit)
+            ssi = simmer_index(data["temp"], data["humidity"], self.temp_unit)
+            hourly_comfort.append(is_comfortable(dewp, ssi, data["humidity"]))
             hourly_ssi.append(ssi)
 
         in_dewp = dew_point(state.in_temp, state.in_humidity, self.temp_unit)

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from typing import Any
 
 from homeassistant.const import SPEED_MILES_PER_HOUR, TEMP_FAHRENHEIT
 from homeassistant.core import HomeAssistant
@@ -23,7 +24,7 @@ class FakeWeatherProvider(WeatherProvider):
         """TODO."""
         self._units = hass.config.units
 
-    def _to_native_units(self, data: WeatherData) -> WeatherData:
+    def _to_native_units(self, data: dict[str, Any]) -> WeatherData:
         return WeatherData(
             date_time=data["date_time"],
             temp=self._units.temperature(data["temp"], TEMP_FAHRENHEIT),

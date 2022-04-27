@@ -6,10 +6,8 @@ import logging
 from homeassistant.backports.enum import StrEnum
 from homeassistant.components.sensor import (
     DOMAIN as SENSOR_DOMAIN,
-    SensorDeviceClass,
     SensorEntity,
     SensorEntityDescription,
-    SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -67,24 +65,26 @@ class ComfortAdvisorSensor(SensorEntity):
 
     async def async_update(self):
         """Update the state of the sensor."""
-        pass
-        # TODO
-        # self._attr_native_value = await getattr(self._device, self._sensor_type)()
+        self._attr_native_value = getattr(self._device, self.entity_description.key)
 
 
 class SensorType(StrEnum):
     """Sensor type enum."""
 
-    ABSOLUTE_HUMIDITY = "absolute_humidity"
+    OPEN_WINDOWS_REASON = "open_windows_reason"
+
+
+class ComfortAdvisorDeviceClass(StrEnum):
+    """State class for comfort advisor sensors."""
+
+    OPEN_WINDOWS_REASON = "comfort_advisor__open_windows_reason"
 
 
 SENSOR_DESCRIPTIONS: list[SensorEntityDescription] = [
     SensorEntityDescription(
-        key=SensorType.ABSOLUTE_HUMIDITY,
-        device_class=SensorDeviceClass.HUMIDITY,
-        native_unit_of_measurement="g/m³",
-        state_class=SensorStateClass.MEASUREMENT,
+        key=SensorType.OPEN_WINDOWS_REASON,
         icon="mdi:water",
+        state_class=ComfortAdvisorDeviceClass.OPEN_WINDOWS_REASON,
     ),
 ]
 
@@ -96,10 +96,7 @@ async def async_setup_entry(
     config_entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up entity configured via user interface.
-
-    Called via async_setup_platforms(, SENSOR) from __init__.py
-    """
+    """Set up entity configured via user interface."""
     config = config_entry.data | config_entry.options or {}
     device = hass.data[DOMAIN][config_entry.entry_id]
 
@@ -108,10 +105,10 @@ async def async_setup_entry(
     entities: list[ComfortAdvisorSensor] = [
         ComfortAdvisorSensor(
             device=device,
-            entity_description=sensor_description,
+            entity_description=entity_description,
             sensor_type=sensor_type,
         )
-        for sensor_type, sensor_description in SENSOR_TYPES.items()
+        for sensor_type, entity_description in SENSOR_TYPES.items()
     ]
 
     if enabled_sensors := config.get(CONF_ENABLED_SENSORS):
