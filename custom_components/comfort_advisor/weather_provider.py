@@ -29,7 +29,7 @@ WEATHER_PROVIDER_DATA_SCHEMA = vol.Schema(
 
 
 @dataclass
-class WeatherData(TypedDict, total=False):
+class WeatherData:
     """Data format returned by weather provider."""
 
     date_time: datetime
