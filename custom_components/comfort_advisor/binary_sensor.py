@@ -79,8 +79,6 @@ BINARY_SENSOR_DESCRIPTIONS: list[BinarySensorEntityDescription] = [
     ),
 ]
 
-BINARY_SENSOR_TYPES = {desc.key: desc for desc in BINARY_SENSOR_DESCRIPTIONS}
-
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -97,9 +95,9 @@ async def async_setup_entry(
         ComfortAdvisorBinarySensor(
             device=device,
             entity_description=entity_description,
-            sensor_type=sensor_type,
+            sensor_type=entity_description.key,
         )
-        for sensor_type, entity_description in BINARY_SENSOR_TYPES.items()
+        for entity_description in BINARY_SENSOR_DESCRIPTIONS
     ]
 
     if enabled_sensors := config.get(CONF_ENABLED_SENSORS):
