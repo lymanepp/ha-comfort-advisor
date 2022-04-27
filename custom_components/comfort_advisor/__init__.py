@@ -8,25 +8,9 @@ from __future__ import annotations
 import logging
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant
 
-from .const import (
-    CONF_ENABLED_SENSORS,
-    CONF_INDOOR_HUMIDITY_SENSOR,
-    CONF_INDOOR_TEMPERATURE_SENSOR,
-    CONF_OUTDOOR_HUMIDITY_SENSOR,
-    CONF_OUTDOOR_TEMPERATURE_SENSOR,
-    CONF_POLL,
-    CONF_POLL_INTERVAL,
-    DATA_FORECAST_SERVICE,
-    DATA_REALTIME_SERVICE,
-    DEFAULT_POLL_INTERVAL,
-    DOMAIN,
-    PLATFORMS,
-    SCAN_INTERVAL_FORECAST,
-    SCAN_INTERVAL_REALTIME,
-)
+from .const import DOMAIN, PLATFORMS, SCAN_INTERVAL_FORECAST, SCAN_INTERVAL_REALTIME
 from .device import (
     ComfortAdvisorDevice,
     ForecastDataUpdateCoordinator,
@@ -42,22 +26,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN] = {}
     config = entry.data | entry.options or {}
 
-    entry_data = {
-        CONF_NAME: config.get(CONF_NAME),
-        CONF_INDOOR_TEMPERATURE_SENSOR: config.get(CONF_INDOOR_TEMPERATURE_SENSOR),
-        CONF_INDOOR_HUMIDITY_SENSOR: config.get(CONF_INDOOR_HUMIDITY_SENSOR),
-        CONF_OUTDOOR_TEMPERATURE_SENSOR: config.get(CONF_OUTDOOR_TEMPERATURE_SENSOR),
-        CONF_OUTDOOR_HUMIDITY_SENSOR: config.get(CONF_OUTDOOR_HUMIDITY_SENSOR),
-        CONF_POLL: config.get(CONF_POLL),
-        CONF_POLL_INTERVAL: config.get(CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL),
-    }
-
-    if (enabled_sensors := config.get(CONF_ENABLED_SENSORS)) is not None:
-        entry_data[CONF_ENABLED_SENSORS] = enabled_sensors
-        data = dict(entry.data)
-        data.pop(CONF_ENABLED_SENSORS)
-        hass.config_entries.async_update_entry(entry, data=data)
-
     if entry.unique_id is None:
         # We have no unique_id yet, let's use backup.
         hass.config_entries.async_update_entry(entry, unique_id=entry.entry_id)
@@ -67,7 +35,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     realtime_service = RealtimeDataUpdateCoordinator(
         hass,
         _LOGGER,
-        name=f"{DOMAIN}_{DATA_REALTIME_SERVICE}",
+        name=f"{DOMAIN}_realtime_service",
         update_interval=SCAN_INTERVAL_REALTIME,
         update_method=weather_provider.realtime,
     )
@@ -75,7 +43,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     forecast_service = ForecastDataUpdateCoordinator(
         hass,
         _LOGGER,
-        name=f"{DOMAIN}_{DATA_FORECAST_SERVICE}",
+        name=f"{DOMAIN}_forecast_service",
         update_interval=SCAN_INTERVAL_FORECAST,
         update_method=weather_provider.forecast,
     )

@@ -8,8 +8,6 @@ from homeassistant.const import CONF_API_KEY, CONF_LOCATION
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import selector
-
-# from homeassistant.helpers.ratelimit import KeyedRateLimit  # TODO: look at this
 from homeassistant.util.dt import parse_datetime, utcnow
 from pytomorrowio import TomorrowioV4
 from pytomorrowio.exceptions import (
@@ -68,7 +66,7 @@ def tomorrowio_exception_handler(func):
         except CantConnectException as exc:
             raise WeatherProviderError("cannot_connect") from exc
         except TomorrowioException as exc:
-            raise WeatherProviderError("unknown_error") from exc
+            raise WeatherProviderError("api_error") from exc
 
     return handler
 

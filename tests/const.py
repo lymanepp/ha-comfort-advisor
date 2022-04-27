@@ -3,20 +3,20 @@ from homeassistant.const import CONF_NAME
 
 from custom_components.comfort_advisor.const import (
     CONF_ENABLED_SENSORS,
-    CONF_INDOOR_HUMIDITY_SENSOR,
-    CONF_INDOOR_TEMPERATURE_SENSOR,
-    CONF_OUTDOOR_HUMIDITY_SENSOR,
-    CONF_OUTDOOR_TEMPERATURE_SENSOR,
+    CONF_IN_HUMIDITY_ENTITY,
+    CONF_IN_TEMP_ENTITY,
+    CONF_OUT_HUMIDITY_ENTITY,
+    CONF_OUT_TEMP_ENTITY,
     CONF_POLL,
     CONF_POLL_INTERVAL,
 )
 
 USER_INPUT = {
     CONF_NAME: "New name",
-    CONF_INDOOR_TEMPERATURE_SENSOR: "sensor.test_temperature_sensor",
-    CONF_INDOOR_HUMIDITY_SENSOR: "sensor.test_humidity_sensor",
-    CONF_OUTDOOR_TEMPERATURE_SENSOR: "sensor.test_temperature_sensor",
-    CONF_OUTDOOR_HUMIDITY_SENSOR: "sensor.test_humidity_sensor",
+    CONF_IN_TEMP_ENTITY: "sensor.test_temperature_sensor",
+    CONF_IN_HUMIDITY_ENTITY: "sensor.test_humidity_sensor",
+    CONF_OUT_TEMP_ENTITY: "sensor.test_temperature_sensor",
+    CONF_OUT_HUMIDITY_ENTITY: "sensor.test_humidity_sensor",
     CONF_POLL: False,
     CONF_POLL_INTERVAL: 30,
 }

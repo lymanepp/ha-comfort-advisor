@@ -24,10 +24,10 @@ import voluptuous as vol
 
 from .const import (
     CONF_ENABLED_SENSORS,
-    CONF_INDOOR_HUMIDITY_SENSOR,
-    CONF_INDOOR_TEMPERATURE_SENSOR,
-    CONF_OUTDOOR_HUMIDITY_SENSOR,
-    CONF_OUTDOOR_TEMPERATURE_SENSOR,
+    CONF_IN_HUMIDITY_ENTITY,
+    CONF_IN_TEMP_ENTITY,
+    CONF_OUT_HUMIDITY_ENTITY,
+    CONF_OUT_TEMP_ENTITY,
     CONF_POLL,
     CONF_POLL_INTERVAL,
     CONF_WEATHER_PROVIDER,
@@ -119,20 +119,20 @@ def build_schema(
     schema = {
         vol.Required(CONF_NAME, default=config.get(CONF_NAME, DEFAULT_NAME)): str,
         vol.Required(
-            CONF_INDOOR_TEMPERATURE_SENSOR,
-            default=config.get(CONF_INDOOR_TEMPERATURE_SENSOR, temperature_sensors[0]),
+            CONF_IN_TEMP_ENTITY,
+            default=config.get(CONF_IN_TEMP_ENTITY, temperature_sensors[0]),
         ): vol.In(temperature_sensors),
         vol.Required(
-            CONF_INDOOR_HUMIDITY_SENSOR,
-            default=config.get(CONF_INDOOR_HUMIDITY_SENSOR, humidity_sensors[0]),
+            CONF_IN_HUMIDITY_ENTITY,
+            default=config.get(CONF_IN_HUMIDITY_ENTITY, humidity_sensors[0]),
         ): vol.In(humidity_sensors),
         vol.Required(
-            CONF_OUTDOOR_TEMPERATURE_SENSOR,
-            default=config.get(CONF_OUTDOOR_TEMPERATURE_SENSOR, temperature_sensors[0]),
+            CONF_OUT_TEMP_ENTITY,
+            default=config.get(CONF_OUT_TEMP_ENTITY, temperature_sensors[0]),
         ): vol.In(temperature_sensors),
         vol.Required(
-            CONF_OUTDOOR_HUMIDITY_SENSOR,
-            default=config.get(CONF_OUTDOOR_HUMIDITY_SENSOR, humidity_sensors[0]),
+            CONF_OUT_HUMIDITY_ENTITY,
+            default=config.get(CONF_OUT_HUMIDITY_ENTITY, humidity_sensors[0]),
         ): vol.In(humidity_sensors),
         vol.Optional(CONF_POLL, default=config.get(CONF_POLL, POLL_DEFAULT)): bool,
         vol.Optional(
@@ -164,22 +164,22 @@ def check_input(hass: HomeAssistant, user_input: ConfigType) -> dict[str, str]:
 
     errors = {}
 
-    it_sensor = hass.states.get(user_input[CONF_INDOOR_TEMPERATURE_SENSOR])
-    ih_sensor = hass.states.get(user_input[CONF_INDOOR_HUMIDITY_SENSOR])
-    ot_sensor = hass.states.get(user_input[CONF_OUTDOOR_TEMPERATURE_SENSOR])
-    oh_sensor = hass.states.get(user_input[CONF_OUTDOOR_HUMIDITY_SENSOR])
+    it_sensor = hass.states.get(user_input[CONF_IN_TEMP_ENTITY])
+    ih_sensor = hass.states.get(user_input[CONF_IN_HUMIDITY_ENTITY])
+    ot_sensor = hass.states.get(user_input[CONF_OUT_TEMP_ENTITY])
+    oh_sensor = hass.states.get(user_input[CONF_OUT_HUMIDITY_ENTITY])
 
     if it_sensor is None:
-        errors["base"] = "indoor_temp_not_found"
+        errors["base"] = "in_temp_not_found"
 
     if ih_sensor is None:
-        errors["base"] = "indoor_humidity_not_found"
+        errors["base"] = "in_humidity_not_found"
 
     if ot_sensor is None:
-        errors["base"] = "outdoor_temp_not_found"
+        errors["base"] = "out_temp_not_found"
 
     if oh_sensor is None:
-        errors["base"] = "outdoor_humidity_not_found"
+        errors["base"] = "out_humidity_not_found"
 
     return errors
 
@@ -318,20 +318,20 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):
                     CONF_NAME, default=user_input.get(CONF_NAME, DEFAULT_NAME)
                 ): str,
                 vol.Required(
-                    CONF_INDOOR_TEMPERATURE_SENSOR,
-                    default=user_input.get(CONF_INDOOR_TEMPERATURE_SENSOR),
+                    CONF_IN_TEMP_ENTITY,
+                    default=user_input.get(CONF_IN_TEMP_ENTITY),
                 ): vol.In(temp_sensors),
                 vol.Required(
-                    CONF_INDOOR_HUMIDITY_SENSOR,
-                    default=user_input.get(CONF_INDOOR_HUMIDITY_SENSOR),
+                    CONF_IN_HUMIDITY_ENTITY,
+                    default=user_input.get(CONF_IN_HUMIDITY_ENTITY),
                 ): vol.In(humidity_sensors),
                 vol.Required(
-                    CONF_OUTDOOR_TEMPERATURE_SENSOR,
-                    default=user_input.get(CONF_OUTDOOR_TEMPERATURE_SENSOR),
+                    CONF_OUT_TEMP_ENTITY,
+                    default=user_input.get(CONF_OUT_TEMP_ENTITY),
                 ): vol.In(temp_sensors),
                 vol.Required(
-                    CONF_OUTDOOR_HUMIDITY_SENSOR,
-                    default=user_input.get(CONF_OUTDOOR_HUMIDITY_SENSOR),
+                    CONF_OUT_HUMIDITY_ENTITY,
+                    default=user_input.get(CONF_OUT_HUMIDITY_ENTITY),
                 ): vol.In(humidity_sensors),
                 vol.Optional(
                     CONF_POLL, default=user_input.get(CONF_POLL, POLL_DEFAULT)
@@ -348,10 +348,10 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):
         values = [
             ent_reg.async_get(user_input[key]).unique_id
             for key in (
-                CONF_INDOOR_TEMPERATURE_SENSOR,
-                CONF_INDOOR_HUMIDITY_SENSOR,
-                CONF_OUTDOOR_TEMPERATURE_SENSOR,
-                CONF_OUTDOOR_HUMIDITY_SENSOR,
+                CONF_IN_TEMP_ENTITY,
+                CONF_IN_HUMIDITY_ENTITY,
+                CONF_OUT_TEMP_ENTITY,
+                CONF_OUT_HUMIDITY_ENTITY,
             )
         ]
         values.append(self._provider_type)

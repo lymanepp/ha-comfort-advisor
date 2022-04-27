@@ -1,11 +1,12 @@
 {
   "state": {
     "open_windows_reason": {
-      "more_comfortable_indoors": "It is more comfortable indoors",
-      "outdoor_ssi_too_high": "Outdoor simmer index is too high",
-      "outdoor_dewp_too_high": "Outdoor dew point is too high",
-      "outdoor_rh_too_high": "Outdoor relative humidity is too high",
-      "outdoor_will_be_cool": "Outdoor will be cool for next 24 hours"
+      "in_more_comfortable": "It is more comfortable indoors",
+      "out_more_comfortable": "It is more comfortable outdoors",
+      "out_ssi_too_high": "Outdoor simmer index is too high",
+      "out_dewp_too_high": "Outdoor dew point is too high",
+      "out_rh_too_high": "Outdoor relative humidity is too high",
+      "out_will_be_cool": "Outdoor will be cool for next 24 hours"
     }
   }
 }

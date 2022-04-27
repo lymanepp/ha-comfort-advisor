@@ -1,8 +1,6 @@
 """Sensor platform for comfort_advisor."""
 from __future__ import annotations
 
-from dataclasses import dataclass
-from itertools import takewhile
 import logging
 
 from homeassistant.backports.enum import StrEnum
@@ -16,13 +14,9 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import async_generate_entity_id
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.util.temperature import convert as convert_temp
-
-from benchmark import TEMP_FAHRENHEIT
 
 from .const import CONF_ENABLED_SENSORS, DOMAIN
 from .device import ComfortAdvisorDevice
-from .formulas import dew_point, simmer_index
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -68,83 +62,7 @@ class ComfortAdvisorBinarySensor(BinarySensorEntity):
 
     async def async_update(self):
         """Update the state of the sensor."""
-        pass
-        # TODO
-        # self._attr_native_value = False
-
-
-class OpenWindowsBinarySensor(ComfortAdvisorBinarySensor):
-    """TODO."""
-
-    def __init__(self, **kwargs) -> None:
-        """TODO."""
-        super().__init__(**kwargs)
-
-        self.temp_unit = self.hass.config.units.temperature_unit
-
-        # these need to come from configuration
-        self.dewp_comfort_max = convert_temp(60, TEMP_FAHRENHEIT, self.temp_unit)
-        self.ssi_comfort_min = convert_temp(77, TEMP_FAHRENHEIT, self.temp_unit)
-        self.ssi_comfort_max = convert_temp(83, TEMP_FAHRENHEIT, self.temp_unit)
-        self.rh_max = 97.0
-
-    async def async_update(self):
-        """Update the state of the sensor."""
-
-        def is_comfortable(dewp: float, ssi: float, rel_hum: float) -> bool:
-            return (
-                rel_hum <= self.rh_max
-                and ssi <= self.ssi_comfort_max
-                and dewp <= self.dewp_comfort_max
-            )
-
-        state = self._device._state
-
-        indoor_dewp = dew_point(
-            state.indoor_temp, state.indoor_humidity, self.temp_unit
-        )
-        indoor_ssi = simmer_index(
-            state.indoor_temp, state.indoor_humidity, self.temp_unit
-        )
-        outdoor_dewp = dew_point(
-            state.outdoor_temp, state.outdoor_humidity, self.temp_unit
-        )
-        outdoor_ssi = simmer_index(
-            state.outdoor_temp, state.outdoor_humidity, self.temp_unit
-        )
-        outdoor_comfort = is_comfortable(
-            outdoor_dewp, outdoor_ssi, state.outdoor_humidity
-        )
-
-        hourly_comfort: list[bool] = []
-        hourly_ssi: list[float] = []
-
-        for data in state.forecast:
-            dewp = dew_point(data.temp, data.humidity, self.temp_unit)
-            ssi = simmer_index(data.temp, data.humidity, self.temp_unit)
-            hourly_comfort.append(is_comfortable(dewp, ssi, data.humidity))
-            hourly_ssi.append(ssi)
-
-        reason = (
-            "more_comfortable_indoors"
-            if outdoor_ssi > indoor_ssi or outdoor_dewp > indoor_dewp
-            else "outdoor_ssi_too_high"
-            if outdoor_ssi > self.ssi_comfort_max
-            else "outdoor_dewp_too_high"
-            if outdoor_dewp > self.dewp_comfort_max
-            else "outdoor_rh_too_high"
-            if state.outdoor_humidity > self.rh_max
-            else "outdoor_will_be_cool"
-            if (
-                indoor_ssi <= self.ssi_comfort_max
-                and max(hourly_ssi) <= self.ssi_comfort_min
-            )
-            else None
-        )
-
-        hours_until_change = len(
-            list(takewhile(lambda x: x == outdoor_comfort, hourly_comfort))
-        )
+        self._attr_is_on = getattr(self._device, self.entity_description.key)
 
 
 class BinarySensorType(StrEnum):
@@ -153,16 +71,8 @@ class BinarySensorType(StrEnum):
     OPEN_WINDOWS = "open_windows"
 
 
-@dataclass
-class MyBinarySensorEntityDescription(BinarySensorEntityDescription):
-    """TODO."""
-
-    sensor_class: type | None = None
-
-
-BINARY_SENSOR_DESCRIPTIONS: list[MyBinarySensorEntityDescription] = [
-    MyBinarySensorEntityDescription(
-        sensor_class=OpenWindowsBinarySensor,
+BINARY_SENSOR_DESCRIPTIONS: list[BinarySensorEntityDescription] = [
+    BinarySensorEntityDescription(
         key=BinarySensorType.OPEN_WINDOWS,
         device_class=BinarySensorDeviceClass.WINDOW,
         icon="mdi:window",
@@ -186,13 +96,13 @@ async def async_setup_entry(
 
     _LOGGER.debug("async_setup_entry: %s", config_entry)
 
-    entities: list[BinarySensorEntity] = [
-        sensor_description.sensor_class(
+    entities: list[ComfortAdvisorBinarySensor] = [
+        ComfortAdvisorBinarySensor(
             device=device,
-            entity_description=sensor_description,
+            entity_description=entity_description,
             sensor_type=sensor_type,
         )
-        for sensor_type, sensor_description in BINARY_SENSOR_TYPES.items()
+        for sensor_type, entity_description in BINARY_SENSOR_TYPES.items()
     ]
 
     if enabled_sensors := config.get(CONF_ENABLED_SENSORS):

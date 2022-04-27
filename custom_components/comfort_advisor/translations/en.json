@@ -1,10 +1,10 @@
 {
   "options": {
     "error": {
-      "indoor_temp_not_found": "Indoor temperature sensor not found",
-      "indoor_humidity_not_found": "Indoor humidity sensor not found",
-      "outdoor_temp_not_found": "Outdoor temperature sensor not found",
-      "outdoor_humidity_not_found": "Outdoor humidity sensor not found"
+      "in_temp_not_found": "Indoor temperature sensor not found",
+      "in_humidity_not_found": "Indoor humidity sensor not found",
+      "out_temp_not_found": "Outdoor temperature sensor not found",
+      "out_humidity_not_found": "Outdoor humidity sensor not found"
     },
     "step": {
       "init": {
@@ -23,18 +23,17 @@
   "config": {
     "abort": {
       "already_configured": "This combination of temperature and humidity sensors is already configured",
-      "no_sensors": "No temperature or humidity sensors found. Try again in advanced mode.",
-      "no_sensors_advanced": "No temperature or humidity sensors found."
+      "no_sensors": "No temperature or humidity sensors found."
     },
     "error": {
       "invalid_api_key": "API key is not valid",
-      "rate_limited": "API is rate-limited",
-      "cannot_connect": "Cannot connect to API",
-      "unknown_error": "Unknown error",
-      "indoor_temp_not_found": "Indoor temperature sensor not found",
-      "indoor_humidity_not_found": "Indoor humidity sensor not found",
-      "outdoor_temp_not_found": "Outdoor temperature sensor not found",
-      "outdoor_humidity_not_found": "Outdoor humidity sensor not found"
+      "rate_limited": "Service is rate-limited",
+      "cannot_connect": "Cannot connect to service",
+      "api_error": "Unknown API error",
+      "in_temp_not_found": "Indoor temperature sensor not found",
+      "in_humidity_not_found": "Indoor humidity sensor not found",
+      "out_temp_not_found": "Outdoor temperature sensor not found",
+      "out_humidity_not_found": "Outdoor humidity sensor not found"
     },
     "step": {
       "user": {
@@ -43,10 +42,10 @@
           "name": "Name",
           "weather_provider": "Weather provider",
           "api_key": "Weather provider API key",
-          "indoor_temp_sensor": "Indoor temperature sensor",
-          "indoor_humidity_sensor": "Indoor humidity sensor",
-          "outdoor_temp_sensor": "Outdoor temperature sensor",
-          "outdoor_humidity_sensor": "Outdoor humidity sensor",
+          "in_temp_sensor": "Indoor temperature sensor",
+          "in_humidity_sensor": "Indoor humidity sensor",
+          "out_temp_sensor": "Outdoor temperature sensor",
+          "out_humidity_sensor": "Outdoor humidity sensor",
           "poll": "Enable Polling",
           "poll_interval": "Poll interval (seconds)",
           "enabled_sensors": "Enabled sensors"

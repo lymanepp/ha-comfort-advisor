@@ -4,35 +4,27 @@ from typing import Final
 
 from homeassistant.const import Platform
 
-DOMAIN = "comfort_advisor"
-PLATFORMS = [Platform.SENSOR, Platform.BINARY_SENSOR]
-CONF_POLL = "poll"
+DOMAIN: Final = "comfort_advisor"
+PLATFORMS: Final = [Platform.SENSOR, Platform.BINARY_SENSOR]
 
-DEFAULT_NAME = "Comfort Advisor"
-UPDATE_LISTENER = "update_listener"
+DEFAULT_NAME: Final = "Comfort Advisor"
 
-ATTR_HUMIDITY = "humidity"
-ATTR_FROST_RISK_LEVEL = "frost_risk_level"
-CONF_ENABLED_SENSORS = "enabled_sensors"
-CONF_SENSOR_TYPES = "sensor_types"
-CONF_POLL_INTERVAL = "poll_interval"
-
-CONF_WEATHER_PROVIDER = "weather_provider"
-CONF_INDOOR_TEMPERATURE_SENSOR = "indoor_temp_sensor"
-CONF_INDOOR_HUMIDITY_SENSOR = "indoor_humidity_sensor"
-CONF_OUTDOOR_TEMPERATURE_SENSOR = "outdoor_temp_sensor"
-CONF_OUTDOOR_HUMIDITY_SENSOR = "outdoor_humidity_sensor"
-CONF_POLL = "poll"
+CONF_ENABLED_SENSORS: Final = "enabled_sensors"
+CONF_IN_HUMIDITY_ENTITY: Final = "in_humidity_sensor"
+CONF_IN_TEMP_ENTITY: Final = "in_temperature_sensor"
+CONF_OUT_HUMIDITY_ENTITY: Final = "out_humidity_sensor"
+CONF_OUT_TEMP_ENTITY: Final = "out_temperature_sensor"
+CONF_POLL: Final = "poll"
+CONF_POLL_INTERVAL: Final = "poll_interval"
+CONF_SENSOR_TYPES: Final = "sensor_types"
+CONF_WEATHER_PROVIDER: Final = "weather_provider"
 
 # DataUpdateCoordinator constants
-DATA_DEVICE: Final = "device"
-DATA_REALTIME_SERVICE: Final = "realtime"
-DATA_FORECAST_SERVICE: Final = "forecast"
-SCAN_INTERVAL_REALTIME = timedelta(minutes=15)
-SCAN_INTERVAL_FORECAST = timedelta(hours=1)
+SCAN_INTERVAL_REALTIME: Final = timedelta(minutes=15)
+SCAN_INTERVAL_FORECAST: Final = timedelta(hours=1)
 
 # Default values
-POLL_DEFAULT = False
-DEFAULT_POLL_INTERVAL = 30
+POLL_DEFAULT: Final = False
+DEFAULT_POLL_INTERVAL: Final = 30
 
-WEATHER_PROVIDER_NAMES = ["tomorrowio", "fake"]
+WEATHER_PROVIDER_NAMES: Final = ["tomorrowio", "fake"]
