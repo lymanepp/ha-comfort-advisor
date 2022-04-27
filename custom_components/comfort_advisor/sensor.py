@@ -1,7 +1,6 @@
 """Sensor platform for comfort_advisor."""
 from __future__ import annotations
 
-from dataclasses import dataclass
 import logging
 
 from homeassistant.backports.enum import StrEnum
@@ -79,16 +78,8 @@ class SensorType(StrEnum):
     ABSOLUTE_HUMIDITY = "absolute_humidity"
 
 
-@dataclass
-class MySensorEntityDescription(SensorEntityDescription):
-    """TODO."""
-
-    sensor_class: type | None = None
-
-
-SENSOR_DESCRIPTIONS: list[MySensorEntityDescription] = [
-    MySensorEntityDescription(
-        sensor_class=ComfortAdvisorSensor,
+SENSOR_DESCRIPTIONS: list[SensorEntityDescription] = [
+    SensorEntityDescription(
         key=SensorType.ABSOLUTE_HUMIDITY,
         device_class=SensorDeviceClass.HUMIDITY,
         native_unit_of_measurement="g/m³",
@@ -114,8 +105,8 @@ async def async_setup_entry(
 
     _LOGGER.debug("async_setup_entry: %s", config_entry)
 
-    entities: list[SensorEntity] = [
-        sensor_description.sensor_class(
+    entities: list[ComfortAdvisorSensor] = [
+        ComfortAdvisorSensor(
             device=device,
             entity_description=sensor_description,
             sensor_type=sensor_type,
