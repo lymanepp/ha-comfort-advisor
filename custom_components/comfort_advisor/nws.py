@@ -28,7 +28,7 @@ CONFIG_SCHEMA = vol.Schema(
 )
 
 
-def nws_exception_handler(func):
+def exception_handler(func):
     """Decorate TomorrowioV4 calls to handle exceptions."""
 
     async def handler(self, *args, **kwargs):
@@ -55,7 +55,7 @@ class TomorrowioWeatherProvider(WeatherProvider):
 
         self._api = SimpleNWS(latitude, longitude, api_key, session)
 
-    @nws_exception_handler
+    @exception_handler
     async def realtime(self) -> WeatherData:
         """TODO."""
         if not self._api.station:
@@ -65,7 +65,7 @@ class TomorrowioWeatherProvider(WeatherProvider):
         # TODO: map to WeatherData
         # return self._to_weather_data(utcnow().replace(microsecond=0), realtime)
 
-    @nws_exception_handler
+    @exception_handler
     async def forecast(self) -> list[WeatherData]:
         """TODO."""
         if not self._api.station:

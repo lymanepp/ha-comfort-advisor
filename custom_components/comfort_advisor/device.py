@@ -262,6 +262,7 @@ class ComfortAdvisorDevice:
         hourly_comfort: list[bool] = []
         hourly_ssi: list[float] = []
 
+        # TODO: skip outdated entries and only take next 24 hours
         for data in state.forecast:
             dewp = dew_point(data.temp, data.humidity, self.temp_unit)
             ssi = simmer_index(data.temp, data.humidity, self.temp_unit)

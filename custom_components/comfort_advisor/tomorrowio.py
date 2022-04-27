@@ -53,7 +53,7 @@ FIELDS = [
 ]
 
 
-def tomorrowio_exception_handler(func):
+def exception_handler(func):
     """Decorate TomorrowioV4 calls to handle exceptions."""
 
     async def handler(self, *args, **kwargs):
@@ -106,13 +106,13 @@ class TomorrowioWeatherProvider(WeatherProvider):
             ),
         )
 
-    @tomorrowio_exception_handler
+    @exception_handler
     async def realtime(self) -> WeatherData:
         """TODO."""
         realtime = await self._api.realtime(FIELDS)
         return self._to_weather_data(utcnow().replace(microsecond=0), realtime)
 
-    @tomorrowio_exception_handler
+    @exception_handler
     async def forecast(self) -> list[WeatherData]:
         """TODO."""
         hourly_forecast = await self._api.forecast_hourly(FIELDS, start_time=utcnow())

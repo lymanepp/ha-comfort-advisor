@@ -4,8 +4,8 @@ from __future__ import annotations
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 import logging
-from typing import Any, TypedDict
 
 from homeassistant.const import CONF_TYPE
 from homeassistant.core import HomeAssistant
