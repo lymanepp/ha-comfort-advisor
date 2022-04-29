@@ -7,12 +7,12 @@ from typing import Any
 from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.config_entries import ConfigEntry, ConfigFlow, OptionsFlow
 from homeassistant.const import (
+    ATTR_UNIT_OF_MEASUREMENT,
     CONF_LATITUDE,
     CONF_LOCATION,
     CONF_LONGITUDE,
-    ATTR_UNIT_OF_MEASUREMENT,
-    TEMP_FAHRENHEIT,
     PERCENTAGE,
+    TEMP_FAHRENHEIT,
 )
 from homeassistant.core import HomeAssistant, State
 from homeassistant.data_entry_flow import FlowResult
@@ -21,7 +21,10 @@ import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.selector import selector
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.requirements import RequirementsNotFound
-from homeassistant.util.temperature import convert as convert_temp, VALID_UNITS as TEMPERATURE_UNITS
+from homeassistant.util.temperature import (
+    VALID_UNITS as TEMPERATURE_UNITS,
+    convert as convert_temp,
+)
 import voluptuous as vol
 
 from .const import (
