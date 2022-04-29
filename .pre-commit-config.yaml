@@ -1,11 +1,11 @@
 repos:
   - repo: https://github.com/asottile/pyupgrade
-    rev: v2.31.0
+    rev: v2.32.0
     hooks:
       - id: pyupgrade
-        args: [--py38-plus]
+        args: [--py39-plus]
   - repo: https://github.com/psf/black
-    rev: 22.1.0
+    rev: 22.3.0
     hooks:
       - id: black
         args:
@@ -17,7 +17,7 @@ repos:
     hooks:
       - id: codespell
         args:
-          - --ignore-words-list=hass,alot,datas,dof,dur,ether,farenheit,hist,iff,iif,ines,ist,lightsensor,mut,nd,pres,referer,rime,ser,serie,te,technik,ue,uint,visability,wan,wanna,withing,iam,incomfort,ba,haa
+          - --ignore-words-list=hass
           - --skip="./.*,*.csv,*.json"
           - --quiet-level=2
         exclude_types: [csv, json]
@@ -36,7 +36,7 @@ repos:
           - mccabe==0.6.1
         files: ^(custom_components|tests)/.+\.py$
   - repo: https://github.com/PyCQA/bandit
-    rev: 1.7.2
+    rev: 1.7.4
     hooks:
       - id: bandit
         args:
@@ -50,8 +50,10 @@ repos:
       - id: isort
         additional_dependencies:
           - setuptools
+        args:
+          - --profile black
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.1.0
+    rev: v4.2.0
     hooks:
       - id: check-executables-have-shebangs
         stages: [manual]
@@ -67,12 +69,12 @@ repos:
     hooks:
       - id: yamllint
   - repo: https://github.com/pre-commit/mirrors-prettier
-    rev: v2.5.1
+    rev: v2.6.2
     hooks:
       - id: prettier
         stages: [manual]
   - repo: https://github.com/cdce8p/python-typing-update
-    rev: v0.3.5
+    rev: v0.4.1
     hooks:
       # Run `python-typing-update` hook manually from time to time
       # to update python typing syntax.
@@ -80,7 +82,7 @@ repos:
       - id: python-typing-update
         stages: [manual]
         args:
-          - --py38-plus
+          - --py39-plus
           - --force
           - --keep-updates
         files: ^(custom_components|script)/.+\.py$
