@@ -340,7 +340,7 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
 
 
 # TODO: support options...
-class ComfortAdvisorOptionsFlow(OptionsFlow):
+class ComfortAdvisorOptionsFlow(OptionsFlow):  # type: ignore
     """Handle options."""
 
     def __init__(self, config_entry: ConfigEntry):

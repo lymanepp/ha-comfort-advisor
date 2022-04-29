@@ -20,7 +20,7 @@ from .device import ComfortAdvisorDevice
 _LOGGER = logging.getLogger(__name__)
 
 
-class ComfortAdvisorSensor(SensorEntity):
+class ComfortAdvisorSensor(SensorEntity):  # type: ignore
     """Representation of a Comfort Advisor Sensor."""
 
     def __init__(
@@ -68,13 +68,13 @@ class ComfortAdvisorSensor(SensorEntity):
         self._attr_extra_state_attributes = self._device.extra_state_attributes
 
 
-class SensorType(StrEnum):
+class SensorType(StrEnum):  # type: ignore
     """Sensor type enum."""
 
     OPEN_WINDOWS_REASON = "open_windows_reason"
 
 
-class ComfortAdvisorDeviceClass(StrEnum):
+class ComfortAdvisorDeviceClass(StrEnum):  # type: ignore
     """State class for comfort advisor sensors."""
 
     OPEN_WINDOWS_REASON = "comfort_advisor__open_windows_reason"

@@ -21,7 +21,7 @@ from .device import ComfortAdvisorDevice
 _LOGGER = logging.getLogger(__name__)
 
 
-class ComfortAdvisorBinarySensor(BinarySensorEntity):
+class ComfortAdvisorBinarySensor(BinarySensorEntity):  # type: ignore
     """Representation of a Comfort Advisor binary sensor."""
 
     def __init__(
@@ -66,7 +66,7 @@ class ComfortAdvisorBinarySensor(BinarySensorEntity):
         self._attr_extra_state_attributes = self._device.extra_state_attributes
 
 
-class BinarySensorType(StrEnum):
+class BinarySensorType(StrEnum):  # type: ignore
     """Binary Sensor type enum."""
 
     OPEN_WINDOWS = "open_windows"

@@ -22,7 +22,7 @@ DEFAULT_POLL: Final = False
 DEFAULT_POLL_INTERVAL: Final = 30
 
 
-class ConfigValue(StrEnum):
+class ConfigValue(StrEnum):  # type: ignore
     """Configuration value enum."""
 
     DEWPOINT_MAX = "dewpoint_max"
