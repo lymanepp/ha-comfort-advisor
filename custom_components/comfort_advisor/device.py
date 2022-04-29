@@ -35,12 +35,8 @@ from .weather import WeatherData, WeatherProvider
 _LOGGER = logging.getLogger(__name__)
 
 
-class RealtimeDataUpdateCoordinator(DataUpdateCoordinator[WeatherData]):
-    """TODO."""
-
-
-class ForecastDataUpdateCoordinator(DataUpdateCoordinator[list[WeatherData]]):
-    """TODO."""
+RealtimeDataUpdateCoordinator = DataUpdateCoordinator[WeatherData]
+ForecastDataUpdateCoordinator = DataUpdateCoordinator[list[WeatherData]]
 
 
 @dataclass

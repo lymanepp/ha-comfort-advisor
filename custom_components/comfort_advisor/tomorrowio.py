@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime
 import logging
-from typing import Any, Final
+from typing import Any, Final, cast
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -98,13 +98,13 @@ class TomorrowioWeatherProvider(WeatherProvider):
 
     @property
     def attribution(self) -> str:
-        """Return attribution to use in UI."""
+        """Return attribution."""
         return "Weather forecast provided by Tomorrow.io"
 
     @property
     def version(self) -> str:
-        """Return attribution to use in UI."""
-        return PYTOMORROWIO_VERSION  # type: ignore
+        """Return dependency version."""
+        return cast(str, PYTOMORROWIO_VERSION)
 
     @staticmethod
     def _to_weather_data(date_time: datetime, values: dict[str, Any]) -> WeatherData:

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Final
+from typing import Final, cast
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -70,13 +70,13 @@ class NwsWeatherProvider(WeatherProvider):
 
     @property
     def attribution(self) -> str:
-        """Return attribution to use in UI."""
+        """Return attribution."""
         return "Forecast provided by the National Weather Service/NOAA"
 
     @property
     def version(self) -> str:
-        """Return attribution to use in UI."""
-        return PYNWS_VERSION  # type: ignore
+        """Return dependency version."""
+        return cast(str, PYNWS_VERSION)
 
     @exception_handler
     async def realtime(self) -> WeatherData:

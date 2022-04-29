@@ -55,13 +55,13 @@ class WeatherProvider(metaclass=ABCMeta):
     @property
     @abstractmethod
     def attribution(self) -> str:
-        """Return attribution to use in UI."""
+        """Return attribution."""
         raise NotImplementedError
 
     @property
     @abstractmethod
     def version(self) -> str:
-        """Return attribution to use in UI."""
+        """Return dependency version."""
         raise NotImplementedError
 
     @abstractmethod
