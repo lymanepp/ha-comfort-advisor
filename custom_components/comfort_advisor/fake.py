@@ -20,7 +20,7 @@ SCHEMA = vol.Schema({}, extra=vol.PREVENT_EXTRA)
 class FakeWeatherProvider(WeatherProvider):
     """TODO."""
 
-    def __init__(self, hass: HomeAssistant, **kwargs) -> None:
+    def __init__(self, hass: HomeAssistant, **kwargs) -> None:  # type: ignore
         """TODO."""
         super().__init__(**kwargs)
         self._units = hass.config.units

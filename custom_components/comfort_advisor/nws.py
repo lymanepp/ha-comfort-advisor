@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Final, cast
+from typing import Any, Callable, Coroutine, Final, ParamSpec, TypeVar, cast
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -34,24 +34,28 @@ SCHEMA: Final = vol.Schema(
 )
 
 
-def exception_handler(func):
-    """Decorate TomorrowioV4 calls to handle exceptions."""
+T = TypeVar("T")  # the callable/awaitable return type
+P = ParamSpec("P")  # the callable parameters
 
-    async def handler(self, *args, **kwargs):
+
+def exception_handler(
+    func: Callable[P, Coroutine[Any, Any, T]]
+) -> Callable[P, Coroutine[Any, Any, T]]:
+    async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
         try:
-            return await func(self, *args, **kwargs)
+            return await func(*args, **kwargs)
         except Exception as exc:
             _LOGGER.exception("Error from pynws: %s", exc_info=exc)
             raise WeatherProviderError("unknown") from exc
 
-    return handler
+    return wrapper
 
 
 @WEATHER_PROVIDERS.register("nws")
 class NwsWeatherProvider(WeatherProvider):
     """TODO."""
 
-    def __init__(
+    def __init__(  # type: ignore
         self,
         hass: HomeAssistant,
         /,

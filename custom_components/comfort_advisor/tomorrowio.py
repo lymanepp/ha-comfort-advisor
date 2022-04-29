@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime
 import logging
-from typing import Any, Final, cast
+from typing import Any, Callable, Coroutine, Final, ParamSpec, TypeVar, cast
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -55,12 +55,16 @@ FIELDS = [
 ]
 
 
-def exception_handler(func):
-    """Decorate TomorrowioV4 calls to handle exceptions."""
+T = TypeVar("T")  # the callable/awaitable return type
+P = ParamSpec("P")  # the callable parameters
 
-    async def handler(self, *args, **kwargs):
+
+def exception_handler(
+    func: Callable[P, Coroutine[Any, Any, T]]
+) -> Callable[P, Coroutine[Any, Any, T]]:
+    async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
         try:
-            return await func(self, *args, **kwargs)
+            return await func(*args, **kwargs)
         except InvalidAPIKeyException as exc:
             raise WeatherProviderError("invalid_api_key") from exc
         except RateLimitedException as exc:
@@ -71,15 +75,20 @@ def exception_handler(func):
             _LOGGER.exception("Error from pytomorrowio: %s", exc_info=exc)
             raise WeatherProviderError("unknown") from exc
 
-    return handler
+    return wrapper
 
 
 @WEATHER_PROVIDERS.register("tomorrowio")
 class TomorrowioWeatherProvider(WeatherProvider):
     """TODO."""
 
-    def __init__(
-        self, hass: HomeAssistant, /, api_key: str, location: dict[str, float], **kwargs
+    def __init__(  # type: ignore
+        self,
+        hass: HomeAssistant,
+        /,
+        api_key: str,
+        location: dict[str, float],
+        **kwargs,
     ) -> None:
         """TODO."""
         super().__init__(**kwargs)
