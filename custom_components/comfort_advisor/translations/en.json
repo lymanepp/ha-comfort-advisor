@@ -50,7 +50,8 @@
     },
     "abort": {
       "no_sensors": "No temperature or humidity sensors found.",
-      "load_provider": "Unable to load {provider} provider. Please [open an issue]({issue_tracker}).\n\n{message}"
+      "load_provider": "Unable to load {provider} provider. Please [open an issue]({issue_tracker}).\n\n{message}",
+      "already_configured": "An integration with the same input sensors already exists."
     }
   },
   "options": {
