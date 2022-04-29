@@ -2,40 +2,37 @@
 from __future__ import annotations
 
 from abc import ABCMeta, abstractmethod
-from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
 import logging
+from typing import Any, NamedTuple
 
-from homeassistant.const import CONF_TYPE
 from homeassistant.core import HomeAssistant
 from homeassistant.util.decorator import Registry
 import voluptuous as vol
 from voluptuous.humanize import humanize_error
 
-from .const import CONF_WEATHER_PROVIDER
+from .const import WEATHER_PROVIDER_TYPES, ConfigValue
 from .helpers import load_module
 
 _LOGGER = logging.getLogger(__name__)
 
 WEATHER_PROVIDERS: Registry[str, type[WeatherProvider]] = Registry()
 
-WEATHER_PROVIDER_DATA_SCHEMA = vol.Schema(
+WEATHER_PROVIDER_SCHEMA = vol.Schema(
     {
-        vol.Required(CONF_TYPE): str,
+        vol.Required(str(ConfigValue.PROVIDER_TYPE)): vol.In(WEATHER_PROVIDER_TYPES),
     },
     extra=vol.ALLOW_EXTRA,
 )
 
 
-@dataclass
-class WeatherData:
+class WeatherData(NamedTuple):
     """Data format returned by weather provider."""
 
     date_time: datetime
     temp: float
-    humidity: float | None
-    wind_speed: float | None
+    humidity: float
+    wind_speed: float
     pollen: float | None
 
 
@@ -52,6 +49,21 @@ class WeatherProviderError(Exception):
 class WeatherProvider(metaclass=ABCMeta):
     """Abstract weather provider."""
 
+    def __init__(self, *, provider_type: str):
+        """Eat the `provider_type` kwarg."""
+
+    @property
+    @abstractmethod
+    def attribution(self) -> str:
+        """Return attribution to use in UI."""
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def version(self) -> str:
+        """Return attribution to use in UI."""
+        raise NotImplementedError
+
     @abstractmethod
     async def realtime(self) -> WeatherData:
         """Retrieve realtime weather from provider."""
@@ -64,34 +76,26 @@ class WeatherProvider(metaclass=ABCMeta):
 
 
 async def weather_provider_from_config(
-    hass: HomeAssistant, config: dict[str, Any]
+    hass: HomeAssistant, provider_config: dict[str, Any]
 ) -> WeatherProvider:
     """Initialize a weather provider from a config."""
-    provider_config: str = config.get(CONF_WEATHER_PROVIDER)
-    if not provider_config:
-        raise WeatherProviderError("missing_config")
 
     try:
-        module_name: str = provider_config.pop(CONF_TYPE)
-    except KeyError as exc:
-        raise WeatherProviderError("invalid_config") from exc
-
-    try:
-        module = await load_module(hass, module_name)
-    except ImportError as exc:
-        raise WeatherProviderError("provider_not_found", module_name) from exc
-
-    try:
-        config = module.CONFIG_SCHEMA(provider_config)
+        WEATHER_PROVIDER_SCHEMA(provider_config)
+        provider_type: str = provider_config[ConfigValue.PROVIDER_TYPE]
+        module = await load_module(hass, provider_type)
+        schema = WEATHER_PROVIDER_SCHEMA.extend(module.SCHEMA.schema, extra=vol.PREVENT_EXTRA)
+        schema(provider_config)
     except vol.Invalid as exc:
         _LOGGER.error(
-            "Invalid configuration for weather provider %s: %s",
-            module_name,
-            humanize_error(config, exc),
+            "Invalid configuration for weather provider: %s",
+            humanize_error(provider_config, exc),
         )
-        raise WeatherProviderError("invalid_config", module_name) from exc
+        raise WeatherProviderError("invalid_config") from exc
+    except ImportError as exc:
+        raise WeatherProviderError("import_error") from exc
 
-    if (provider_factory := WEATHER_PROVIDERS.get(module_name)) is None:
-        raise WeatherProviderError("provider_not_found", module_name)
-
-    return provider_factory(hass, **config)
+    provider_factory = WEATHER_PROVIDERS[provider_type]
+    provider = provider_factory(hass, **provider_config)
+    assert isinstance(provider, WeatherProvider)
+    return provider

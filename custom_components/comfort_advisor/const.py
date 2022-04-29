@@ -2,33 +2,48 @@
 from datetime import timedelta
 from typing import Final
 
-from homeassistant.const import Platform
+from homeassistant.backports.enum import StrEnum
 
 DOMAIN: Final = "comfort_advisor"
-PLATFORMS: Final = [Platform.SENSOR, Platform.BINARY_SENSOR]
-
-DEFAULT_NAME: Final = "Comfort Advisor"
-
-CONF_ENABLED_SENSORS: Final = "enabled_sensors"
-CONF_IN_HUMIDITY_ENTITY: Final = "in_humidity_sensor"
-CONF_IN_TEMP_ENTITY: Final = "in_temperature_sensor"
-CONF_OUT_HUMIDITY_ENTITY: Final = "out_humidity_sensor"
-CONF_OUT_TEMP_ENTITY: Final = "out_temperature_sensor"
-CONF_POLL: Final = "poll"
-CONF_POLL_INTERVAL: Final = "poll_interval"
-CONF_SENSOR_TYPES: Final = "sensor_types"
-CONF_WEATHER_PROVIDER: Final = "weather_provider"
 
 # DataUpdateCoordinator constants
 SCAN_INTERVAL_REALTIME: Final = timedelta(minutes=15)
 SCAN_INTERVAL_FORECAST: Final = timedelta(hours=1)
 
 # Default values
-POLL_DEFAULT: Final = False
+DEFAULT_NAME: Final = "Comfort Advisor"
+DEFAULT_MANUFACTURER: Final = "@lymanepp"
+DEFAULT_DEWPOINT_MAX: Final = 60
+DEFAULT_HUMIDITY_MAX: Final = 95
+DEFAULT_SIMMER_INDEX_MAX: Final = 83
+DEFAULT_SIMMER_INDEX_MIN: Final = 77
+DEFAULT_POLL: Final = False
 DEFAULT_POLL_INTERVAL: Final = 30
 
-WEATHER_PROVIDER_NAMES: Final = {
+
+class ConfigValue(StrEnum):
+    """Configuration value enum."""
+
+    DEWPOINT_MAX = "dewpoint_max"
+    ENABLED_SENSORS = "enabled_sensors"
+    HUMIDITY_MAX = "humidity_max"
+    IN_HUMIDITY_ENTITY = "in_humidity_sensor"
+    IN_TEMP_ENTITY = "in_temp_sensor"
+    NAME = "name"
+    OUT_HUMIDITY_ENTITY = "out_humidity_sensor"
+    OUT_TEMP_ENTITY = "out_temp_sensor"
+    POLL = "poll"
+    POLL_INTERVAL = "poll_interval"
+    PROVIDER_TYPE = "provider_type"
+    SIMMER_INDEX_MAX = "simmer_index_max"
+    SIMMER_INDEX_MIN = "simmer_index_min"
+    WEATHER_PROVIDER = "weather_provider"
+
+
+SENSOR_TYPES: Final = ["open_windows", "open_windows_reason"]  # TODO: make dynamic
+
+WEATHER_PROVIDER_TYPES: Final = {
     "tomorrowio": "Tomorrow.io",
-    # "nws": "National Weather Service",
+    "nws": "National Weather Service",
     "fake": "Fake!",
 }

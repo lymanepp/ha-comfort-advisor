@@ -2,38 +2,40 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+import logging
+from typing import Any, Final
 
-from homeassistant.const import CONF_API_KEY, CONF_LOCATION
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import selector
 from homeassistant.util.dt import parse_datetime, utcnow
-from pytomorrowio import TomorrowioV4
+from pytomorrowio import TomorrowioV4, __version__ as PYTOMORROWIO_VERSION
 from pytomorrowio.exceptions import (
     CantConnectException,
     InvalidAPIKeyException,
     RateLimitedException,
-    TomorrowioException,
 )
 import voluptuous as vol
 
-from .weather_provider import (
+from .weather import (
     WEATHER_PROVIDERS,
     WeatherData,
     WeatherProvider,
     WeatherProviderError,
 )
 
-REQUIREMENTS = ["pytomorrowio>=0.3.1"]
+_LOGGER = logging.getLogger(__name__)
 
-CONFIG_SCHEMA = vol.Schema(
+REQUIREMENTS: Final = ["pytomorrowio>=0.3.1"]
+DESCRIPTION: Final = "To get an API key, sign up at [Tomorrow.io](https://app.tomorrow.io/signup)."
+SCHEMA: Final = vol.Schema(
     {
-        vol.Required(CONF_API_KEY): str,
-        vol.Required(CONF_LOCATION): selector({"location": {"radius": False}}),
+        vol.Required("api_key"): str,
+        vol.Required("location"): selector({"location": {"radius": False}}),
     },
     extra=vol.PREVENT_EXTRA,
 )
+
 
 TMRW_ATTR_TIMESTAMP = "startTime"
 TMRW_ATTR_TEMPERATURE = "temperature"
@@ -58,15 +60,16 @@ def exception_handler(func):
 
     async def handler(self, *args, **kwargs):
         try:
-            await func(self, *args, **kwargs)
+            return await func(self, *args, **kwargs)
         except InvalidAPIKeyException as exc:
             raise WeatherProviderError("invalid_api_key") from exc
         except RateLimitedException as exc:
             raise WeatherProviderError("rate_limited") from exc
         except CantConnectException as exc:
             raise WeatherProviderError("cannot_connect") from exc
-        except TomorrowioException as exc:
-            raise WeatherProviderError("api_error") from exc
+        except Exception as exc:
+            _LOGGER.exception("Error from pytomorrowio: %s", exc_info=exc)
+            raise WeatherProviderError("unknown") from exc
 
     return handler
 
@@ -75,10 +78,11 @@ def exception_handler(func):
 class TomorrowioWeatherProvider(WeatherProvider):
     """TODO."""
 
-    def __init__(self, hass: HomeAssistant, /, **kwargs) -> None:
+    def __init__(
+        self, hass: HomeAssistant, /, api_key: str, location: dict[str, float], **kwargs
+    ) -> None:
         """TODO."""
-        api_key: str = kwargs.pop("api_key")
-        location = kwargs.pop("location")
+        super().__init__(**kwargs)
         latitude = float(location["latitude"])
         longitude = float(location["longitude"])
 
@@ -92,13 +96,23 @@ class TomorrowioWeatherProvider(WeatherProvider):
             session=session,
         )
 
+    @property
+    def attribution(self) -> str:
+        """Return attribution to use in UI."""
+        return "Data provided by Tomorrow.io"
+
+    @property
+    def version(self) -> str:
+        """Return attribution to use in UI."""
+        return PYTOMORROWIO_VERSION  # type: ignore
+
     @staticmethod
     def _to_weather_data(date_time: datetime, values: dict[str, Any]) -> WeatherData:
         return WeatherData(
             date_time=date_time,
             temp=values[TMRW_ATTR_TEMPERATURE],
-            humidity=values.get(TMRW_ATTR_HUMIDITY),
-            wind_speed=values.get(TMRW_ATTR_WIND_SPEED),
+            humidity=values[TMRW_ATTR_HUMIDITY],
+            wind_speed=values[TMRW_ATTR_WIND_SPEED],
             pollen=max(
                 values.get(TMRW_ATTR_POLLEN_TREE, 0),
                 values.get(TMRW_ATTR_POLLEN_WEED, 0),
@@ -108,19 +122,19 @@ class TomorrowioWeatherProvider(WeatherProvider):
 
     @exception_handler
     async def realtime(self) -> WeatherData:
-        """TODO."""
+        """Retrieve realtime weather from pytomorrowio."""
         realtime = await self._api.realtime(FIELDS)
         return self._to_weather_data(utcnow().replace(microsecond=0), realtime)
 
     @exception_handler
     async def forecast(self) -> list[WeatherData]:
-        """TODO."""
+        """Retrieve weather forecast from pytomorrowio."""
         hourly_forecast = await self._api.forecast_hourly(FIELDS, start_time=utcnow())
         result: list[WeatherData] = []
         for forecast in hourly_forecast:
             start_time = parse_datetime(forecast.get(TMRW_ATTR_TIMESTAMP))
             values = forecast.get("values")
-            if not (start_time and values):
+            if not start_time or not values:
                 break
             result.append(self._to_weather_data(start_time, values))
         return result

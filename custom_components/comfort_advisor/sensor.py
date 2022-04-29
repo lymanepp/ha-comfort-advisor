@@ -14,7 +14,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import async_generate_entity_id
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import CONF_ENABLED_SENSORS, DOMAIN
+from .const import DOMAIN, ConfigValue
 from .device import ComfortAdvisorDevice
 
 _LOGGER = logging.getLogger(__name__)
@@ -45,7 +45,6 @@ class ComfortAdvisorSensor(SensorEntity):
         self._attr_name = f"{device.name} {friendly_name}"
         self._attr_device_info = device.device_info
         self._attr_native_value = None
-        self._attr_extra_state_attributes = dict(device.extra_state_attributes)
         self._attr_should_poll = False
         if device.unique_id:
             self._attr_unique_id = f"{device.unique_id}_{sensor_type}"
@@ -66,6 +65,7 @@ class ComfortAdvisorSensor(SensorEntity):
     async def async_update(self):
         """Update the state of the sensor."""
         self._attr_native_value = getattr(self._device, self.entity_description.key)
+        self._attr_extra_state_attributes = self._device.extra_state_attributes
 
 
 class SensorType(StrEnum):
@@ -84,7 +84,7 @@ SENSOR_DESCRIPTIONS: list[SensorEntityDescription] = [
     SensorEntityDescription(
         key=SensorType.OPEN_WINDOWS_REASON,
         icon="mdi:water",
-        state_class=ComfortAdvisorDeviceClass.OPEN_WINDOWS_REASON,
+        device_class=ComfortAdvisorDeviceClass.OPEN_WINDOWS_REASON,
     ),
 ]
 
@@ -109,7 +109,7 @@ async def async_setup_entry(
         for entity_description in SENSOR_DESCRIPTIONS
     ]
 
-    if enabled_sensors := config.get(CONF_ENABLED_SENSORS):
+    if enabled_sensors := config.get(ConfigValue.ENABLED_SENSORS):
         for entity in entities:
             if entity.entity_description.key not in enabled_sensors:
                 entity.entity_description.entity_registry_enabled_default = False

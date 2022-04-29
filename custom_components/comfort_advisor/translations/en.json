@@ -1,52 +1,78 @@
 {
-  "options": {
+  "config": {
+    "step": {
+      "user": {
+        "title": "Choose a weather provider"
+      },
+      "weather": {
+        "title": "Configure weather provider",
+        "data": {
+          "api_key": "API key",
+          "location": "Location"
+        },
+        "description": "{weather_desc}"
+      },
+      "inputs": {
+        "title": "Configure ambient sensors",
+        "data": {
+          "in_temp_sensor": "Indoor temperature sensor",
+          "in_humidity_sensor": "Indoor humidity sensor",
+          "out_temp_sensor": "Outdoor temperature sensor",
+          "out_humidity_sensor": "Outdoor humidity sensor"
+        }
+      },
+      "comfort": {
+        "title": "Configure comfort settings",
+        "data": {
+          "simmer_index_min": "Lowest comfortable summer simmer index",
+          "simmer_index_max": "Highest comfortable summer simmer index",
+          "dewpoint_max": "Highest comfortable dew point.",
+          "humidity_max": "Highest comfortable relative humidity."
+        },
+        "description": "The [Summer simmer index](http://summersimmer.com/home.htm) is a modern heat index equation. For SSI values between {70F} and {77F}, most people are comfortable, but slightly cool. From {77F} to {83F}, nearly everyone feels quite comfortable, while from {83F} to {91F} most are comfortable, but slightly warm.\n\n[Dew point temperatures](https://weatherology.com/trending/articles/Professor-Paul-Dew-Point-Relative-Humidity.html) tells us the absolute quantity of moisture that is in the air, thereby indicating how humid it will feel outside to our bodies. On the other hand, relative humidity only tells us how saturated the air is compared to how much it can hold."
+      },
+      "settings": {
+        "title": "Configure device settings",
+        "data": {
+          "name": "Name",
+          "enabled_sensors": "Enabled sensors",
+          "poll": "Enable polling mode",
+          "poll_interval": "Poll interval (seconds)"
+        }
+      }
+    },
     "error": {
-      "in_temp_not_found": "Indoor temperature sensor not found",
-      "in_humidity_not_found": "Indoor humidity sensor not found",
-      "out_temp_not_found": "Outdoor temperature sensor not found",
-      "out_humidity_not_found": "Outdoor humidity sensor not found"
+      "api_error": "Service API error.",
+      "cannot_connect": "Cannot connect to service.",
+      "invalid_api_key": "API key is not valid.",
+      "rate_limited": "Currently rate limited, please try again later."
+    },
+    "abort": {
+      "no_sensors": "No temperature or humidity sensors found.",
+      "load_provider": "Unable to load {provider} provider. Please [open an issue]({issue_tracker}).\n\n{message}"
+    }
+  },
+  "options": {
+    "abort": {
+      "no_sensors": "No temperature or humidity sensors found."
+    },
+    "error": {
+      "api_error": "Service API error",
+      "cannot_connect": "Cannot connect to service",
+      "invalid_api_key": "API key is not valid",
+      "rate_limited": "Service is rate-limited"
     },
     "step": {
       "init": {
         "title": "Comfort Advisor settings",
         "data": {
           "weather_provider": "Select a weather provider",
-          "api_key": "Weather provider API key",
-          "temperature_sensor": "Temperature sensor",
-          "humidity_sensor": "Humidity sensor",
-          "poll": "Enable Polling",
-          "poll_interval": "Poll interval (seconds)"
-        }
-      }
-    }
-  },
-  "config": {
-    "abort": {
-      "already_configured": "This combination of temperature and humidity sensors is already configured",
-      "no_sensors": "No temperature or humidity sensors found."
-    },
-    "error": {
-      "invalid_api_key": "API key is not valid",
-      "rate_limited": "Service is rate-limited",
-      "cannot_connect": "Cannot connect to service",
-      "api_error": "Unknown API error",
-      "in_temp_not_found": "Indoor temperature sensor not found",
-      "in_humidity_not_found": "Indoor humidity sensor not found",
-      "out_temp_not_found": "Outdoor temperature sensor not found",
-      "out_humidity_not_found": "Outdoor humidity sensor not found"
-    },
-    "step": {
-      "user": {
-        "title": "Comfort Advisor settings",
-        "data": {
-          "name": "Name",
-          "weather_provider": "Select a weather provider",
-          "api_key": "Weather provider API key",
+          "api_key": "API key",
           "in_temp_sensor": "Indoor temperature sensor",
           "in_humidity_sensor": "Indoor humidity sensor",
           "out_temp_sensor": "Outdoor temperature sensor",
           "out_humidity_sensor": "Outdoor humidity sensor",
-          "poll": "Enable Polling",
+          "poll": "Enable polling mode",
           "poll_interval": "Poll interval (seconds)",
           "enabled_sensors": "Enabled sensors"
         }

@@ -6,19 +6,58 @@ https://github.com/lymanepp/ha-comfort-advisor
 from __future__ import annotations
 
 import logging
+from typing import Final
 
+from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+import homeassistant.helpers.config_validation as cv
+import voluptuous as vol
 
-from .const import DOMAIN, PLATFORMS, SCAN_INTERVAL_FORECAST, SCAN_INTERVAL_REALTIME
+from .const import (
+    DOMAIN,
+    SCAN_INTERVAL_FORECAST,
+    SCAN_INTERVAL_REALTIME,
+    SENSOR_TYPES,
+    ConfigValue,
+)
 from .device import (
     ComfortAdvisorDevice,
     ForecastDataUpdateCoordinator,
     RealtimeDataUpdateCoordinator,
 )
-from .weather_provider import weather_provider_from_config
+from .weather import (
+    WEATHER_PROVIDER_SCHEMA,
+    WeatherProviderError,
+    weather_provider_from_config,
+)
 
 _LOGGER = logging.getLogger(__name__)
+
+PLATFORMS: Final = [Platform.SENSOR, Platform.BINARY_SENSOR]
+
+SCHEMA = vol.Schema(
+    {
+        vol.Required(str(ConfigValue.WEATHER_PROVIDER)): WEATHER_PROVIDER_SCHEMA,
+        vol.Required(str(ConfigValue.IN_TEMP_ENTITY)): vol.All(cv.entity_domain(SENSOR_DOMAIN)),
+        vol.Required(str(ConfigValue.IN_HUMIDITY_ENTITY)): vol.All(cv.entity_domain(SENSOR_DOMAIN)),
+        vol.Required(str(ConfigValue.OUT_TEMP_ENTITY)): vol.All(cv.entity_domain(SENSOR_DOMAIN)),
+        vol.Required(str(ConfigValue.OUT_HUMIDITY_ENTITY)): vol.All(
+            cv.entity_domain(SENSOR_DOMAIN)
+        ),
+        vol.Required(str(ConfigValue.NAME)): str,
+        vol.Optional(str(ConfigValue.DEWPOINT_MAX)): float,
+        vol.Optional(str(ConfigValue.SIMMER_INDEX_MAX)): float,
+        vol.Optional(str(ConfigValue.SIMMER_INDEX_MIN)): float,
+        vol.Optional(str(ConfigValue.HUMIDITY_MAX)): vol.All(
+            vol.Coerce(float), vol.Range(min=90, max=100)
+        ),
+        vol.Optional(str(ConfigValue.POLL)): bool,
+        vol.Optional(str(ConfigValue.POLL_INTERVAL)): vol.All(int, vol.Range(min=1)),
+        vol.Optional(str(ConfigValue.ENABLED_SENSORS)): cv.multi_select(SENSOR_TYPES),
+    }
+)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -30,7 +69,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # We have no unique_id yet, let's use backup.
         hass.config_entries.async_update_entry(entry, unique_id=entry.entry_id)
 
-    weather_provider = await weather_provider_from_config(hass, config)
+    try:
+        SCHEMA(config)
+    except vol.Invalid as exc:
+        _LOGGER.error("Invalid configuration: %s", exc)
+        return False
+
+    try:
+        weather_provider = await weather_provider_from_config(
+            hass, config[ConfigValue.WEATHER_PROVIDER]
+        )
+    except WeatherProviderError as exc:
+        _LOGGER.error("Weather provider didn't load: %s", exc)
+        return False
 
     realtime_service = RealtimeDataUpdateCoordinator(
         hass,
@@ -51,6 +102,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     device = ComfortAdvisorDevice(
         hass=hass,
         config_entry=entry,
+        weather_provider=weather_provider,
         realtime_service=realtime_service,
         forecast_service=forecast_service,
     )
@@ -73,4 +125,4 @@ async def async_update_options(hass: HomeAssistant, entry: ConfigEntry) -> None:
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Remove entry via user interface."""
-    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)  # type: ignore

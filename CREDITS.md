@@ -1,30 +1,36 @@
 # Creator and Maintainer
+
 [<img src="https://github.com/dolezsa.png" style="margin: 0.2em; vertical-align: middle; border-radius: 50%;border: solid 0.1px grey;" width="24"/> @dolezsa](https://github.com/dolezsa)
 
-
 # Co-Maintainer
+
 [<img src="https://github.com/rautesamtr.png" style="margin: 0.2em; vertical-align: middle; border-radius: 50%; border: solid 0.1px grey;" width="24"/> @rautesamtr](https://github.com/rautesamtr)
 
-
 # Contributors
+
 [<img src="https://github.com/IATkachenko.png" style="margin: 0.2em; vertical-align: middle; border-radius: 50%; border: solid 0.1px grey;" width="24"/> @IATkachenko](https://github.com/IATkachenko)
+
 * Support Config Flow configuration.
 
 [<img src="https://github.com/johnboiles.png" style="margin: 0.2em; vertical-align: middle; border-radius: 50%; border: solid 0.1px grey;" width="24"/> @johnboiles](https://github.com/johnboiles)
+
 * Support fahrenheit temperature sensors
 
 [<img src="https://github.com/d3m3trius.png" style="margin: 0.2em; vertical-align: middle; border-radius: 50%; border: solid 0.1px grey;" width="24"/> @d3m3trius](https://github.com/d3m3trius)
+
 * Possibility to create only some of the sensors
 
 [<img src="https://github.com/papo-o.png" style="margin: 0.2em; vertical-align: middle; border-radius: 50%; border: solid 0.1px grey;" width="24"/> @papo-o](https://github.com/papo-o)
+
 * Original frost point and frost risk sensor [implementation](https://github.com/papo-o/home-assistant-frost-risks) and support at porting it upstream.
 
 [<img src="https://github.com/lymanepp.png" style="margin: 0.2em; vertical-align: middle; border-radius: 50%; border: solid 0.1px grey;" width="24"/> @lymanepp](https://github.com/lymanepp)
+
 * Original simmer index and simmer zone [implementation](https://github.com/lymanepp/comfort_advisor).
 
 [<img src="https://github.com/ahmadtawakol.png" style="margin: 0.2em; vertical-align: middle; border-radius: 50%; border: solid 0.1px grey;" width="24"/> @ahmadtawakol](https://github.com/ahmadtawakol)
-* Upstream port of simmer index and simmer zone. Implementing tests for it.
 
+* Upstream port of simmer index and simmer zone. Implementing tests for it.
 
 # Translators
 

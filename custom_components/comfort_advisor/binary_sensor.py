@@ -15,7 +15,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import async_generate_entity_id
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import CONF_ENABLED_SENSORS, DOMAIN
+from .const import DOMAIN, ConfigValue
 from .device import ComfortAdvisorDevice
 
 _LOGGER = logging.getLogger(__name__)
@@ -63,6 +63,7 @@ class ComfortAdvisorBinarySensor(BinarySensorEntity):
     async def async_update(self):
         """Update the state of the sensor."""
         self._attr_is_on = getattr(self._device, self.entity_description.key)
+        self._attr_extra_state_attributes = self._device.extra_state_attributes
 
 
 class BinarySensorType(StrEnum):
@@ -100,7 +101,7 @@ async def async_setup_entry(
         for entity_description in BINARY_SENSOR_DESCRIPTIONS
     ]
 
-    if enabled_sensors := config.get(CONF_ENABLED_SENSORS):
+    if enabled_sensors := config.get(ConfigValue.ENABLED_SENSORS):
         for entity in entities:
             if entity.entity_description.key not in enabled_sensors:
                 entity.entity_description.entity_registry_enabled_default = False

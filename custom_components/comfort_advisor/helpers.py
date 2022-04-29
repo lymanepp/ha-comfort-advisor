@@ -5,7 +5,9 @@ import logging
 from types import ModuleType
 
 from homeassistant.core import HomeAssistant
-from homeassistant.requirements import async_process_requirements
+from homeassistant.loader import Integration, async_get_custom_components
+from homeassistant.requirements import RequirementsNotFound, async_process_requirements
+from yarl import URL
 
 from .const import DOMAIN
 
@@ -29,7 +31,23 @@ async def load_module(hass: HomeAssistant, name: str) -> ModuleType:
         return module
 
     reqs = module.REQUIREMENTS
-    await async_process_requirements(hass, f"module {name}", reqs)
+    try:
+        await async_process_requirements(hass, f"module {name}", reqs)
+    except RequirementsNotFound as exc:
+        _LOGGER.error("Unable to satisfy requirements %s: %s", name, exc)
+        raise
 
     processed.add(name)
     return module
+
+
+async def create_issue_tracker_url(hass: HomeAssistant, exc: Exception, *, title: str) -> str:
+    """Create an issue tracker URL."""
+    custom_components = await async_get_custom_components(hass)
+    integration: Integration = custom_components[DOMAIN]
+    url = URL(integration.issue_tracker) / "new"
+    body = f"**Integration:** {integration.name}\n**Version:** {integration.version}"
+    if msg := getattr(exc, "msg"):
+        body += f"\n**Message:** {msg}"
+    url = url.with_query({"title": title, "body": body})
+    return str(url)

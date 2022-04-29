@@ -2,26 +2,27 @@
 from __future__ import annotations
 
 from datetime import timedelta
-from typing import Any
+from typing import Any, Final
 
 from homeassistant.const import SPEED_MILES_PER_HOUR, TEMP_FAHRENHEIT
 from homeassistant.core import HomeAssistant
 from homeassistant.util.dt import utcnow
 import voluptuous as vol
 
-from .weather_provider import WEATHER_PROVIDERS, WeatherData, WeatherProvider
+from .weather import WEATHER_PROVIDERS, WeatherData, WeatherProvider
 
-REQUIREMENTS = []
-
-CONFIG_SCHEMA = vol.Schema({})
+REQUIREMENTS: list[str] = []
+DESCRIPTION: Final = "Faking it since 1982"
+SCHEMA = vol.Schema({}, extra=vol.PREVENT_EXTRA)
 
 
 @WEATHER_PROVIDERS.register("fake")
 class FakeWeatherProvider(WeatherProvider):
     """TODO."""
 
-    def __init__(self, hass: HomeAssistant):
+    def __init__(self, hass: HomeAssistant, **kwargs):
         """TODO."""
+        super().__init__(**kwargs)
         self._units = hass.config.units
 
     def _to_native_units(self, data: dict[str, Any]) -> WeatherData:
@@ -32,6 +33,16 @@ class FakeWeatherProvider(WeatherProvider):
             wind_speed=self._units.wind_speed(data["wind_speed"], SPEED_MILES_PER_HOUR),
             pollen=data["pollen"],
         )
+
+    @property
+    def attribution(self) -> str:
+        """Return attribution to use in UI."""
+        return "Fake it 'til you make it."
+
+    @property
+    def version(self) -> str:
+        """Return attribution to use in UI."""
+        return "0.0.0"
 
     async def realtime(self) -> WeatherData:
         """TODO."""

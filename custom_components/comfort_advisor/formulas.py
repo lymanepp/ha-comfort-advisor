@@ -29,7 +29,7 @@ def dew_point(temp: float, rh: float, temp_unit: str) -> float:
     b, c = 17.67, 243.5
     gamma = math.log(rh / 100) + b * T / (c + T)
     Td = c * gamma / (b - gamma)
-    return round(convert_temp(Td, TEMP_CELSIUS, temp_unit), 2)
+    return round(convert_temp(Td, TEMP_CELSIUS, temp_unit), 2)  # type: ignore
 
 
 def heat_index(temp: float, rh: float, temp_unit: str) -> float:
@@ -56,7 +56,7 @@ def heat_index(temp: float, rh: float, temp_unit: str) -> float:
         elif rh > 85 and 80 <= T <= 87:
             HI += ((rh - 85) * 0.1) * ((87 - T) * 0.2)
 
-    return round(convert_temp(HI, TEMP_FAHRENHEIT, temp_unit), 2)
+    return round(convert_temp(HI, TEMP_FAHRENHEIT, temp_unit), 2)  # type: ignore
 
 
 def absolute_humidity(temp: float, rh: float, temp_unit: str) -> float:
@@ -65,10 +65,8 @@ def absolute_humidity(temp: float, rh: float, temp_unit: str) -> float:
     https://carnotcycle.wordpress.com/2012/08/04/how-to-convert-relative-humidity-to-absolute-humidity
     """
     Tc = convert_temp(temp, temp_unit, TEMP_CELSIUS)
-    abs_humidity = (6.112 * math.exp((17.67 * Tc) / (243.5 + Tc)) * rh * 2.1674) / (
-        Tc + 273.15
-    )
-    return round(abs_humidity, 2)
+    abs_humidity = (6.112 * math.exp((17.67 * Tc) / (243.5 + Tc)) * rh * 2.1674) / (Tc + 273.15)
+    return round(abs_humidity, 2)  # type: ignore
 
 
 def frost_point(temp: float, rh: float, temp_unit: str) -> float:
@@ -80,11 +78,9 @@ def frost_point(temp: float, rh: float, temp_unit: str) -> float:
     T = convert_temp(temp, temp_unit, TEMP_KELVIN)
     Td = convert_temp(dp, temp_unit, TEMP_KELVIN)
 
-    frostpoint = (
-        Td + (2671.02 / ((2954.61 / T) + 2.193665 * math.log(T) - 13.3448)) - T
-    ) - 273.15
+    frostpoint = (Td + (2671.02 / ((2954.61 / T) + 2.193665 * math.log(T) - 13.3448)) - T) - 273.15
 
-    return round(convert_temp(frostpoint, TEMP_CELSIUS, temp_unit), 2)
+    return round(convert_temp(frostpoint, TEMP_CELSIUS, temp_unit), 2)  # type: ignore
 
 
 def frost_risk(temp: float, rh: float, temp_unit: str) -> FrostRisk:
@@ -97,11 +93,7 @@ def frost_risk(temp: float, rh: float, temp_unit: str) -> FrostRisk:
 
     abs_humidity_threshold = 2.8
     if temp_c <= 1 and frostpoint_c <= 0:
-        return (
-            FrostRisk.UNLIKELY
-            if abshum <= abs_humidity_threshold
-            else FrostRisk.HIGHLY_PROBABLE
-        )
+        return FrostRisk.UNLIKELY if abshum <= abs_humidity_threshold else FrostRisk.HIGHLY_PROBABLE
 
     return (
         FrostRisk.PROBABLE
@@ -117,4 +109,4 @@ def simmer_index(temp: float, rh: float, temp_unit: str) -> float:
     """
     Tf = convert_temp(temp, temp_unit, TEMP_FAHRENHEIT)
     ssi = 1.98 * (Tf - (0.55 - (0.0055 * rh)) * (Tf - 58)) - 56.83
-    return round(convert_temp(ssi, TEMP_FAHRENHEIT, temp_unit), 2)
+    return round(convert_temp(ssi, TEMP_FAHRENHEIT, temp_unit), 2)  # type: ignore
