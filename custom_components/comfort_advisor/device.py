@@ -63,9 +63,9 @@ class ComfortAdvisorDevice:
         hass: HomeAssistant,
         config_entry: ConfigEntry,
         weather_provider: WeatherProvider,
-        realtime_service=RealtimeDataUpdateCoordinator,
-        forecast_service=ForecastDataUpdateCoordinator,
-    ):
+        realtime_service: DataUpdateCoordinator[WeatherData] = RealtimeDataUpdateCoordinator,
+        forecast_service: DataUpdateCoordinator[list[WeatherData]] = ForecastDataUpdateCoordinator,
+    ) -> None:
         """Initialize the device."""
         config = config_entry.data | config_entry.options or {}
 
@@ -139,15 +139,15 @@ class ComfortAdvisorDevice:
                 config.get(ConfigValue.POLL_INTERVAL, DEFAULT_POLL_INTERVAL),
             )
 
-    def _realtime_updated(self):
+    def _realtime_updated(self) -> None:
         self._state.current = self._realtime_service.data
         self.hass.async_create_task(self.async_update_sensors())
 
-    def _forecast_updated(self):
+    def _forecast_updated(self) -> None:
         self._state.forecast = self._forecast_service.data
         self.hass.async_create_task(self.async_update_sensors())
 
-    async def _set_version(self):
+    async def _set_version(self) -> None:
         custom_components = await async_get_custom_components(self.hass)
         self._device_info["sw_version"] = custom_components[DOMAIN].version.string
 
@@ -155,7 +155,7 @@ class ComfortAdvisorDevice:
         if (new_state := self._get_new_state(event)) is not None:
             await self._update_in_temp(new_state)
 
-    async def _update_in_temp(self, state: State):
+    async def _update_in_temp(self, state: State) -> None:
         if state:
             self._state.in_temp = self._get_temp(state)
             await self.async_update()
@@ -164,7 +164,7 @@ class ComfortAdvisorDevice:
         if (new_state := self._get_new_state(event)) is not None:
             await self._update_in_humidity(new_state)
 
-    async def _update_in_humidity(self, state: State):
+    async def _update_in_humidity(self, state: State) -> None:
         if state:
             self._state.in_humidity = float(state.state)
             await self.async_update()
@@ -173,7 +173,7 @@ class ComfortAdvisorDevice:
         if (new_state := self._get_new_state(event)) is not None:
             await self._update_out_temp(new_state)
 
-    async def _update_out_temp(self, state: State):
+    async def _update_out_temp(self, state: State) -> None:
         if state:
             self._state.out_temp = self._get_temp(state)
             await self.async_update()
@@ -182,7 +182,7 @@ class ComfortAdvisorDevice:
         if (new_state := self._get_new_state(event)) is not None:
             await self._update_out_humidity(new_state)
 
-    async def _update_out_humidity(self, state: State):
+    async def _update_out_humidity(self, state: State) -> None:
         if state:
             self._state.out_humidity = float(state.state)
             await self.async_update()

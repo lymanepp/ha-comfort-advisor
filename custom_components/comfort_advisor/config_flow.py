@@ -378,7 +378,7 @@ class ComfortAdvisorOptionsFlow(OptionsFlow):
         """Initialize options flow."""
         self.config_entry = config_entry
 
-    async def async_step_init(self, user_input: ConfigType = None):
+    async def async_step_init(self, user_input: ConfigType = None) -> FlowResult:
         """Manage the options."""
 
         # errors = {}

@@ -51,7 +51,7 @@ class ComfortAdvisorBinarySensor(BinarySensorEntity):
         if device.unique_id:
             self._attr_unique_id = f"{device.unique_id}_{sensor_type}"
 
-    async def async_added_to_hass(self):
+    async def async_added_to_hass(self) -> None:
         """Run when entity about to be added to hass."""
         self._device.sensors.append(self)
         # self.async_schedule_update_ha_state(True)
@@ -60,7 +60,7 @@ class ComfortAdvisorBinarySensor(BinarySensorEntity):
         """Run when entity will be removed from hass."""
         self._device.sensors.remove(self)
 
-    async def async_update(self):
+    async def async_update(self) -> None:
         """Update the state of the sensor."""
         self._attr_is_on = getattr(self._device, self.entity_description.key)
         self._attr_extra_state_attributes = self._device.extra_state_attributes
