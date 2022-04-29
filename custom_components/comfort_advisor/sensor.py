@@ -80,7 +80,7 @@ class ComfortAdvisorDeviceClass(StrEnum):
     OPEN_WINDOWS_REASON = "comfort_advisor__open_windows_reason"
 
 
-SENSOR_DESCRIPTIONS: list[SensorEntityDescription] = [
+SENSOR_DESCRIPTIONS = [
     SensorEntityDescription(
         key=SensorType.OPEN_WINDOWS_REASON,
         icon="mdi:water",
@@ -100,7 +100,7 @@ async def async_setup_entry(
 
     _LOGGER.debug("async_setup_entry: %s", config_entry)
 
-    entities: list[ComfortAdvisorSensor] = [
+    entities = [
         ComfortAdvisorSensor(
             device=device,
             entity_description=entity_description,

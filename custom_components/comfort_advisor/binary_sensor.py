@@ -72,7 +72,7 @@ class BinarySensorType(StrEnum):
     OPEN_WINDOWS = "open_windows"
 
 
-BINARY_SENSOR_DESCRIPTIONS: list[BinarySensorEntityDescription] = [
+BINARY_SENSOR_DESCRIPTIONS = [
     BinarySensorEntityDescription(
         key=BinarySensorType.OPEN_WINDOWS,
         device_class=BinarySensorDeviceClass.WINDOW,
@@ -92,7 +92,7 @@ async def async_setup_entry(
 
     _LOGGER.debug("async_setup_entry: %s", config_entry)
 
-    entities: list[ComfortAdvisorBinarySensor] = [
+    entities = [
         ComfortAdvisorBinarySensor(
             device=device,
             entity_description=entity_description,
