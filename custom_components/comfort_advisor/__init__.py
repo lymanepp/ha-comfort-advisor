@@ -40,10 +40,10 @@ PLATFORMS: Final = [Platform.SENSOR, Platform.BINARY_SENSOR]
 SCHEMA = vol.Schema(
     {
         vol.Required(str(ConfigValue.WEATHER_PROVIDER)): WEATHER_PROVIDER_SCHEMA,
-        vol.Required(str(ConfigValue.IN_TEMP_ENTITY)): vol.All(cv.entity_domain(SENSOR_DOMAIN)),
-        vol.Required(str(ConfigValue.IN_HUMIDITY_ENTITY)): vol.All(cv.entity_domain(SENSOR_DOMAIN)),
-        vol.Required(str(ConfigValue.OUT_TEMP_ENTITY)): vol.All(cv.entity_domain(SENSOR_DOMAIN)),
-        vol.Required(str(ConfigValue.OUT_HUMIDITY_ENTITY)): vol.All(
+        vol.Required(str(ConfigValue.IN_TEMP_SENSOR)): vol.All(cv.entity_domain(SENSOR_DOMAIN)),
+        vol.Required(str(ConfigValue.IN_HUMIDITY_SENSOR)): vol.All(cv.entity_domain(SENSOR_DOMAIN)),
+        vol.Required(str(ConfigValue.OUT_TEMP_SENSOR)): vol.All(cv.entity_domain(SENSOR_DOMAIN)),
+        vol.Required(str(ConfigValue.OUT_HUMIDITY_SENSOR)): vol.All(
             cv.entity_domain(SENSOR_DOMAIN)
         ),
         vol.Required(str(ConfigValue.NAME)): str,
@@ -51,7 +51,10 @@ SCHEMA = vol.Schema(
         vol.Optional(str(ConfigValue.SIMMER_INDEX_MAX)): float,
         vol.Optional(str(ConfigValue.SIMMER_INDEX_MIN)): float,
         vol.Optional(str(ConfigValue.HUMIDITY_MAX)): vol.All(
-            vol.Coerce(float), vol.Range(min=90, max=100)
+            vol.Coerce(int), vol.Range(min=90, max=100)
+        ),
+        vol.Optional(str(ConfigValue.POLLEN_MAX)): vol.All(
+            vol.Coerce(int), vol.Range(min=0, max=5)
         ),
         vol.Optional(str(ConfigValue.POLL)): bool,
         vol.Optional(str(ConfigValue.POLL_INTERVAL)): vol.All(int, vol.Range(min=1)),

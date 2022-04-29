@@ -71,7 +71,7 @@ class NwsWeatherProvider(WeatherProvider):
     @property
     def attribution(self) -> str:
         """Return attribution to use in UI."""
-        return "Data provided by the National Weather Service/NOAA"
+        return "Forecast provided by the National Weather Service/NOAA"
 
     @property
     def version(self) -> str:

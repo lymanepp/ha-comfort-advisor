@@ -85,10 +85,10 @@ class ComfortAdvisorDevice:
         self._realtime_service = realtime_service
         self._forecast_service = forecast_service
 
-        self._in_temp_entity: str = config[ConfigValue.IN_TEMP_ENTITY]
-        self._in_humidity_entity: str = config[ConfigValue.IN_HUMIDITY_ENTITY]
-        self._out_temp_entity: str = config[ConfigValue.OUT_TEMP_ENTITY]
-        self._out_humidity_entity: str = config[ConfigValue.OUT_HUMIDITY_ENTITY]
+        self._in_temp_entity: str = config[ConfigValue.IN_TEMP_SENSOR]
+        self._in_humidity_entity: str = config[ConfigValue.IN_HUMIDITY_SENSOR]
+        self._out_temp_entity: str = config[ConfigValue.OUT_TEMP_SENSOR]
+        self._out_humidity_entity: str = config[ConfigValue.OUT_HUMIDITY_SENSOR]
         self._dewp_comfort_max: float = config[ConfigValue.DEWPOINT_MAX]
         self._ssi_comfort_max: float = config[ConfigValue.SIMMER_INDEX_MAX]
         self._ssi_comfort_min: float = config[ConfigValue.SIMMER_INDEX_MIN]
@@ -292,10 +292,10 @@ class ComfortAdvisorDevice:
 
         self.extra_state_attributes.update(
             {
-                "in_dewp": in_dewp,
-                "in_ssi": in_ssi,
-                "out_dewp": out_dewp,
-                "out_ssi": out_ssi,
+                "inside_dew_point": in_dewp,
+                "inside_simmer_index": in_ssi,
+                "outside_dew_point": out_dewp,
+                "outside_simmer_index": out_ssi,
             }
         )
 

@@ -99,7 +99,7 @@ class TomorrowioWeatherProvider(WeatherProvider):
     @property
     def attribution(self) -> str:
         """Return attribution to use in UI."""
-        return "Data provided by Tomorrow.io"
+        return "Weather forecast provided by Tomorrow.io"
 
     @property
     def version(self) -> str:

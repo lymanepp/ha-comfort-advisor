@@ -30,6 +30,7 @@ from .const import (
     DEFAULT_NAME,
     DEFAULT_POLL,
     DEFAULT_POLL_INTERVAL,
+    DEFAULT_POLLEN_MAX,
     DEFAULT_SIMMER_INDEX_MAX,
     DEFAULT_SIMMER_INDEX_MIN,
     DOMAIN,
@@ -122,20 +123,20 @@ def _build_inputs_schema(hass: HomeAssistant, user_input: ConfigType) -> vol.Sch
     return vol.Schema(
         {
             vol.Required(
-                str(ConfigValue.IN_TEMP_ENTITY),
-                default=user_input.get(ConfigValue.IN_TEMP_ENTITY),
+                str(ConfigValue.IN_TEMP_SENSOR),
+                default=user_input.get(ConfigValue.IN_TEMP_SENSOR),
             ): vol.In(temp_sensors),
             vol.Required(
-                str(ConfigValue.IN_HUMIDITY_ENTITY),
-                default=user_input.get(ConfigValue.IN_HUMIDITY_ENTITY),
+                str(ConfigValue.IN_HUMIDITY_SENSOR),
+                default=user_input.get(ConfigValue.IN_HUMIDITY_SENSOR),
             ): vol.In(humidity_sensors),
             vol.Required(
-                str(ConfigValue.OUT_TEMP_ENTITY),
-                default=user_input.get(ConfigValue.OUT_TEMP_ENTITY),
+                str(ConfigValue.OUT_TEMP_SENSOR),
+                default=user_input.get(ConfigValue.OUT_TEMP_SENSOR),
             ): vol.In(temp_sensors),
             vol.Required(
-                str(ConfigValue.OUT_HUMIDITY_ENTITY),
-                default=user_input.get(ConfigValue.OUT_HUMIDITY_ENTITY),
+                str(ConfigValue.OUT_HUMIDITY_SENSOR),
+                default=user_input.get(ConfigValue.OUT_HUMIDITY_SENSOR),
             ): vol.In(humidity_sensors),
         }
     )
@@ -149,15 +150,9 @@ def _build_comfort_schema(hass: HomeAssistant, user_input: ConfigType) -> vol.Sc
     ssi_min = round(convert_temp(DEFAULT_SIMMER_INDEX_MIN, TEMP_FAHRENHEIT, temp_unit), 1)
     temperature_selector = selector({"number": {"mode": "box", "unit_of_measurement": temp_unit}})
     humidity_selector = selector(
-        {
-            "number": {
-                "mode": "slider",
-                "unit_of_measurement": "%",
-                "min": 90,
-                "max": 100,
-            }
-        }
+        {"number": {"mode": "slider", "unit_of_measurement": "%", "min": 90, "max": 100}}
     )
+    pollen_selector = selector({"number": {"mode": "slider", "min": 0, "max": 5}})
 
     return vol.Schema(
         {
@@ -177,6 +172,10 @@ def _build_comfort_schema(hass: HomeAssistant, user_input: ConfigType) -> vol.Sc
                 str(ConfigValue.HUMIDITY_MAX),
                 default=user_input.get(ConfigValue.HUMIDITY_MAX, DEFAULT_HUMIDITY_MAX),
             ): vol.All(humidity_selector),
+            vol.Required(
+                str(ConfigValue.POLLEN_MAX),
+                default=user_input.get(ConfigValue.POLLEN_MAX, DEFAULT_POLLEN_MAX),
+            ): vol.All(pollen_selector),
         }
     )
 
@@ -211,10 +210,10 @@ def _create_unique_id(hass: HomeAssistant, user_input: ConfigType) -> str:
     values = [
         ent_reg.async_get(user_input[key]).unique_id
         for key in (
-            ConfigValue.IN_TEMP_ENTITY,
-            ConfigValue.IN_HUMIDITY_ENTITY,
-            ConfigValue.OUT_TEMP_ENTITY,
-            ConfigValue.OUT_HUMIDITY_ENTITY,
+            ConfigValue.IN_TEMP_SENSOR,
+            ConfigValue.IN_HUMIDITY_SENSOR,
+            ConfigValue.OUT_TEMP_SENSOR,
+            ConfigValue.OUT_HUMIDITY_SENSOR,
         )
     ]
     return md5(str(values).encode("utf8")).hexdigest()
@@ -315,7 +314,7 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
 
         self._inputs_schema = self._inputs_schema or _build_inputs_schema(self.hass, user_input)
 
-        if ConfigValue.IN_TEMP_ENTITY in user_input:
+        if ConfigValue.IN_TEMP_SENSOR in user_input:
             self._config.update(user_input)
             return await self.async_step_comfort(user_input={})
 
