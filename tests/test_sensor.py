@@ -6,35 +6,34 @@ from homeassistant.components.command_line.const import DOMAIN as COMMAND_LINE_D
 from homeassistant.components.sensor import DOMAIN as PLATFORM_DOMAIN
 import pytest
 
-from custom_components.comfort_advisor.const import DOMAIN
-from custom_components.comfort_advisor.sensor import DEFAULT_SENSOR_TYPES, SensorType
+from custom_components.comfort_advisor.const import DOMAIN, SENSOR_TYPES
 
 _LOGGER = logging.getLogger(__name__)
 
 TEST_NAME = "sensor.test_comfort_advisor"
 
-INDOOR_TEMPERATURE_TEST_SENSOR = {
+IN_TEMP_TEST_SENSOR = {
     "platform": COMMAND_LINE_DOMAIN,
     "command": "echo 0",
     "name": "test_indoor_temp_sensor",
     "value_template": "{{ 25.0 | float }}",
 }
 
-INDOOR_HUMIDITY_TEST_SENSOR = {
+IN_HUMIDITY_TEST_SENSOR = {
     "platform": COMMAND_LINE_DOMAIN,
     "command": "echo 0",
     "name": "test_indoor_humidity_sensor",
     "value_template": "{{ 50.0 | float }}",
 }
 
-OUTDOOR_TEMPERATURE_TEST_SENSOR = {
+OUT_TEMP_TEST_SENSOR = {
     "platform": COMMAND_LINE_DOMAIN,
     "command": "echo 0",
     "name": "test_outdoor_temp_sensor",
     "value_template": "{{ 20.0 | float }}",
 }
 
-OUTDOOR_HUMIDITY_TEST_SENSOR = {
+OUT_HUMIDITY_TEST_SENSOR = {
     "platform": COMMAND_LINE_DOMAIN,
     "command": "echo 0",
     "name": "test_outdoor_humidity_sensor",
@@ -48,10 +47,10 @@ DEFAULT_TEST_SENSORS = [
             [(PLATFORM_DOMAIN, 4)],
             {
                 PLATFORM_DOMAIN: [
-                    INDOOR_TEMPERATURE_TEST_SENSOR,
-                    INDOOR_HUMIDITY_TEST_SENSOR,
-                    OUTDOOR_TEMPERATURE_TEST_SENSOR,
-                    OUTDOOR_HUMIDITY_TEST_SENSOR,
+                    IN_TEMP_TEST_SENSOR,
+                    IN_HUMIDITY_TEST_SENSOR,
+                    OUT_TEMP_TEST_SENSOR,
+                    OUT_HUMIDITY_TEST_SENSOR,
                     {
                         "platform": DOMAIN,
                         "sensors": {
@@ -70,10 +69,10 @@ DEFAULT_TEST_SENSORS = [
             [(PLATFORM_DOMAIN, 4), (DOMAIN, 1)],
             {
                 PLATFORM_DOMAIN: [
-                    INDOOR_TEMPERATURE_TEST_SENSOR,
-                    INDOOR_HUMIDITY_TEST_SENSOR,
-                    OUTDOOR_TEMPERATURE_TEST_SENSOR,
-                    OUTDOOR_HUMIDITY_TEST_SENSOR,
+                    IN_TEMP_TEST_SENSOR,
+                    IN_HUMIDITY_TEST_SENSOR,
+                    OUT_TEMP_TEST_SENSOR,
+                    OUT_HUMIDITY_TEST_SENSOR,
                 ],
                 DOMAIN: {
                     PLATFORM_DOMAIN: {
@@ -90,13 +89,7 @@ DEFAULT_TEST_SENSORS = [
     ],
 ]
 
-LEN_DEFAULT_SENSORS = len(DEFAULT_SENSOR_TYPES)
-
-
-def get_sensor(hass, sensor_type: SensorType) -> str:
-    """Get test sensor id."""
-    # TODO deprecate shortform in 2.0
-    return hass.states.get(f"{TEST_NAME}_{sensor_type.to_shortform()}")
+LEN_DEFAULT_SENSORS = len(SENSOR_TYPES)
 
 
 @pytest.mark.parametrize(*DEFAULT_TEST_SENSORS)

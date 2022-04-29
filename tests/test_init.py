@@ -4,11 +4,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.comfort_advisor import (
+    PLATFORMS,
     async_setup_entry,
     async_unload_entry,
     async_update_options,
 )
-from custom_components.comfort_advisor.const import DOMAIN, PLATFORMS
+from custom_components.comfort_advisor.const import DOMAIN
 
 from .const import ADVANCED_USER_INPUT
 
@@ -28,17 +29,14 @@ async def test_setup_update_unload_entry(hass):
     assert DOMAIN in hass.data and config_entry.entry_id in hass.data[DOMAIN]
 
     # check user input is in config
-    for key in ADVANCED_USER_INPUT.keys():
+    # TODO: this needs to be updated
+    for key, value in ADVANCED_USER_INPUT.items():
         if key in hass.data[DOMAIN][config_entry.entry_id]:
-            assert (
-                hass.data[DOMAIN][config_entry.entry_id][key]
-                == ADVANCED_USER_INPUT[key]
-            )
+            assert hass.data[DOMAIN][config_entry.entry_id][key] == value
 
-    hass.config_entries.async_setup_platforms.assert_called_with(
-        config_entry, PLATFORMS
-    )
+    hass.config_entries.async_setup_platforms.assert_called_with(config_entry, PLATFORMS)
 
+    # TODO: this needs to be updated
     # ToDo test hass.data[DOMAIN][config_entry.entry_id][UPDATE_LISTENER]
 
     hass.config_entries.async_reload = AsyncMock()

@@ -1,21 +1,15 @@
 """Test integration_blueprint config flow."""
 
 import json
+import pathlib
 from unittest.mock import MagicMock, patch
 
 from homeassistant import config_entries, data_entry_flow
-from homeassistant.const import CONF_NAME
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 import voluptuous as vol
 
-from custom_components.comfort_advisor.const import DOMAIN
-from custom_components.comfort_advisor.sensor import (
-    CONF_INDOOR_HUMIDITY_SENSOR,
-    CONF_INDOOR_TEMPERATURE_SENSOR,
-    CONF_OUTDOOR_HUMIDITY_SENSOR,
-    CONF_OUTDOOR_TEMPERATURE_SENSOR,
-)
+from custom_components.comfort_advisor.const import DOMAIN, ConfigValue
 
 from .const import ADVANCED_USER_INPUT, USER_INPUT
 from .test_sensor import DEFAULT_TEST_SENSORS
@@ -46,9 +40,7 @@ async def _flow_configure(hass, r, _input=ADVANCED_USER_INPUT):
         "homeassistant.helpers.entity_registry.EntityRegistry.async_get",
         return_value=MagicMock(unique_id="foo"),
     ):
-        return await hass.config_entries.flow.async_configure(
-            r["flow_id"], user_input=_input
-        )
+        return await hass.config_entries.flow.async_configure(r["flow_id"], user_input=_input)
 
 
 @pytest.mark.parametrize(*DEFAULT_TEST_SENSORS)
@@ -65,7 +57,7 @@ async def test_successful_config_flow(hass, start_ha):
 
     assert result["type"] == data_entry_flow.RESULT_TYPE_CREATE_ENTRY
 
-    assert result["title"] == ADVANCED_USER_INPUT[CONF_NAME]
+    assert result["title"] == ADVANCED_USER_INPUT[ConfigValue.NAME]
     assert result["data"] == ADVANCED_USER_INPUT
     assert result["result"]
 
@@ -116,19 +108,19 @@ async def test_options_flow(hass, start_ha):
 
 async def test_config_flow_enabled():
     """Test is manifest.json have 'config_flow': true."""
-    with open("custom_components/comfort_advisor/manifest.json") as f:
-        manifest = json.load(f)
-        assert manifest.get("config_flow") is True
+    path = pathlib.Path.cwd() / "custom_components" / DOMAIN / "manifest.json"
+    manifest = json.loads(path.read_text())
+    assert manifest.get("config_flow") is True
 
 
 @pytest.mark.parametrize(*DEFAULT_TEST_SENSORS)
 @pytest.mark.parametrize(
     "sensor",
     [
-        CONF_INDOOR_TEMPERATURE_SENSOR,
-        CONF_INDOOR_HUMIDITY_SENSOR,
-        CONF_OUTDOOR_TEMPERATURE_SENSOR,
-        CONF_OUTDOOR_HUMIDITY_SENSOR,
+        ConfigValue.IN_TEMP_SENSOR,
+        ConfigValue.IN_HUMIDITY_SENSOR,
+        ConfigValue.OUT_TEMP_SENSOR,
+        ConfigValue.OUT_HUMIDITY_SENSOR,
     ],
 )
 async def test_missed_sensors(hass, sensor, start_ha):
