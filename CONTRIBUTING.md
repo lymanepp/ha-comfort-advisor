@@ -1,8 +1,10 @@
 # Contributing to Comfort Advisor
+
 Everybody is invited and welcome to contribute to Comfort Advisor.
 
 ## Report bugs using Github's [issues](https://github.com/lymanepp/ha-comfort-advisor/issues)
-We use GitHub issues to track public bugs. Report a bug by [opening a new issue](https://github.com/lymanepp/ha-comfort-advisor/issues/new/choose).
+
+I use GitHub issues to track public bugs. Report a bug by [opening a new issue](https://github.com/lymanepp/ha-comfort-advisor/issues/new/choose).
 
 ## Write bug reports with detail, background, and sample code
 
@@ -19,6 +21,7 @@ We use GitHub issues to track public bugs. Report a bug by [opening a new issue]
 People *love* thorough bug reports. I'm not even kidding.
 
 ## Pull Requests
+
 1. Fork the repo and create your branch from `master`.
 2. Make sure you have pre-commit installed and run `pre-commit install`.
 3. If you've added code that should be tested, add tests.
@@ -28,20 +31,26 @@ People *love* thorough bug reports. I'm not even kidding.
 7. Issue that pull request!
 
 ## Test Suite
- 1. Setup local tests:
+
+1. Setup local tests:
+
 ```bash
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements.test.txt
 ```
+
 2. Run local tests:
+
 ```bash
 source venv/bin/activate
 pytest
 ```
 
 ## Style Guideline
+
 We use [home assistants style guideline](https://developers.home-assistant.io/docs/development_guidelines).
 
 ## Contributor Credits
+
 You can add yourself to [CREDITS.md](CREDITS.md) in your PR. Otherwise you will be added before our next release.
