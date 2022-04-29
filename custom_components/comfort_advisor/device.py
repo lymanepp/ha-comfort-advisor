@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import logging
 import math
 from typing import Any, cast
 
@@ -32,12 +31,6 @@ from .const import (
 from .formulas import dew_point, simmer_index
 from .weather import WeatherData, WeatherProvider
 
-_LOGGER = logging.getLogger(__name__)
-
-
-RealtimeDataUpdateCoordinator = DataUpdateCoordinator[WeatherData]
-ForecastDataUpdateCoordinator = DataUpdateCoordinator[list[WeatherData]]
-
 
 @dataclass
 class DeviceState:
@@ -63,8 +56,8 @@ class ComfortAdvisorDevice:
         hass: HomeAssistant,
         config_entry: ConfigEntry,
         weather_provider: WeatherProvider,
-        realtime_service: DataUpdateCoordinator[WeatherData] = RealtimeDataUpdateCoordinator,
-        forecast_service: DataUpdateCoordinator[list[WeatherData]] = ForecastDataUpdateCoordinator,
+        realtime_service: DataUpdateCoordinator[WeatherData],
+        forecast_service: DataUpdateCoordinator[list[WeatherData]],
     ) -> None:
         """Initialize the device."""
         config = config_entry.data | config_entry.options or {}
@@ -81,19 +74,24 @@ class ComfortAdvisorDevice:
         self._realtime_service = realtime_service
         self._forecast_service = forecast_service
 
+        # input sensors
         self._in_temp_entity: str = config[ConfigValue.IN_TEMP_SENSOR]
         self._in_humidity_entity: str = config[ConfigValue.IN_HUMIDITY_SENSOR]
         self._out_temp_entity: str = config[ConfigValue.OUT_TEMP_SENSOR]
         self._out_humidity_entity: str = config[ConfigValue.OUT_HUMIDITY_SENSOR]
+
+        # comfort settings
         self._dewp_comfort_max: float = config[ConfigValue.DEWPOINT_MAX]
         self._ssi_comfort_max: float = config[ConfigValue.SIMMER_INDEX_MAX]
         self._ssi_comfort_min: float = config[ConfigValue.SIMMER_INDEX_MIN]
-        self._should_poll: bool = config.get(ConfigValue.POLL, False)
+        self._humidity_max: int = config[ConfigValue.HUMIDITY_MAX]
+        self._pollen_max: int = config[ConfigValue.POLLEN_MAX]
+
+        # device settings
+        self._should_poll: bool = config[ConfigValue.POLL]
+        self._poll_interval: int = config[ConfigValue.POLL_INTERVAL]
 
         self._temp_unit = self.hass.config.units.temperature_unit
-
-        # TODO: this needs to come from configuration
-        self.rh_max = 95.0
 
         self._state = DeviceState()
 
@@ -152,8 +150,8 @@ class ComfortAdvisorDevice:
         self._device_info["sw_version"] = custom_components[DOMAIN].version.string
 
     async def _in_temp_listener(self, event: Event) -> None:
-        if (new_state := self._get_new_state(event)) is not None:
-            await self._update_in_temp(new_state)
+        if (state := self._get_new_state(event)) is not None:
+            await self._update_in_temp(state)
 
     async def _update_in_temp(self, state: State) -> None:
         if state:
@@ -161,8 +159,8 @@ class ComfortAdvisorDevice:
             await self.async_update()
 
     async def _in_humidity_listener(self, event: Event) -> None:
-        if (new_state := self._get_new_state(event)) is not None:
-            await self._update_in_humidity(new_state)
+        if (state := self._get_new_state(event)) is not None:
+            await self._update_in_humidity(state)
 
     async def _update_in_humidity(self, state: State) -> None:
         if state:
@@ -170,8 +168,8 @@ class ComfortAdvisorDevice:
             await self.async_update()
 
     async def _out_temp_listener(self, event: Event) -> None:
-        if (new_state := self._get_new_state(event)) is not None:
-            await self._update_out_temp(new_state)
+        if (state := self._get_new_state(event)) is not None:
+            await self._update_out_temp(state)
 
     async def _update_out_temp(self, state: State) -> None:
         if state:
@@ -179,8 +177,8 @@ class ComfortAdvisorDevice:
             await self.async_update()
 
     async def _out_humidity_listener(self, event: Event) -> None:
-        if (new_state := self._get_new_state(event)) is not None:
-            await self._update_out_humidity(new_state)
+        if (state := self._get_new_state(event)) is not None:
+            await self._update_out_humidity(state)
 
     async def _update_out_humidity(self, state: State) -> None:
         if state:
@@ -243,7 +241,7 @@ class ComfortAdvisorDevice:
 
         def is_comfortable(dewp: float, ssi: float, rel_hum: float) -> bool:
             return (
-                rel_hum <= self.rh_max
+                rel_hum <= self._humidity_max
                 and ssi <= self._ssi_comfort_max
                 and dewp <= self._dewp_comfort_max
             )
@@ -280,7 +278,7 @@ class ComfortAdvisorDevice:
             else (False, "out_ssi_high")
             if out_ssi > self._ssi_comfort_max
             else (False, "out_humidity_high")
-            if out_dewp > self._dewp_comfort_max or state.out_humidity > self.rh_max
+            if out_dewp > self._dewp_comfort_max or state.out_humidity > self._humidity_max
             else (False, "out_forecast_cool")
             if (in_ssi <= self._ssi_comfort_max and max(hourly_ssi) <= self._ssi_comfort_min)
             else (True, "out_better")

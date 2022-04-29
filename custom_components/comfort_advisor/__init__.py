@@ -8,13 +8,14 @@ from __future__ import annotations
 import logging
 from typing import Final
 
-from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 import homeassistant.helpers.config_validation as cv
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 import voluptuous as vol
 
+from .config_flow import humidity_sensor_selector, temp_sensor_selector  # TODO!
 from .const import (
     DOMAIN,
     SCAN_INTERVAL_FORECAST,
@@ -22,13 +23,10 @@ from .const import (
     SENSOR_TYPES,
     ConfigValue,
 )
-from .device import (
-    ComfortAdvisorDevice,
-    ForecastDataUpdateCoordinator,
-    RealtimeDataUpdateCoordinator,
-)
+from .device import ComfortAdvisorDevice
 from .weather import (
     WEATHER_PROVIDER_SCHEMA,
+    WeatherData,
     WeatherProviderError,
     weather_provider_from_config,
 )
@@ -37,15 +35,13 @@ _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: Final = [Platform.SENSOR, Platform.BINARY_SENSOR]
 
-SCHEMA = vol.Schema(
+DATA_SCHEMA = vol.Schema(
     {
         vol.Required(str(ConfigValue.WEATHER_PROVIDER)): WEATHER_PROVIDER_SCHEMA,
-        vol.Required(str(ConfigValue.IN_TEMP_SENSOR)): vol.All(cv.entity_domain(SENSOR_DOMAIN)),
-        vol.Required(str(ConfigValue.IN_HUMIDITY_SENSOR)): vol.All(cv.entity_domain(SENSOR_DOMAIN)),
-        vol.Required(str(ConfigValue.OUT_TEMP_SENSOR)): vol.All(cv.entity_domain(SENSOR_DOMAIN)),
-        vol.Required(str(ConfigValue.OUT_HUMIDITY_SENSOR)): vol.All(
-            cv.entity_domain(SENSOR_DOMAIN)
-        ),
+        vol.Required(str(ConfigValue.IN_TEMP_SENSOR)): temp_sensor_selector,
+        vol.Required(str(ConfigValue.IN_HUMIDITY_SENSOR)): humidity_sensor_selector,
+        vol.Required(str(ConfigValue.OUT_TEMP_SENSOR)): temp_sensor_selector,
+        vol.Required(str(ConfigValue.OUT_HUMIDITY_SENSOR)): humidity_sensor_selector,
         vol.Required(str(ConfigValue.NAME)): str,
         vol.Optional(str(ConfigValue.DEWPOINT_MAX)): float,
         vol.Optional(str(ConfigValue.SIMMER_INDEX_MAX)): float,
@@ -73,7 +69,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.config_entries.async_update_entry(entry, unique_id=entry.entry_id)
 
     try:
-        SCHEMA(config)
+        DATA_SCHEMA(config)
     except vol.Invalid as exc:
         _LOGGER.error("Invalid configuration: %s", exc)
         return False
@@ -86,7 +82,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _LOGGER.error("Weather provider didn't load: %s", exc)
         return False
 
-    realtime_service = RealtimeDataUpdateCoordinator(
+    realtime_service = DataUpdateCoordinator[WeatherData](
         hass,
         _LOGGER,
         name=f"{DOMAIN}_realtime_service",
@@ -94,7 +90,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         update_method=weather_provider.realtime,
     )
 
-    forecast_service = ForecastDataUpdateCoordinator(
+    forecast_service = DataUpdateCoordinator[list[WeatherData]](
         hass,
         _LOGGER,
         name=f"{DOMAIN}_forecast_service",
