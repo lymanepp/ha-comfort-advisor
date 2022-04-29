@@ -78,6 +78,12 @@ def get_sensors_by_device_class(
     return result
 
 
+def _build_user_schema() -> vol.Schema:
+    return vol.Schema(
+        {vol.Required(str(ConfigValue.PROVIDER_TYPE)): vol.All(str, vol.In(WEATHER_PROVIDER_TYPES))}
+    )
+
+
 async def _build_weather_schema(
     hass: HomeAssistant, config_schema: vol.Schema, user_input: ConfigType
 ) -> vol.Schema:
@@ -252,13 +258,7 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
             self._provider_name = list(WEATHER_PROVIDER_TYPES.keys())[0]
             return await self.async_step_weather()
 
-        self._user_schema = self._user_schema or vol.Schema(
-            {
-                vol.Required(str(ConfigValue.PROVIDER_TYPE)): vol.All(
-                    str, vol.In(WEATHER_PROVIDER_TYPES)
-                )
-            }
-        )
+        self._user_schema = self._user_schema or _build_user_schema()
 
         return self.async_show_form(step_id="user", data_schema=self._user_schema)
 
