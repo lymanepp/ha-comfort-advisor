@@ -9,15 +9,15 @@ from homeassistant.core import HomeAssistant
 from homeassistant.util.dt import utcnow
 import voluptuous as vol
 
-from .weather import WEATHER_PROVIDERS, WeatherData, WeatherProvider
+from .provider import PROVIDERS, Provider, WeatherData
 
 REQUIREMENTS: list[str] = []
 DESCRIPTION: Final = "Faking it since 1982"
 SCHEMA = vol.Schema({}, extra=vol.PREVENT_EXTRA)
 
 
-@WEATHER_PROVIDERS.register("fake")
-class FakeWeatherProvider(WeatherProvider):
+@PROVIDERS.register("fake")
+class FakeProvider(Provider):
     """TODO."""
 
     def __init__(self, hass: HomeAssistant, **kwargs) -> None:  # type: ignore

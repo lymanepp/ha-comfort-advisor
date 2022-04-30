@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import logging
 from typing import Any, Callable, Coroutine, Final, ParamSpec, TypeVar, cast
-from aiohttp import ClientConnectionError
 
+from aiohttp import ClientConnectionError
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import selector
@@ -13,12 +13,7 @@ from pynws import SimpleNWS, version as PYNWS_VERSION
 from pynws.const import Detail
 import voluptuous as vol
 
-from .weather import (
-    WEATHER_PROVIDERS,
-    WeatherData,
-    WeatherProvider,
-    WeatherProviderError,
-)
+from .provider import PROVIDERS, Provider, ProviderError, WeatherData
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -47,16 +42,16 @@ def async_exception_handler(
         try:
             return await wrapped(*args, **kwargs)
         except ClientConnectionError as exc:
-            raise WeatherProviderError("cannot_connect") from exc
+            raise ProviderError("cannot_connect") from exc
         except Exception as exc:
             _LOGGER.exception("Error from pynws: %s", exc_info=exc)
-            raise WeatherProviderError("unknown") from exc
+            raise ProviderError("unknown") from exc
 
     return wrapper
 
 
-@WEATHER_PROVIDERS.register("nws")
-class NwsWeatherProvider(WeatherProvider):
+@PROVIDERS.register("nws")
+class NwsWeatherProvider(Provider):
     """TODO."""
 
     def __init__(  # type: ignore
@@ -95,7 +90,7 @@ class NwsWeatherProvider(WeatherProvider):
         # obs = self._api.observation
         # TODO: map to WeatherData
         # return self._to_weather_data(utcnow().replace(microsecond=0), realtime)
-        raise WeatherProviderError("api_error")
+        raise ProviderError("api_error")
 
     @async_exception_handler
     async def forecast(self) -> list[WeatherData]:

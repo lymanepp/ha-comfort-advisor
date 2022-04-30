@@ -24,11 +24,11 @@ from .const import (
     ConfigValue,
 )
 from .device import ComfortAdvisorDevice
-from .weather import (
-    WEATHER_PROVIDER_SCHEMA,
+from .provider import (
+    SCHEMA as PROVIDER_SCHEMA,
+    ProviderError,
     WeatherData,
-    WeatherProviderError,
-    weather_provider_from_config,
+    create_provider_from_config,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -37,7 +37,7 @@ PLATFORMS: Final = [Platform.SENSOR, Platform.BINARY_SENSOR]
 
 DATA_SCHEMA = vol.Schema(
     {
-        vol.Required(str(ConfigValue.WEATHER_PROVIDER)): WEATHER_PROVIDER_SCHEMA,
+        vol.Required(str(ConfigValue.PROVIDER)): PROVIDER_SCHEMA,
         vol.Required(str(ConfigValue.IN_TEMP_SENSOR)): temp_sensor_selector,
         vol.Required(str(ConfigValue.IN_HUMIDITY_SENSOR)): humidity_sensor_selector,
         vol.Required(str(ConfigValue.OUT_TEMP_SENSOR)): temp_sensor_selector,
@@ -77,10 +77,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         return False
 
     try:
-        weather_provider = await weather_provider_from_config(
-            hass, config[ConfigValue.WEATHER_PROVIDER]
-        )
-    except WeatherProviderError as exc:
+        provider = await create_provider_from_config(hass, config[ConfigValue.PROVIDER])
+    except ProviderError as exc:
         _LOGGER.error(
             "Weather provider didn't load: %s, %s, %s", exc, exc.error_key, exc.extra_info
         )
@@ -91,7 +89,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _LOGGER,
         name=f"{DOMAIN}_realtime_service",
         update_interval=SCAN_INTERVAL_REALTIME,
-        update_method=weather_provider.realtime,
+        update_method=provider.realtime,
     )
 
     forecast_service = DataUpdateCoordinator[list[WeatherData]](
@@ -99,13 +97,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _LOGGER,
         name=f"{DOMAIN}_forecast_service",
         update_interval=SCAN_INTERVAL_FORECAST,
-        update_method=weather_provider.forecast,
+        update_method=provider.forecast,
     )
 
     device = ComfortAdvisorDevice(
         hass=hass,
         config_entry=entry,
-        weather_provider=weather_provider,
+        provider=provider,
         realtime_service=realtime_service,
         forecast_service=forecast_service,
     )

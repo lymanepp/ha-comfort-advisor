@@ -17,12 +17,7 @@ from pytomorrowio.exceptions import (
 )
 import voluptuous as vol
 
-from .weather import (
-    WEATHER_PROVIDERS,
-    WeatherData,
-    WeatherProvider,
-    WeatherProviderError,
-)
+from .provider import PROVIDERS, Provider, ProviderError, WeatherData
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -67,20 +62,20 @@ def async_exception_handler(
         try:
             return await wrapped(*args, **kwargs)
         except InvalidAPIKeyException as exc:
-            raise WeatherProviderError("invalid_api_key") from exc
+            raise ProviderError("invalid_api_key") from exc
         except RateLimitedException as exc:
-            raise WeatherProviderError("rate_limited") from exc
+            raise ProviderError("rate_limited") from exc
         except CantConnectException as exc:
-            raise WeatherProviderError("cannot_connect") from exc
+            raise ProviderError("cannot_connect") from exc
         except Exception as exc:
             _LOGGER.exception("Error from pytomorrowio: %s", exc_info=exc)
-            raise WeatherProviderError("unknown") from exc
+            raise ProviderError("unknown") from exc
 
     return wrapper
 
 
-@WEATHER_PROVIDERS.register("tomorrowio")
-class TomorrowioWeatherProvider(WeatherProvider):
+@PROVIDERS.register("tomorrowio")
+class TomorrowioWeatherProvider(Provider):
     """TODO."""
 
     def __init__(  # type: ignore

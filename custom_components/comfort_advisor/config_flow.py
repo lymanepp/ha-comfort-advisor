@@ -37,12 +37,12 @@ from .const import (
     DEFAULT_SIMMER_INDEX_MAX,
     DEFAULT_SIMMER_INDEX_MIN,
     DOMAIN,
+    PROVIDER_TYPES,
     SENSOR_TYPES,
-    WEATHER_PROVIDER_TYPES,
     ConfigValue,
 )
 from .helpers import create_issue_tracker_url, load_module
-from .weather import WEATHER_PROVIDER_SCHEMA, WEATHER_PROVIDERS, WeatherProviderError
+from .provider import PROVIDERS, SCHEMA as PROVIDER_SCHEMA, ProviderError
 
 temp_sensor_selector = selector(
     {"entity": {"domain": "sensor", "device_class": SensorDeviceClass.TEMPERATURE}}
@@ -77,13 +77,13 @@ def _build_weather_schema(
 async def _async_test_weather(
     hass: HomeAssistant, provider_config: ConfigType, errors: dict[str, str]
 ) -> bool:
-    provider_type = provider_config[ConfigValue.PROVIDER_TYPE]
-    provider_factory = WEATHER_PROVIDERS.get(provider_type)
+    provider_type = provider_config[ConfigValue.TYPE]
+    provider_factory = PROVIDERS.get(provider_type)
     provider = provider_factory(hass, **provider_config)
     try:
         await provider.realtime()
         return True
-    except WeatherProviderError as exc:
+    except ProviderError as exc:
         errors["base"] = exc.error_key
         return False
 
@@ -225,31 +225,31 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
     #    return ComfortAdvisorOptionsFlow(config_entry)
 
     async def async_step_user(self, user_input: ConfigType | None = None) -> FlowResult:
-        """Handle a flow initialized by the user. Choose a weather provider."""
+        """Handle a flow initialized by the user. Choose a provider."""
         user_input = user_input or {}
 
-        if len(WEATHER_PROVIDER_TYPES) == 1:
-            user_input = {str(ConfigValue.PROVIDER_TYPE): list(WEATHER_PROVIDER_TYPES.keys())[0]}
+        if len(PROVIDER_TYPES) == 1:
+            user_input = {str(ConfigValue.TYPE): list(PROVIDER_TYPES.keys())[0]}
 
-        if user_input and WEATHER_PROVIDER_SCHEMA(user_input):
-            self._config[str(ConfigValue.WEATHER_PROVIDER)] = user_input
-            return await self.async_step_weather()
+        if user_input and PROVIDER_SCHEMA(user_input):
+            self._config[str(ConfigValue.PROVIDER)] = user_input
+            return await self.async_step_provider()
 
-        return self.async_show_form(step_id="user", data_schema=WEATHER_PROVIDER_SCHEMA)
+        return self.async_show_form(step_id="user", data_schema=PROVIDER_SCHEMA)
 
-    async def async_step_weather(self, user_input: ConfigType | None = None) -> FlowResult:
-        """Enter weather provider configuration."""
+    async def async_step_provider(self, user_input: ConfigType | None = None) -> FlowResult:
+        """Enter provider configuration."""
         user_input = user_input or {}
         errors: dict[str, str] = {}
 
-        provider_type = self._config[ConfigValue.WEATHER_PROVIDER][ConfigValue.PROVIDER_TYPE]
+        provider_type = self._config[ConfigValue.PROVIDER][ConfigValue.TYPE]
 
         if not self._weather_schema:
             try:
                 module = await load_module(self.hass, provider_type)
             except (ImportError, RequirementsNotFound) as exc:
                 issue_url = await create_issue_tracker_url(
-                    self.hass, exc, title=f"Error loading '{provider_type}' weather provider"
+                    self.hass, exc, title=f"Error loading '{provider_type}' provider"
                 )
                 return self.async_abort(
                     reason="load_provider",
@@ -263,15 +263,15 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
             self._weather_schema = _build_weather_schema(self.hass, module.SCHEMA, user_input)
 
         if any(user_input) == any(self._weather_schema.schema):
-            provider_config = dict(self._config[ConfigValue.WEATHER_PROVIDER], **user_input)
+            provider_config = dict(self._config[ConfigValue.PROVIDER], **user_input)
             if await _async_test_weather(self.hass, provider_config, errors):
-                self._config[str(ConfigValue.WEATHER_PROVIDER)] = provider_config
+                self._config[str(ConfigValue.PROVIDER)] = provider_config
                 return await self.async_step_inputs()
 
         return self.async_show_form(
-            step_id="weather",
+            step_id="provider",
             data_schema=self._weather_schema,
-            description_placeholders={"weather_desc": self._weather_description},
+            description_placeholders={"provider_desc": self._weather_description},
             errors=errors,
         )
 
@@ -324,7 +324,7 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
 
         if ConfigValue.NAME in user_input:
             self._config.update(user_input)
-            # self._config = SCHEMA(self._config)
+            # self._config = SCHEMA(self._config) # TODO
             unique_id = _create_unique_id(self.hass, self._config)
             await self.async_set_unique_id(unique_id)
             self._abort_if_unique_id_configured()

@@ -11,16 +11,16 @@ from homeassistant.util.decorator import Registry
 import voluptuous as vol
 from voluptuous.humanize import humanize_error
 
-from .const import WEATHER_PROVIDER_TYPES, ConfigValue
+from .const import PROVIDER_TYPES, ConfigValue
 from .helpers import load_module
 
 _LOGGER = logging.getLogger(__name__)
 
-WEATHER_PROVIDERS: Registry[str, type[WeatherProvider]] = Registry()
+PROVIDERS: Registry[str, type[Provider]] = Registry()
 
-WEATHER_PROVIDER_SCHEMA = vol.Schema(
+SCHEMA = vol.Schema(
     {
-        vol.Required(str(ConfigValue.PROVIDER_TYPE)): vol.In(WEATHER_PROVIDER_TYPES),
+        vol.Required(str(ConfigValue.TYPE)): vol.In(PROVIDER_TYPES),
     },
     extra=vol.ALLOW_EXTRA,
 )
@@ -36,7 +36,7 @@ class WeatherData(NamedTuple):
     pollen: float | None
 
 
-class WeatherProviderError(Exception):
+class ProviderError(Exception):
     """Weather provider error."""
 
     def __init__(self, error_key: str, extra_info: str | None = None) -> None:
@@ -46,11 +46,11 @@ class WeatherProviderError(Exception):
         self.extra_info = extra_info
 
 
-class WeatherProvider(metaclass=ABCMeta):
+class Provider(metaclass=ABCMeta):
     """Abstract weather provider."""
 
-    def __init__(self, *, provider_type: str):
-        """Eat the `provider_type` kwarg."""
+    def __init__(self, *, type: str):  # pylint: disable=redefined-builtin
+        """Eat the `type` kwarg."""
 
     @property
     @abstractmethod
@@ -75,27 +75,27 @@ class WeatherProvider(metaclass=ABCMeta):
         raise NotImplementedError
 
 
-async def weather_provider_from_config(
+async def create_provider_from_config(
     hass: HomeAssistant, provider_config: dict[str, Any]
-) -> WeatherProvider:
+) -> Provider:
     """Initialize a weather provider from a config."""
 
     try:
-        WEATHER_PROVIDER_SCHEMA(provider_config)
-        provider_type: str = provider_config[ConfigValue.PROVIDER_TYPE]
+        SCHEMA(provider_config)
+        provider_type: str = provider_config[ConfigValue.TYPE]
         module = await load_module(hass, provider_type)
-        schema = WEATHER_PROVIDER_SCHEMA.extend(module.SCHEMA.schema, extra=vol.PREVENT_EXTRA)
+        schema = SCHEMA.extend(module.SCHEMA.schema, extra=vol.PREVENT_EXTRA)
         schema(provider_config)
     except vol.Invalid as exc:
         _LOGGER.error(
             "Invalid configuration for weather provider: %s",
             humanize_error(provider_config, exc),
         )
-        raise WeatherProviderError("invalid_config") from exc
+        raise ProviderError("invalid_config") from exc
     except ImportError as exc:
-        raise WeatherProviderError("import_error") from exc
+        raise ProviderError("import_error") from exc
 
-    provider_factory = WEATHER_PROVIDERS[provider_type]
+    provider_factory = PROVIDERS[provider_type]
     provider = provider_factory(hass, **provider_config)
-    assert isinstance(provider, WeatherProvider)
+    assert isinstance(provider, Provider)
     return provider

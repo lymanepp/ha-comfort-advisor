@@ -36,16 +36,16 @@ class ConfigValue(StrEnum):  # type: ignore
     POLL = "poll"
     POLL_INTERVAL = "poll_interval"
     POLLEN_MAX = "pollen_max"
-    PROVIDER_TYPE = "provider_type"
+    PROVIDER = "provider"
+    TYPE = "type"
     SIMMER_INDEX_MAX = "simmer_index_max"
     SIMMER_INDEX_MIN = "simmer_index_min"
-    WEATHER_PROVIDER = "weather_provider"
 
 
 SENSOR_TYPES: Final = ["open_windows", "open_windows_reason"]  # TODO: make dynamic
 
-WEATHER_PROVIDER_TYPES: Final = {
-    "tomorrowio": "Tomorrow.io",
-    "nws": "National Weather Service",
+PROVIDER_TYPES: Final = {
     "fake": "Fake!",
+    "nws": "National Weather Service",
+    "tomorrowio": "Tomorrow.io",
 }

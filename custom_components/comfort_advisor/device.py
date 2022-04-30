@@ -12,8 +12,8 @@ from homeassistant.const import (
     STATE_UNAVAILABLE,
     STATE_UNKNOWN,
 )
-from homeassistant.helpers.device_registry import DeviceEntryType
 from homeassistant.core import CALLBACK_TYPE, Event, HomeAssistant, State
+from homeassistant.helpers.device_registry import DeviceEntryType
 from homeassistant.helpers.entity import DeviceInfo, Entity
 from homeassistant.helpers.event import (
     async_track_state_change_event,
@@ -30,13 +30,13 @@ from .const import (
     ConfigValue,
 )
 from .formulas import dew_point, simmer_index
-from .weather import WeatherData, WeatherProvider
+from .provider import Provider, WeatherData
 
 
 class DeviceState(StrEnum):  # type: ignore
     """TODO."""
 
-    # weather data
+    # weather provider data
     REALTIME = "realtime"
     FORECAST = "forecast"
     # input sensors
@@ -60,7 +60,7 @@ class ComfortAdvisorDevice:
         self,
         hass: HomeAssistant,
         config_entry: ConfigEntry,
-        weather_provider: WeatherProvider,
+        provider: Provider,
         realtime_service: DataUpdateCoordinator[WeatherData],
         forecast_service: DataUpdateCoordinator[list[WeatherData]],
     ) -> None:
@@ -78,7 +78,7 @@ class ComfortAdvisorDevice:
             manufacturer=DEFAULT_MANUFACTURER,
             model=DEFAULT_NAME,
             name=config[ConfigValue.NAME],
-            hw_version=weather_provider.version,
+            hw_version=provider.version,
         )
 
         self._realtime_service = realtime_service
@@ -97,9 +97,7 @@ class ComfortAdvisorDevice:
 
         self._temp_unit = self.hass.config.units.temperature_unit
 
-        self.extra_state_attributes: dict[str, Any] = {
-            ATTR_ATTRIBUTION: weather_provider.attribution
-        }
+        self.extra_state_attributes: dict[str, Any] = {ATTR_ATTRIBUTION: provider.attribution}
 
         self._entities: list[Entity] = []
 

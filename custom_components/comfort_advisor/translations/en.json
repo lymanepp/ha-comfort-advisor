@@ -4,13 +4,13 @@
       "user": {
         "title": "Choose a weather provider"
       },
-      "weather": {
+      "provider": {
         "title": "Configure weather provider",
         "data": {
           "api_key": "API key",
           "location": "Location"
         },
-        "description": "{weather_desc}"
+        "description": "{provider_desc}"
       },
       "inputs": {
         "title": "Configure ambient sensors",
@@ -68,7 +68,7 @@
       "init": {
         "title": "Comfort Advisor settings",
         "data": {
-          "weather_provider": "Select a weather provider",
+          "provider": "Select a weather provider",
           "api_key": "API key",
           "in_temp_sensor": "Indoor temperature sensor",
           "in_humidity_sensor": "Indoor humidity sensor",
