@@ -43,18 +43,18 @@ DATA_SCHEMA = vol.Schema(
         vol.Required(str(ConfigValue.OUT_TEMP_SENSOR)): temp_sensor_selector,
         vol.Required(str(ConfigValue.OUT_HUMIDITY_SENSOR)): humidity_sensor_selector,
         vol.Required(str(ConfigValue.NAME)): str,
-        vol.Optional(str(ConfigValue.DEWPOINT_MAX)): float,
-        vol.Optional(str(ConfigValue.SIMMER_INDEX_MAX)): float,
-        vol.Optional(str(ConfigValue.SIMMER_INDEX_MIN)): float,
-        vol.Optional(str(ConfigValue.HUMIDITY_MAX)): vol.All(
+        vol.Required(str(ConfigValue.DEWPOINT_MAX)): float,
+        vol.Required(str(ConfigValue.SIMMER_INDEX_MAX)): float,
+        vol.Required(str(ConfigValue.SIMMER_INDEX_MIN)): float,
+        vol.Required(str(ConfigValue.HUMIDITY_MAX)): vol.All(
             vol.Coerce(int), vol.Range(min=90, max=100)
         ),
-        vol.Optional(str(ConfigValue.POLLEN_MAX)): vol.All(
+        vol.Required(str(ConfigValue.POLLEN_MAX)): vol.All(
             vol.Coerce(int), vol.Range(min=0, max=5)
         ),
-        vol.Optional(str(ConfigValue.POLL)): bool,
+        vol.Required(str(ConfigValue.ENABLED_SENSORS)): cv.multi_select(SENSOR_TYPES),
+        vol.Required(str(ConfigValue.POLL)): bool,
         vol.Optional(str(ConfigValue.POLL_INTERVAL)): vol.All(int, vol.Range(min=1)),
-        vol.Optional(str(ConfigValue.ENABLED_SENSORS)): cv.multi_select(SENSOR_TYPES),
     }
 )
 

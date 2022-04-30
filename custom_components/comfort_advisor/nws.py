@@ -38,12 +38,12 @@ T = TypeVar("T")  # the callable/awaitable return type
 P = ParamSpec("P")  # the callable parameters
 
 
-def exception_handler(
-    func: Callable[P, Coroutine[Any, Any, T]]
+def _async_exception_handler(
+    wrapped: Callable[P, Coroutine[Any, Any, T]]
 ) -> Callable[P, Coroutine[Any, Any, T]]:
     async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
         try:
-            return await func(*args, **kwargs)
+            return await wrapped(*args, **kwargs)
         except Exception as exc:
             _LOGGER.exception("Error from pynws: %s", exc_info=exc)
             raise WeatherProviderError("unknown") from exc
@@ -82,7 +82,7 @@ class NwsWeatherProvider(WeatherProvider):
         """Return dependency version."""
         return cast(str, PYNWS_VERSION)
 
-    @exception_handler
+    @_async_exception_handler
     async def realtime(self) -> WeatherData:
         """TODO."""
         if not self._api.station:
@@ -93,7 +93,7 @@ class NwsWeatherProvider(WeatherProvider):
         # return self._to_weather_data(utcnow().replace(microsecond=0), realtime)
         raise WeatherProviderError("api_error")
 
-    @exception_handler
+    @_async_exception_handler
     async def forecast(self) -> list[WeatherData]:
         """TODO."""
         if not self._api.station:

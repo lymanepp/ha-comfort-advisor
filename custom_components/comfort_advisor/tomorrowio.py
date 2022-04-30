@@ -59,12 +59,12 @@ T = TypeVar("T")  # the callable/awaitable return type
 P = ParamSpec("P")  # the callable parameters
 
 
-def exception_handler(
-    func: Callable[P, Coroutine[Any, Any, T]]
+def _async_exception_handler(
+    wrapped: Callable[P, Coroutine[Any, Any, T]]
 ) -> Callable[P, Coroutine[Any, Any, T]]:
     async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
         try:
-            return await func(*args, **kwargs)
+            return await wrapped(*args, **kwargs)
         except InvalidAPIKeyException as exc:
             raise WeatherProviderError("invalid_api_key") from exc
         except RateLimitedException as exc:
@@ -129,13 +129,13 @@ class TomorrowioWeatherProvider(WeatherProvider):
             ),
         )
 
-    @exception_handler
+    @_async_exception_handler
     async def realtime(self) -> WeatherData:
         """Retrieve realtime weather from pytomorrowio."""
         realtime = await self._api.realtime(FIELDS)
         return self._to_weather_data(utcnow().replace(microsecond=0), realtime)
 
-    @exception_handler
+    @_async_exception_handler
     async def forecast(self) -> list[WeatherData]:
         """Retrieve weather forecast from pytomorrowio."""
         hourly_forecast = await self._api.forecast_hourly(FIELDS, start_time=utcnow())
