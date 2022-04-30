@@ -33,7 +33,7 @@ class WeatherData(NamedTuple):
     temp: float
     humidity: float
     wind_speed: float
-    pollen: float | None
+    pollen: int | None
 
 
 class ProviderError(Exception):

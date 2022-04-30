@@ -53,10 +53,6 @@ class DeviceState(StrEnum):  # type: ignore
 class ComfortAdvisorDevice:
     """Representation of a Comfort Advisor Device."""
 
-    open_windows: bool
-    open_windows_reason: str
-    # time_until_change: timedelta
-
     def __init__(
         self,
         hass: HomeAssistant,
@@ -199,9 +195,6 @@ class ComfortAdvisorDevice:
             for entity in self._entities:
                 entity.async_schedule_update_ha_state(force_refresh)
 
-    def _all_required_states(self, required_states: list[str]) -> bool:
-        return all(self.states.get(x) is not None for x in required_states)
-
     @property
     def unique_id(self) -> str | None:
         """Return a unique ID."""
@@ -232,33 +225,37 @@ class ComfortAdvisorDevice:
             or in_humidity is None
             or out_temperature is None
             or out_humidity is None
-            or realtime is None
-            or forecast is None
         ):
             return False
 
-        def is_comfortable(dewp: float, ssi: float, rel_hum: float) -> bool:
+        def is_comfortable(dewp: float, ssi: float, rel_hum: float, pollen: int) -> bool:
             return (
                 rel_hum <= self._humidity_max
                 and ssi <= self._ssi_comfort_max
                 and dewp <= self._dewp_comfort_max
+                and pollen <= self._pollen_max
             )
 
         comfort_list: list[bool] = []
         ssi_list: list[float] = []
+        pollen_list: list[int] = []
         temp_unit = self._temp_unit
 
         # TODO: skip outdated entries and only take next 24 hours
-        for entry in forecast:
+        for entry in forecast or []:
             dewp = dew_point(entry.temp, entry.humidity, temp_unit)
             ssi = simmer_index(entry.temp, entry.humidity, temp_unit)
-            comfort_list.append(is_comfortable(dewp, ssi, entry.humidity))
+            pollen = entry.pollen or 0
+
+            comfort_list.append(is_comfortable(dewp, ssi, entry.humidity, pollen))
             ssi_list.append(ssi)
+            pollen_list.append(pollen)
 
         in_dewp = dew_point(in_temperature, in_humidity, temp_unit)
         in_ssi = simmer_index(in_temperature, in_humidity, temp_unit)
         out_dewp = dew_point(out_temperature, out_humidity, temp_unit)
         out_ssi = simmer_index(out_temperature, out_humidity, temp_unit)
+        pollen = 0 if realtime is None else (realtime.pollen or 0)
         max_ssi = max(ssi_list) if ssi_list else None
 
         open_windows, open_windows_reason = (
@@ -271,6 +268,8 @@ class ComfortAdvisorDevice:
             else (False, "out_forecast_cool")
             if in_ssi <= self._ssi_comfort_max
             and (max_ssi is None or max_ssi <= self._ssi_comfort_min)
+            else (False, "pollen_high")
+            if (pollen > self._pollen_max)
             else (True, "out_better")
         )
 

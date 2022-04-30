@@ -30,7 +30,7 @@
           "humidity_max": "Highest comfortable relative humidity.",
           "pollen_max": "Highest comfortable pollen level (if available from weather provider)."
         },
-        "description": "The [Summer simmer index](http://summersimmer.com/home.htm) is a modern heat index equation. For SSI values between {70} and {77}, most people are comfortable, but slightly cool. From {77} to {83}, nearly everyone feels quite comfortable, while from {83} to {91} most are comfortable, but slightly warm.\n\n[Dew point temperatures](https://weatherology.com/trending/articles/Professor-Paul-Dew-Point-Relative-Humidity.html) tells us the absolute quantity of moisture that is in the air, thereby indicating how humid it will feel outside to our bodies. On the other hand, relative humidity only tells us how saturated the air is compared to how much it can hold."
+        "description": "The [Summer simmer index](http://summersimmer.com/home.htm) is a modern heat index equation. For SSI values between {70} and {77}, most people are comfortable, but slightly cool. From {77} to {83}, nearly everyone feels quite comfortable, while from {83} to {91} most are comfortable, but slightly warm.\n\n[Dew point temperatures](https://weatherology.com/trending/articles/Professor-Paul-Dew-Point-Relative-Humidity.html) tell the absolute quantity of moisture that is in the air, thereby indicating how humid it will feel outside to our bodies. On the other hand, relative humidity only tells us how saturated the air is compared to how much it can hold at the current temperature."
       },
       "device": {
         "title": "Configure device settings",
