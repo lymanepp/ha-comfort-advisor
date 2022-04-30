@@ -42,7 +42,7 @@ class FakeWeatherProvider(WeatherProvider):
     @property
     def version(self) -> str:
         """Return attribution to use in UI."""
-        return "0.0.0"
+        return "v.fake"
 
     async def realtime(self) -> WeatherData:
         """TODO."""

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 from typing import Any, Callable, Coroutine, Final, ParamSpec, TypeVar, cast
+from aiohttp import ClientConnectionError
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -29,21 +30,24 @@ SCHEMA: Final = vol.Schema(
     {
         vol.Required("api_key"): str,
         vol.Required("location"): selector({"location": {"radius": False}}),
-    },
-    extra=vol.PREVENT_EXTRA,
+    }
 )
 
 
-T = TypeVar("T")  # the callable/awaitable return type
-P = ParamSpec("P")  # the callable parameters
+_ParamT = ParamSpec("_ParamT")  # the callable parameters
+_ResultT = TypeVar("_ResultT")  # the callable/awaitable return type
 
 
-def _async_exception_handler(
-    wrapped: Callable[P, Coroutine[Any, Any, T]]
-) -> Callable[P, Coroutine[Any, Any, T]]:
-    async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+def async_exception_handler(
+    wrapped: Callable[_ParamT, Coroutine[Any, Any, _ResultT]]
+) -> Callable[_ParamT, Coroutine[Any, Any, _ResultT]]:
+    """`pynws` exception handler."""
+
+    async def wrapper(*args: _ParamT.args, **kwargs: _ParamT.kwargs) -> _ResultT:
         try:
             return await wrapped(*args, **kwargs)
+        except ClientConnectionError as exc:
+            raise WeatherProviderError("cannot_connect") from exc
         except Exception as exc:
             _LOGGER.exception("Error from pynws: %s", exc_info=exc)
             raise WeatherProviderError("unknown") from exc
@@ -82,7 +86,7 @@ class NwsWeatherProvider(WeatherProvider):
         """Return dependency version."""
         return cast(str, PYNWS_VERSION)
 
-    @_async_exception_handler
+    @async_exception_handler
     async def realtime(self) -> WeatherData:
         """TODO."""
         if not self._api.station:
@@ -93,7 +97,7 @@ class NwsWeatherProvider(WeatherProvider):
         # return self._to_weather_data(utcnow().replace(microsecond=0), realtime)
         raise WeatherProviderError("api_error")
 
-    @_async_exception_handler
+    @async_exception_handler
     async def forecast(self) -> list[WeatherData]:
         """TODO."""
         if not self._api.station:

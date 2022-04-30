@@ -43,9 +43,9 @@ DATA_SCHEMA = vol.Schema(
         vol.Required(str(ConfigValue.OUT_TEMP_SENSOR)): temp_sensor_selector,
         vol.Required(str(ConfigValue.OUT_HUMIDITY_SENSOR)): humidity_sensor_selector,
         vol.Required(str(ConfigValue.NAME)): str,
-        vol.Required(str(ConfigValue.DEWPOINT_MAX)): float,
-        vol.Required(str(ConfigValue.SIMMER_INDEX_MAX)): float,
-        vol.Required(str(ConfigValue.SIMMER_INDEX_MIN)): float,
+        vol.Required(str(ConfigValue.DEWPOINT_MAX)): vol.Coerce(float),
+        vol.Required(str(ConfigValue.SIMMER_INDEX_MAX)): vol.Coerce(float),
+        vol.Required(str(ConfigValue.SIMMER_INDEX_MIN)): vol.Coerce(float),
         vol.Required(str(ConfigValue.HUMIDITY_MAX)): vol.All(
             vol.Coerce(int), vol.Range(min=90, max=100)
         ),
@@ -54,7 +54,9 @@ DATA_SCHEMA = vol.Schema(
         ),
         vol.Required(str(ConfigValue.ENABLED_SENSORS)): cv.multi_select(SENSOR_TYPES),
         vol.Required(str(ConfigValue.POLL)): bool,
-        vol.Optional(str(ConfigValue.POLL_INTERVAL)): vol.All(int, vol.Range(min=1)),
+        vol.Optional(str(ConfigValue.POLL_INTERVAL)): vol.All(  # TODO: required if "poll" is True
+            vol.Coerce(int), vol.Range(min=1)
+        ),
     }
 )
 
@@ -79,7 +81,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             hass, config[ConfigValue.WEATHER_PROVIDER]
         )
     except WeatherProviderError as exc:
-        _LOGGER.error("Weather provider didn't load: %s", exc)
+        _LOGGER.error(
+            "Weather provider didn't load: %s, %s, %s", exc, exc.error_key, exc.extra_info
+        )
         return False
 
     realtime_service = DataUpdateCoordinator[WeatherData](

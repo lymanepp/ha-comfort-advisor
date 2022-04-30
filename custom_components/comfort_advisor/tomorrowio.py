@@ -32,8 +32,7 @@ SCHEMA: Final = vol.Schema(
     {
         vol.Required("api_key"): str,
         vol.Required("location"): selector({"location": {"radius": False}}),
-    },
-    extra=vol.PREVENT_EXTRA,
+    }
 )
 
 
@@ -55,14 +54,16 @@ FIELDS = [
 ]
 
 
-T = TypeVar("T")  # the callable/awaitable return type
-P = ParamSpec("P")  # the callable parameters
+_ParamT = ParamSpec("_ParamT")  # the callable parameters
+_ResultT = TypeVar("_ResultT")  # the callable/awaitable return type
 
 
-def _async_exception_handler(
-    wrapped: Callable[P, Coroutine[Any, Any, T]]
-) -> Callable[P, Coroutine[Any, Any, T]]:
-    async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+def async_exception_handler(
+    wrapped: Callable[_ParamT, Coroutine[Any, Any, _ResultT]]
+) -> Callable[_ParamT, Coroutine[Any, Any, _ResultT]]:
+    """`pytomorrowio` exception handler."""
+
+    async def wrapper(*args: _ParamT.args, **kwargs: _ParamT.kwargs) -> _ResultT:
         try:
             return await wrapped(*args, **kwargs)
         except InvalidAPIKeyException as exc:
@@ -129,16 +130,17 @@ class TomorrowioWeatherProvider(WeatherProvider):
             ),
         )
 
-    @_async_exception_handler
+    @async_exception_handler
     async def realtime(self) -> WeatherData:
         """Retrieve realtime weather from pytomorrowio."""
         realtime = await self._api.realtime(FIELDS)
         return self._to_weather_data(utcnow().replace(microsecond=0), realtime)
 
-    @_async_exception_handler
+    @async_exception_handler
     async def forecast(self) -> list[WeatherData]:
         """Retrieve weather forecast from pytomorrowio."""
         hourly_forecast = await self._api.forecast_hourly(FIELDS, start_time=utcnow())
+
         result: list[WeatherData] = []
         for forecast in hourly_forecast:
             start_time = parse_datetime(forecast.get(TMRW_ATTR_TIMESTAMP))

@@ -12,6 +12,7 @@ from homeassistant.const import (
     STATE_UNAVAILABLE,
     STATE_UNKNOWN,
 )
+from homeassistant.helpers.device_registry import DeviceEntryType
 from homeassistant.core import CALLBACK_TYPE, Event, HomeAssistant, State
 from homeassistant.helpers.entity import DeviceInfo, Entity
 from homeassistant.helpers.event import (
@@ -72,12 +73,14 @@ class ComfortAdvisorDevice:
         self.states: dict[str, Any] = {state: None for state in DeviceState}  # type: ignore
 
         self._device_info = DeviceInfo(
+            entry_type=DeviceEntryType.SERVICE,
             identifiers={(DOMAIN, self.unique_id)},
-            name=config[ConfigValue.NAME],
             manufacturer=DEFAULT_MANUFACTURER,
             model=DEFAULT_NAME,
+            name=config[ConfigValue.NAME],
             hw_version=weather_provider.version,
         )
+
         self._realtime_service = realtime_service
         self._forecast_service = forecast_service
 
