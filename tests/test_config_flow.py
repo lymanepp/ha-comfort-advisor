@@ -117,10 +117,10 @@ async def test_config_flow_enabled():
 @pytest.mark.parametrize(
     "sensor",
     [
-        ConfigValue.IN_TEMP_SENSOR,
-        ConfigValue.IN_HUMIDITY_SENSOR,
-        ConfigValue.OUT_TEMP_SENSOR,
-        ConfigValue.OUT_HUMIDITY_SENSOR,
+        ConfigValue.INDOOR_TEMPERATURE,
+        ConfigValue.INDOOR_HUMIDITY,
+        ConfigValue.OUTDOOR_TEMPERATURE,
+        ConfigValue.OUTDOOR_HUMIDITY,
     ],
 )
 async def test_missed_sensors(hass, sensor, start_ha):

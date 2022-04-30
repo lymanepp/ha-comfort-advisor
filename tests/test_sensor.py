@@ -12,28 +12,28 @@ _LOGGER = logging.getLogger(__name__)
 
 TEST_NAME = "sensor.test_comfort_advisor"
 
-IN_TEMP_TEST_SENSOR = {
+INDOOR_TEMP_TEST_SENSOR = {
     "platform": COMMAND_LINE_DOMAIN,
     "command": "echo 0",
     "name": "test_indoor_temp_sensor",
     "value_template": "{{ 25.0 | float }}",
 }
 
-IN_HUMIDITY_TEST_SENSOR = {
+INDOOR_HUMIDITY_TEST_SENSOR = {
     "platform": COMMAND_LINE_DOMAIN,
     "command": "echo 0",
     "name": "test_indoor_humidity_sensor",
     "value_template": "{{ 50.0 | float }}",
 }
 
-OUT_TEMP_TEST_SENSOR = {
+OUTDOOR_TEMP_TEST_SENSOR = {
     "platform": COMMAND_LINE_DOMAIN,
     "command": "echo 0",
     "name": "test_outdoor_temp_sensor",
     "value_template": "{{ 20.0 | float }}",
 }
 
-OUT_HUMIDITY_TEST_SENSOR = {
+OUTDOOR_HUMIDITY_TEST_SENSOR = {
     "platform": COMMAND_LINE_DOMAIN,
     "command": "echo 0",
     "name": "test_outdoor_humidity_sensor",
@@ -47,10 +47,10 @@ DEFAULT_TEST_SENSORS = [
             [(PLATFORM_DOMAIN, 4)],
             {
                 PLATFORM_DOMAIN: [
-                    IN_TEMP_TEST_SENSOR,
-                    IN_HUMIDITY_TEST_SENSOR,
-                    OUT_TEMP_TEST_SENSOR,
-                    OUT_HUMIDITY_TEST_SENSOR,
+                    INDOOR_TEMP_TEST_SENSOR,
+                    INDOOR_HUMIDITY_TEST_SENSOR,
+                    OUTDOOR_TEMP_TEST_SENSOR,
+                    OUTDOOR_HUMIDITY_TEST_SENSOR,
                     {
                         "platform": DOMAIN,
                         "sensors": {
@@ -69,10 +69,10 @@ DEFAULT_TEST_SENSORS = [
             [(PLATFORM_DOMAIN, 4), (DOMAIN, 1)],
             {
                 PLATFORM_DOMAIN: [
-                    IN_TEMP_TEST_SENSOR,
-                    IN_HUMIDITY_TEST_SENSOR,
-                    OUT_TEMP_TEST_SENSOR,
-                    OUT_HUMIDITY_TEST_SENSOR,
+                    INDOOR_TEMP_TEST_SENSOR,
+                    INDOOR_HUMIDITY_TEST_SENSOR,
+                    OUTDOOR_TEMP_TEST_SENSOR,
+                    OUTDOOR_HUMIDITY_TEST_SENSOR,
                 ],
                 DOMAIN: {
                     PLATFORM_DOMAIN: {

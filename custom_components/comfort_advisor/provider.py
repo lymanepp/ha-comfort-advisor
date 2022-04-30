@@ -18,7 +18,7 @@ _LOGGER = logging.getLogger(__name__)
 
 PROVIDERS: Registry[str, type[Provider]] = Registry()
 
-SCHEMA = vol.Schema(
+PROVIDER_SCHEMA = vol.Schema(
     {
         vol.Required(str(ConfigValue.TYPE)): vol.In(PROVIDER_TYPES),
     },
@@ -75,25 +75,26 @@ class Provider(metaclass=ABCMeta):
         raise NotImplementedError
 
 
-async def create_provider_from_config(
+async def provider_from_config(
     hass: HomeAssistant, provider_config: dict[str, Any]
-) -> Provider:
+) -> Provider | None:
     """Initialize a weather provider from a config."""
 
     try:
-        SCHEMA(provider_config)
+        PROVIDER_SCHEMA(provider_config)
         provider_type: str = provider_config[ConfigValue.TYPE]
         module = await load_module(hass, provider_type)
-        schema = SCHEMA.extend(module.SCHEMA.schema, extra=vol.PREVENT_EXTRA)
+        schema = PROVIDER_SCHEMA.extend(module.SCHEMA.schema, extra=vol.PREVENT_EXTRA)
         schema(provider_config)
     except vol.Invalid as exc:
         _LOGGER.error(
             "Invalid configuration for weather provider: %s",
             humanize_error(provider_config, exc),
         )
-        raise ProviderError("invalid_config") from exc
+        return None
     except ImportError as exc:
-        raise ProviderError("import_error") from exc
+        _LOGGER.error("Unable to load provider: %s, %s", provider_type, exc)
+        return None
 
     provider_factory = PROVIDERS[provider_type]
     provider = provider_factory(hass, **provider_config)

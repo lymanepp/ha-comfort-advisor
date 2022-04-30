@@ -22,21 +22,29 @@ DEFAULT_POLL: Final = False
 DEFAULT_POLL_INTERVAL: Final = 30
 
 
+class ConfigSchema(StrEnum):  # type: ignore
+    """Configuration section enum."""
+
+    PROVIDER = "provider"
+    INPUTS = "inputs"
+    COMFORT = "comfort"
+    DEVICE = "device"
+
+
 class ConfigValue(StrEnum):  # type: ignore
     """Configuration value enum."""
 
-    DEWPOINT_MAX = "dewpoint_max"
+    DEWPOINT_MAX = "dew_point_max"
     ENABLED_SENSORS = "enabled_sensors"
     HUMIDITY_MAX = "humidity_max"
-    IN_HUMIDITY_SENSOR = "in_humidity_sensor"
-    IN_TEMP_SENSOR = "in_temp_sensor"
+    INDOOR_HUMIDITY = "indoor_humidity"
+    INDOOR_TEMPERATURE = "indoor_temperature"
     NAME = "name"
-    OUT_HUMIDITY_SENSOR = "out_humidity_sensor"
-    OUT_TEMP_SENSOR = "out_temp_sensor"
+    OUTDOOR_HUMIDITY = "outdoor_humidity"
+    OUTDOOR_TEMPERATURE = "outdoor_temperature"
     POLL = "poll"
     POLL_INTERVAL = "poll_interval"
     POLLEN_MAX = "pollen_max"
-    PROVIDER = "provider"
     TYPE = "type"
     SIMMER_INDEX_MAX = "simmer_index_max"
     SIMMER_INDEX_MIN = "simmer_index_min"

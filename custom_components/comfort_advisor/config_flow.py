@@ -39,10 +39,11 @@ from .const import (
     DOMAIN,
     PROVIDER_TYPES,
     SENSOR_TYPES,
+    ConfigSchema,
     ConfigValue,
 )
 from .helpers import create_issue_tracker_url, load_module
-from .provider import PROVIDERS, SCHEMA as PROVIDER_SCHEMA, ProviderError
+from .provider import PROVIDER_SCHEMA, PROVIDERS, ProviderError
 
 temp_sensor_selector = selector(
     {"entity": {"domain": "sensor", "device_class": SensorDeviceClass.TEMPERATURE}}
@@ -88,6 +89,29 @@ async def _async_test_weather(
         return False
 
 
+def _build_inputs_schema(user_input: ConfigType) -> vol.Schema | None:
+    return vol.Schema(
+        {
+            vol.Required(
+                str(ConfigValue.INDOOR_TEMPERATURE),
+                default=user_input.get(ConfigValue.INDOOR_TEMPERATURE),
+            ): temp_sensor_selector,
+            vol.Required(
+                str(ConfigValue.INDOOR_HUMIDITY),
+                default=user_input.get(ConfigValue.INDOOR_HUMIDITY),
+            ): humidity_sensor_selector,
+            vol.Required(
+                str(ConfigValue.OUTDOOR_TEMPERATURE),
+                default=user_input.get(ConfigValue.OUTDOOR_TEMPERATURE),
+            ): temp_sensor_selector,
+            vol.Required(
+                str(ConfigValue.OUTDOOR_HUMIDITY),
+                default=user_input.get(ConfigValue.OUTDOOR_HUMIDITY),
+            ): humidity_sensor_selector,
+        }
+    )
+
+
 def _async_test_inputs(hass: HomeAssistant, user_input: ConfigType, errors: dict[str, str]) -> bool:
     def check_sensor_units(keys: list[str], valid_units: list[str]) -> bool:
         for key in keys:
@@ -99,32 +123,9 @@ def _async_test_inputs(hass: HomeAssistant, user_input: ConfigType, errors: dict
         return True
 
     return check_sensor_units(
-        [ConfigValue.IN_TEMP_SENSOR, ConfigValue.OUT_TEMP_SENSOR], TEMPERATURE_UNITS
+        [ConfigValue.INDOOR_TEMPERATURE, ConfigValue.OUTDOOR_TEMPERATURE], TEMPERATURE_UNITS
     ) and check_sensor_units(
-        [ConfigValue.IN_HUMIDITY_SENSOR, ConfigValue.OUT_HUMIDITY_SENSOR], [PERCENTAGE]
-    )
-
-
-def _build_inputs_schema(hass: HomeAssistant, user_input: ConfigType) -> vol.Schema | None:
-    return vol.Schema(
-        {
-            vol.Required(
-                str(ConfigValue.IN_TEMP_SENSOR),
-                default=user_input.get(ConfigValue.IN_TEMP_SENSOR),
-            ): temp_sensor_selector,
-            vol.Required(
-                str(ConfigValue.IN_HUMIDITY_SENSOR),
-                default=user_input.get(ConfigValue.IN_HUMIDITY_SENSOR),
-            ): humidity_sensor_selector,
-            vol.Required(
-                str(ConfigValue.OUT_TEMP_SENSOR),
-                default=user_input.get(ConfigValue.OUT_TEMP_SENSOR),
-            ): temp_sensor_selector,
-            vol.Required(
-                str(ConfigValue.OUT_HUMIDITY_SENSOR),
-                default=user_input.get(ConfigValue.OUT_HUMIDITY_SENSOR),
-            ): humidity_sensor_selector,
-        }
+        [ConfigValue.INDOOR_HUMIDITY, ConfigValue.OUTDOOR_HUMIDITY], [PERCENTAGE]
     )
 
 
@@ -134,6 +135,7 @@ def _build_comfort_schema(hass: HomeAssistant, user_input: ConfigType) -> vol.Sc
     dewp_max = round(convert_temp(DEFAULT_DEWPOINT_MAX, TEMP_FAHRENHEIT, temp_unit), 1)
     ssi_max = round(convert_temp(DEFAULT_SIMMER_INDEX_MAX, TEMP_FAHRENHEIT, temp_unit), 1)
     ssi_min = round(convert_temp(DEFAULT_SIMMER_INDEX_MIN, TEMP_FAHRENHEIT, temp_unit), 1)
+
     temperature_selector = selector({"number": {"mode": "box", "unit_of_measurement": temp_unit}})
     humidity_selector = selector(
         {"number": {"mode": "slider", "unit_of_measurement": "%", "min": 90, "max": 100}}
@@ -166,7 +168,7 @@ def _build_comfort_schema(hass: HomeAssistant, user_input: ConfigType) -> vol.Sc
     )
 
 
-def _build_settings_schema(user_input: ConfigType) -> vol.Schema | None:
+def _build_device_schema(user_input: ConfigType) -> vol.Schema | None:
     sensor_type_dict = {x: x.replace("_", " ").title() for x in SENSOR_TYPES}
 
     return vol.Schema(
@@ -194,12 +196,12 @@ def _build_settings_schema(user_input: ConfigType) -> vol.Schema | None:
 def _create_unique_id(hass: HomeAssistant, user_input: ConfigType) -> str:
     ent_reg = entity_registry.async_get(hass)
     values = [
-        ent_reg.async_get(user_input[key]).unique_id
+        ent_reg.async_get(user_input[ConfigSchema.INPUTS][key]).unique_id
         for key in (
-            ConfigValue.IN_TEMP_SENSOR,
-            ConfigValue.IN_HUMIDITY_SENSOR,
-            ConfigValue.OUT_TEMP_SENSOR,
-            ConfigValue.OUT_HUMIDITY_SENSOR,
+            ConfigValue.INDOOR_TEMPERATURE,
+            ConfigValue.INDOOR_HUMIDITY,
+            ConfigValue.OUTDOOR_TEMPERATURE,
+            ConfigValue.OUTDOOR_HUMIDITY,
         )
     ]
     return md5(str(values).encode("utf8")).hexdigest()
@@ -212,11 +214,10 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
         """TODO."""
 
         self._config: dict[str, Any] = {}
-        self._weather_schema: vol.Schema | None = None
         self._weather_description: str | None = None
-        self._inputs_schema: vol.Schema | None = None
-        self._comfort_schema: vol.Schema | None = None
         self._settings_schema: vol.Schema | None = None
+
+        self._schemas: dict[str, vol.Schema] = {}
 
     # @staticmethod
     # @callback
@@ -232,7 +233,7 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
             user_input = {str(ConfigValue.TYPE): list(PROVIDER_TYPES.keys())[0]}
 
         if user_input and PROVIDER_SCHEMA(user_input):
-            self._config[str(ConfigValue.PROVIDER)] = user_input
+            self._config[ConfigSchema.PROVIDER] = user_input
             return await self.async_step_provider()
 
         return self.async_show_form(step_id="user", data_schema=PROVIDER_SCHEMA)
@@ -242,9 +243,9 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
         user_input = user_input or {}
         errors: dict[str, str] = {}
 
-        provider_type = self._config[ConfigValue.PROVIDER][ConfigValue.TYPE]
+        provider_type = self._config[ConfigSchema.PROVIDER][ConfigValue.TYPE]
 
-        if not self._weather_schema:
+        if (weather_schema := self._schemas.get(ConfigSchema.PROVIDER)) is None:
             try:
                 module = await load_module(self.hass, provider_type)
             except (ImportError, RequirementsNotFound) as exc:
@@ -259,18 +260,20 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
                         "issue_url": issue_url,
                     },
                 )
+            weather_schema = self._schemas[ConfigSchema.PROVIDER] = _build_weather_schema(
+                self.hass, module.SCHEMA, user_input
+            )
             self._weather_description = module.DESCRIPTION
-            self._weather_schema = _build_weather_schema(self.hass, module.SCHEMA, user_input)
 
-        if any(user_input) == any(self._weather_schema.schema):
-            provider_config = dict(self._config[ConfigValue.PROVIDER], **user_input)
+        if any(user_input) == any(weather_schema.schema):
+            provider_config = dict(self._config[ConfigSchema.PROVIDER], **user_input)
             if await _async_test_weather(self.hass, provider_config, errors):
-                self._config[str(ConfigValue.PROVIDER)] = provider_config
+                self._config[ConfigSchema.PROVIDER] = provider_config
                 return await self.async_step_inputs()
 
         return self.async_show_form(
             step_id="provider",
-            data_schema=self._weather_schema,
+            data_schema=weather_schema,
             description_placeholders={"provider_desc": self._weather_description},
             errors=errors,
         )
@@ -280,15 +283,16 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
         user_input = user_input or {}
         errors: dict[str, str] = {}
 
-        self._inputs_schema = self._inputs_schema or _build_inputs_schema(self.hass, user_input)
+        if ConfigSchema.INPUTS not in self._schemas:
+            self._schemas[ConfigSchema.INPUTS] = _build_inputs_schema(user_input)
 
-        if ConfigValue.IN_TEMP_SENSOR in user_input:
+        if user_input:
             if _async_test_inputs(self.hass, user_input, errors):
-                self._config.update(user_input)
+                self._config[ConfigSchema.INPUTS] = user_input
                 return await self.async_step_comfort(user_input={})
 
         return self.async_show_form(
-            step_id="inputs", data_schema=self._inputs_schema, errors=errors
+            step_id="inputs", data_schema=self._schemas[ConfigSchema.INPUTS], errors=errors
         )
 
     async def async_step_comfort(self, user_input: ConfigType | None = None) -> FlowResult:
@@ -296,35 +300,35 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
         user_input = user_input or {}
         errors: dict[str, str] = {}
 
-        self._comfort_schema = self._comfort_schema or _build_comfort_schema(self.hass, user_input)
+        if ConfigSchema.COMFORT not in self._schemas:
+            self._schemas[ConfigSchema.COMFORT] = _build_comfort_schema(self.hass, user_input)
 
-        if ConfigValue.SIMMER_INDEX_MIN in user_input:
-            self._config.update(user_input)
-            return await self.async_step_settings(user_input={})
+        if user_input:
+            self._config[ConfigSchema.COMFORT] = user_input
+            return await self.async_step_device(user_input={})
 
         temp_unit = self.hass.config.units.temperature_unit
-
         description_placeholders = {
             str(x): round(convert_temp(x, TEMP_FAHRENHEIT, temp_unit), 1) for x in (70, 77, 83, 91)
         }
 
         return self.async_show_form(
             step_id="comfort",
-            data_schema=self._comfort_schema,
+            data_schema=self._schemas[ConfigSchema.COMFORT],
             errors=errors,
             description_placeholders=description_placeholders,
         )
 
-    async def async_step_settings(self, user_input: ConfigType | None = None) -> FlowResult:
+    async def async_step_device(self, user_input: ConfigType | None = None) -> FlowResult:
         """TODO."""
         user_input = user_input or {}
         errors: dict[str, str] = {}
 
-        self._settings_schema = self._settings_schema or _build_settings_schema(user_input)
+        if ConfigSchema.DEVICE not in self._schemas:
+            self._schemas[ConfigSchema.DEVICE] = _build_device_schema(user_input)
 
-        if ConfigValue.NAME in user_input:
-            self._config.update(user_input)
-            # self._config = SCHEMA(self._config) # TODO
+        if user_input:
+            self._config[ConfigSchema.DEVICE] = user_input
             unique_id = _create_unique_id(self.hass, self._config)
             await self.async_set_unique_id(unique_id)
             self._abort_if_unique_id_configured()
@@ -335,7 +339,7 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
             )
 
         return self.async_show_form(
-            step_id="settings", data_schema=self._settings_schema, errors=errors
+            step_id="device", data_schema=self._schemas[ConfigSchema.DEVICE], errors=errors
         )
 
 

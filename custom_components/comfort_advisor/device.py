@@ -27,6 +27,7 @@ from .const import (
     DEFAULT_NAME,
     DEFAULT_POLL_INTERVAL,
     DOMAIN,
+    ConfigSchema,
     ConfigValue,
 )
 from .formulas import dew_point, simmer_index
@@ -40,10 +41,10 @@ class DeviceState(StrEnum):  # type: ignore
     REALTIME = "realtime"
     FORECAST = "forecast"
     # input sensors
-    IN_TEMPERATURE = "in_temperature"
-    IN_HUMIDITY = "in_humidity"
-    OUT_TEMPERATURE = "out_temperature"
-    OUT_HUMIDITY = "out_humidity"
+    INDOOR_TEMPERATURE = "indoor_temperature"
+    INDOOR_HUMIDITY = "indoor_humidity"
+    OUTDOOR_TEMPERATURE = "outdoor_temperature"
+    OUTDOOR_HUMIDITY = "outdoor_humidity"
     # calculated values
     OPEN_WINDOWS = "open_windows"
     OPEN_WINDOWS_REASON = "open_windows_reason"
@@ -77,7 +78,7 @@ class ComfortAdvisorDevice:
             identifiers={(DOMAIN, self.unique_id)},
             manufacturer=DEFAULT_MANUFACTURER,
             model=DEFAULT_NAME,
-            name=config[ConfigValue.NAME],
+            name=config[ConfigSchema.DEVICE][ConfigValue.NAME],
             hw_version=provider.version,
         )
 
@@ -85,15 +86,15 @@ class ComfortAdvisorDevice:
         self._forecast_service = forecast_service
 
         # comfort settings
-        self._dewp_comfort_max: float = config[ConfigValue.DEWPOINT_MAX]
-        self._ssi_comfort_max: float = config[ConfigValue.SIMMER_INDEX_MAX]
-        self._ssi_comfort_min: float = config[ConfigValue.SIMMER_INDEX_MIN]
-        self._humidity_max: int = config[ConfigValue.HUMIDITY_MAX]
-        self._pollen_max: int = config[ConfigValue.POLLEN_MAX]
+        self._dewp_comfort_max: float = config[ConfigSchema.COMFORT][ConfigValue.DEWPOINT_MAX]
+        self._ssi_comfort_max: float = config[ConfigSchema.COMFORT][ConfigValue.SIMMER_INDEX_MAX]
+        self._ssi_comfort_min: float = config[ConfigSchema.COMFORT][ConfigValue.SIMMER_INDEX_MIN]
+        self._humidity_max: int = config[ConfigSchema.COMFORT][ConfigValue.HUMIDITY_MAX]
+        self._pollen_max: int = config[ConfigSchema.COMFORT][ConfigValue.POLLEN_MAX]
 
         # device settings
-        self._should_poll: bool = config[ConfigValue.POLL]
-        self._poll_interval: int = config[ConfigValue.POLL_INTERVAL]
+        self._should_poll: bool = config[ConfigSchema.DEVICE][ConfigValue.POLL]
+        self._poll_interval: int = config[ConfigSchema.DEVICE][ConfigValue.POLL_INTERVAL]
 
         self._temp_unit = self.hass.config.units.temperature_unit
 
@@ -110,13 +111,15 @@ class ComfortAdvisorDevice:
 
         # TODO: need common listener that updates the right state bucket
         for config_key, listener in (
-            (ConfigValue.IN_TEMP_SENSOR, self._in_temp_listener),
-            (ConfigValue.IN_HUMIDITY_SENSOR, self._in_humidity_listener),
-            (ConfigValue.OUT_TEMP_SENSOR, self._out_temp_listener),
-            (ConfigValue.OUT_HUMIDITY_SENSOR, self._out_humidity_listener),
+            (ConfigValue.INDOOR_TEMPERATURE, self._in_temp_listener),
+            (ConfigValue.INDOOR_HUMIDITY, self._in_humidity_listener),
+            (ConfigValue.OUTDOOR_TEMPERATURE, self._out_temp_listener),
+            (ConfigValue.OUTDOOR_HUMIDITY, self._out_humidity_listener),
         ):
             config_entry.async_on_unload(
-                async_track_state_change_event(self.hass, config[config_key], listener)
+                async_track_state_change_event(
+                    self.hass, config[ConfigSchema.INPUTS][config_key], listener
+                )
             )
 
         hass.async_create_task(self._set_version())
@@ -150,22 +153,22 @@ class ComfortAdvisorDevice:
 
     async def _in_temp_listener(self, event: Event) -> None:
         if (state := self._get_new_state(event)) is not None:
-            self.states[DeviceState.IN_TEMPERATURE] = self._get_temp(state)
+            self.states[DeviceState.INDOOR_TEMPERATURE] = self._get_temp(state)
             await self.async_update()
 
     async def _in_humidity_listener(self, event: Event) -> None:
         if (state := self._get_new_state(event)) is not None:
-            self.states[DeviceState.IN_HUMIDITY] = float(state.state)
+            self.states[DeviceState.INDOOR_HUMIDITY] = float(state.state)
             await self.async_update()
 
     async def _out_temp_listener(self, event: Event) -> None:
         if (state := self._get_new_state(event)) is not None:
-            self.states[DeviceState.OUT_TEMPERATURE] = self._get_temp(state)
+            self.states[DeviceState.OUTDOOR_TEMPERATURE] = self._get_temp(state)
             await self.async_update()
 
     async def _out_humidity_listener(self, event: Event) -> None:
         if (state := self._get_new_state(event)) is not None:
-            self.states[DeviceState.OUT_HUMIDITY] = float(state.state)
+            self.states[DeviceState.OUTDOOR_HUMIDITY] = float(state.state)
             await self.async_update()
 
     @staticmethod
@@ -280,10 +283,10 @@ class ComfortAdvisorDevice:
 
         self.extra_state_attributes.update(
             {
-                "inside_dew_point": in_dewp,
-                "inside_simmer_index": in_ssi,
-                "outside_dew_point": out_dewp,
-                "outside_simmer_index": out_ssi,
+                "indoor_dew_point": in_dewp,
+                "indoor_simmer_index": in_ssi,
+                "outdoor_dew_point": out_dewp,
+                "outdoor_simmer_index": out_ssi,
             }
         )
 

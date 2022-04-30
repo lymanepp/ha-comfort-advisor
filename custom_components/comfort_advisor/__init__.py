@@ -21,28 +21,27 @@ from .const import (
     SCAN_INTERVAL_FORECAST,
     SCAN_INTERVAL_REALTIME,
     SENSOR_TYPES,
+    ConfigSchema,
     ConfigValue,
 )
 from .device import ComfortAdvisorDevice
-from .provider import (
-    SCHEMA as PROVIDER_SCHEMA,
-    ProviderError,
-    WeatherData,
-    create_provider_from_config,
-)
+from .provider import PROVIDER_SCHEMA, WeatherData, provider_from_config
 
 _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: Final = [Platform.SENSOR, Platform.BINARY_SENSOR]
 
-DATA_SCHEMA = vol.Schema(
+INPUTS_SCHEMA = vol.Schema(
     {
-        vol.Required(str(ConfigValue.PROVIDER)): PROVIDER_SCHEMA,
-        vol.Required(str(ConfigValue.IN_TEMP_SENSOR)): temp_sensor_selector,
-        vol.Required(str(ConfigValue.IN_HUMIDITY_SENSOR)): humidity_sensor_selector,
-        vol.Required(str(ConfigValue.OUT_TEMP_SENSOR)): temp_sensor_selector,
-        vol.Required(str(ConfigValue.OUT_HUMIDITY_SENSOR)): humidity_sensor_selector,
-        vol.Required(str(ConfigValue.NAME)): str,
+        vol.Required(str(ConfigValue.INDOOR_TEMPERATURE)): temp_sensor_selector,
+        vol.Required(str(ConfigValue.INDOOR_HUMIDITY)): humidity_sensor_selector,
+        vol.Required(str(ConfigValue.OUTDOOR_TEMPERATURE)): temp_sensor_selector,
+        vol.Required(str(ConfigValue.OUTDOOR_HUMIDITY)): humidity_sensor_selector,
+    }
+)
+
+COMFORT_SCHEMA = vol.Schema(
+    {
         vol.Required(str(ConfigValue.DEWPOINT_MAX)): vol.Coerce(float),
         vol.Required(str(ConfigValue.SIMMER_INDEX_MAX)): vol.Coerce(float),
         vol.Required(str(ConfigValue.SIMMER_INDEX_MIN)): vol.Coerce(float),
@@ -52,11 +51,26 @@ DATA_SCHEMA = vol.Schema(
         vol.Required(str(ConfigValue.POLLEN_MAX)): vol.All(
             vol.Coerce(int), vol.Range(min=0, max=5)
         ),
+    }
+)
+
+SETTINGS_SCHEMA = vol.Schema(
+    {
+        vol.Required(str(ConfigValue.NAME)): str,
         vol.Required(str(ConfigValue.ENABLED_SENSORS)): cv.multi_select(SENSOR_TYPES),
         vol.Required(str(ConfigValue.POLL)): bool,
         vol.Optional(str(ConfigValue.POLL_INTERVAL)): vol.All(  # TODO: required if "poll" is True
             vol.Coerce(int), vol.Range(min=1)
         ),
+    }
+)
+
+DATA_SCHEMA = vol.Schema(
+    {
+        vol.Required(str(ConfigSchema.PROVIDER)): PROVIDER_SCHEMA,
+        vol.Required(str(ConfigSchema.INPUTS)): INPUTS_SCHEMA,
+        vol.Required(str(ConfigSchema.COMFORT)): COMFORT_SCHEMA,
+        vol.Required(str(ConfigSchema.DEVICE)): SETTINGS_SCHEMA,
     }
 )
 
@@ -76,12 +90,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _LOGGER.error("Invalid configuration: %s", exc)
         return False
 
-    try:
-        provider = await create_provider_from_config(hass, config[ConfigValue.PROVIDER])
-    except ProviderError as exc:
-        _LOGGER.error(
-            "Weather provider didn't load: %s, %s, %s", exc, exc.error_key, exc.extra_info
-        )
+    if not (provider := await provider_from_config(hass, config[ConfigSchema.PROVIDER])):
         return False
 
     realtime_service = DataUpdateCoordinator[WeatherData](
@@ -100,15 +109,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         update_method=provider.forecast,
     )
 
-    device = ComfortAdvisorDevice(
+    hass.data[DOMAIN][entry.entry_id] = ComfortAdvisorDevice(
         hass=hass,
         config_entry=entry,
         provider=provider,
         realtime_service=realtime_service,
         forecast_service=forecast_service,
     )
-
-    hass.data[DOMAIN][entry.entry_id] = device
 
     await realtime_service.async_config_entry_first_refresh()
     await forecast_service.async_config_entry_first_refresh()
