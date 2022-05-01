@@ -20,7 +20,7 @@ class FrostRisk(IntEnum):
 # pylint: disable=invalid-name
 
 
-def dew_point(temp: float, rh: float, temp_unit: str) -> float:
+def compute_dew_point(temp: float, rh: float, temp_unit: str) -> float:
     """Calculate dew point from temperature and humidity.
 
     https://pon.fr/dzvents-alerte-givre-et-calcul-humidite-absolue
@@ -74,7 +74,7 @@ def frost_point(temp: float, rh: float, temp_unit: str) -> float:
 
     https://pon.fr/dzvents-alerte-givre-et-calcul-humidite-absolue
     """
-    dp = dew_point(temp, rh, temp_unit)
+    dp = compute_dew_point(temp, rh, temp_unit)
     T = convert_temp(temp, temp_unit, TEMP_KELVIN)
     Td = convert_temp(dp, temp_unit, TEMP_KELVIN)
 
@@ -102,7 +102,7 @@ def frost_risk(temp: float, rh: float, temp_unit: str) -> FrostRisk:
     )
 
 
-def simmer_index(temp: float, rh: float, temp_unit: str) -> float:
+def compute_simmer_index(temp: float, rh: float, temp_unit: str) -> float:
     """Calculate summer simmer index from temperature and humidity.
 
     https://www.vcalc.com/wiki/rklarsen/Summer+Simmer+Index

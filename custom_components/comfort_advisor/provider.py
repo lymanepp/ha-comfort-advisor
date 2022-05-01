@@ -11,7 +11,7 @@ from homeassistant.util.decorator import Registry
 import voluptuous as vol
 from voluptuous.humanize import humanize_error
 
-from .const import PROVIDER_TYPES, ConfigValue
+from .const import PROVIDER_TYPES, ProviderConfig
 from .helpers import load_module
 
 _LOGGER = logging.getLogger(__name__)
@@ -20,7 +20,7 @@ PROVIDERS: Registry[str, type[Provider]] = Registry()
 
 PROVIDER_SCHEMA = vol.Schema(
     {
-        vol.Required(str(ConfigValue.TYPE)): vol.In(PROVIDER_TYPES),
+        vol.Required(str(ProviderConfig.TYPE)): vol.In(PROVIDER_TYPES),
     },
     extra=vol.ALLOW_EXTRA,
 )
@@ -82,7 +82,7 @@ async def provider_from_config(
 
     try:
         PROVIDER_SCHEMA(provider_config)
-        provider_type: str = provider_config[ConfigValue.TYPE]
+        provider_type: str = provider_config[ProviderConfig.TYPE]
         module = await load_module(hass, provider_type)
         schema = PROVIDER_SCHEMA.extend(module.SCHEMA.schema, extra=vol.PREVENT_EXTRA)
         schema(provider_config)

@@ -5,7 +5,9 @@ import importlib
 import logging
 from types import ModuleType
 
+from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.selector import selector
 from homeassistant.loader import Integration, async_get_custom_components
 from homeassistant.requirements import RequirementsNotFound, async_process_requirements
 from yarl import URL
@@ -13,6 +15,14 @@ from yarl import URL
 from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
+
+
+temp_sensor_selector = selector(
+    {"entity": {"domain": "sensor", "device_class": SensorDeviceClass.TEMPERATURE}}
+)
+humidity_sensor_selector = selector(
+    {"entity": {"domain": "sensor", "device_class": SensorDeviceClass.HUMIDITY}}
+)
 
 
 async def load_module(hass: HomeAssistant, name: str) -> ModuleType:

@@ -15,9 +15,9 @@
       "inputs": {
         "title": "Configure ambient sensors",
         "data": {
-          "indoor_temperature": "Indoor temperature sensor",
+          "indoor_temp": "Indoor temperature sensor",
           "indoor_humidity": "Indoor humidity sensor",
-          "outdoor_temperature": "Outdoor temperature sensor",
+          "outdoor_temp": "Outdoor temperature sensor",
           "outdoor_humidity": "Outdoor humidity sensor"
         }
       },

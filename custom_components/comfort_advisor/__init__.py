@@ -15,62 +15,67 @@ import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 import voluptuous as vol
 
-from .config_flow import humidity_sensor_selector, temp_sensor_selector  # TODO!
 from .const import (
+    BINARY_SENSOR_TYPES,
+    SENSOR_TYPES,
     DOMAIN,
     SCAN_INTERVAL_FORECAST,
     SCAN_INTERVAL_REALTIME,
-    SENSOR_TYPES,
-    ConfigSchema,
-    ConfigValue,
+    ComfortConfig,
+    DeviceConfig,
+    InputConfig,
+    SectionConfig,
 )
 from .device import ComfortAdvisorDevice
+from .helpers import humidity_sensor_selector, temp_sensor_selector
 from .provider import PROVIDER_SCHEMA, WeatherData, provider_from_config
 
 _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: Final = [Platform.SENSOR, Platform.BINARY_SENSOR]
 
-INPUTS_SCHEMA = vol.Schema(
+_INPUTS_SCHEMA = vol.Schema(
     {
-        vol.Required(str(ConfigValue.INDOOR_TEMPERATURE)): temp_sensor_selector,
-        vol.Required(str(ConfigValue.INDOOR_HUMIDITY)): humidity_sensor_selector,
-        vol.Required(str(ConfigValue.OUTDOOR_TEMPERATURE)): temp_sensor_selector,
-        vol.Required(str(ConfigValue.OUTDOOR_HUMIDITY)): humidity_sensor_selector,
+        vol.Required(str(InputConfig.INDOOR_TEMPERATURE)): temp_sensor_selector,
+        vol.Required(str(InputConfig.INDOOR_HUMIDITY)): humidity_sensor_selector,
+        vol.Required(str(InputConfig.OUTDOOR_TEMPERATURE)): temp_sensor_selector,
+        vol.Required(str(InputConfig.OUTDOOR_HUMIDITY)): humidity_sensor_selector,
+        vol.Optional(str(InputConfig.OUTDOOR_POLLEN)): humidity_sensor_selector,
     }
 )
 
-COMFORT_SCHEMA = vol.Schema(
+_COMFORT_SCHEMA = vol.Schema(
     {
-        vol.Required(str(ConfigValue.DEWPOINT_MAX)): vol.Coerce(float),
-        vol.Required(str(ConfigValue.SIMMER_INDEX_MAX)): vol.Coerce(float),
-        vol.Required(str(ConfigValue.SIMMER_INDEX_MIN)): vol.Coerce(float),
-        vol.Required(str(ConfigValue.HUMIDITY_MAX)): vol.All(
+        vol.Required(str(ComfortConfig.DEWPOINT_MAX)): vol.Coerce(float),
+        vol.Required(str(ComfortConfig.SIMMER_INDEX_MAX)): vol.Coerce(float),
+        vol.Required(str(ComfortConfig.SIMMER_INDEX_MIN)): vol.Coerce(float),
+        vol.Required(str(ComfortConfig.HUMIDITY_MAX)): vol.All(
             vol.Coerce(int), vol.Range(min=90, max=100)
         ),
-        vol.Required(str(ConfigValue.POLLEN_MAX)): vol.All(
+        vol.Required(str(ComfortConfig.POLLEN_MAX)): vol.All(
             vol.Coerce(int), vol.Range(min=0, max=5)
         ),
     }
 )
 
-SETTINGS_SCHEMA = vol.Schema(
+
+_DEVICE_SCHEMA = vol.Schema(
     {
-        vol.Required(str(ConfigValue.NAME)): str,
-        vol.Required(str(ConfigValue.ENABLED_SENSORS)): cv.multi_select(SENSOR_TYPES),
-        vol.Required(str(ConfigValue.POLL)): bool,
-        vol.Optional(str(ConfigValue.POLL_INTERVAL)): vol.All(  # TODO: required if "poll" is True
-            vol.Coerce(int), vol.Range(min=1)
+        vol.Required(str(DeviceConfig.NAME)): str,
+        vol.Required(str(DeviceConfig.ENABLED_SENSORS)): cv.multi_select(
+            sorted(BINARY_SENSOR_TYPES + SENSOR_TYPES)
         ),
+        vol.Required(str(DeviceConfig.POLL)): vol.Coerce(bool),
+        vol.Optional(str(DeviceConfig.POLL_INTERVAL)): vol.All(vol.Coerce(int), vol.Range(min=1)),
     }
 )
 
 DATA_SCHEMA = vol.Schema(
     {
-        vol.Required(str(ConfigSchema.PROVIDER)): PROVIDER_SCHEMA,
-        vol.Required(str(ConfigSchema.INPUTS)): INPUTS_SCHEMA,
-        vol.Required(str(ConfigSchema.COMFORT)): COMFORT_SCHEMA,
-        vol.Required(str(ConfigSchema.DEVICE)): SETTINGS_SCHEMA,
+        vol.Required(str(SectionConfig.PROVIDER)): PROVIDER_SCHEMA,
+        vol.Required(str(SectionConfig.INPUTS)): _INPUTS_SCHEMA,
+        vol.Required(str(SectionConfig.COMFORT)): _COMFORT_SCHEMA,
+        vol.Required(str(SectionConfig.DEVICE)): _DEVICE_SCHEMA,
     }
 )
 
@@ -90,7 +95,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _LOGGER.error("Invalid configuration: %s", exc)
         return False
 
-    if not (provider := await provider_from_config(hass, config[ConfigSchema.PROVIDER])):
+    if not (provider := await provider_from_config(hass, config[SectionConfig.PROVIDER])):
         return False
 
     realtime_service = DataUpdateCoordinator[WeatherData](
