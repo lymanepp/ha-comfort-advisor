@@ -1,18 +1,6 @@
 """General comfort_advisor constants."""
 from datetime import timedelta
-from enum import IntEnum
 from typing import Final
-
-from homeassistant.backports.enum import StrEnum
-from homeassistant.components.binary_sensor import (
-    BinarySensorDeviceClass,
-    BinarySensorEntityDescription,
-)
-from homeassistant.components.sensor import (
-    SensorDeviceClass,
-    SensorEntityDescription,
-    SensorStateClass,
-)
 
 DOMAIN: Final = "comfort_advisor"
 
@@ -49,6 +37,14 @@ DEFAULT_SIMMER_INDEX_MIN: Final = 70
 DEFAULT_POLL: Final = False
 DEFAULT_POLL_INTERVAL: Final = 30
 
+# Device states
+STATE_OPEN_WINDOWS: Final = "open_windows"
+STATE_OPEN_WINDOWS_REASON: Final = "open_windows_reason"
+STATE_HIGH_SIMMER_INDEX: Final = "high_simmer_index"
+STATE_NEXT_CHANGE_TIME: Final = "next_change_time"
+
+ALL_BINARY_SENSOR_TYPES = [STATE_OPEN_WINDOWS]
+ALL_SENSOR_TYPES = [STATE_OPEN_WINDOWS_REASON, STATE_HIGH_SIMMER_INDEX, STATE_NEXT_CHANGE_TIME]
 
 # can't be dynamic because providers are loaded on first use
 PROVIDER_TYPES: Final[dict[str, str]] = {
@@ -56,68 +52,3 @@ PROVIDER_TYPES: Final[dict[str, str]] = {
     "nws": "National Weather Service",
     "tomorrowio": "Tomorrow.io",
 }
-
-
-class PollenIndex(IntEnum):
-    """Pollen index."""
-
-    NONE = 0
-    VERY_LOW = 1
-    LOW = 2
-    MEDIUM = 3
-    HIGH = 4
-    VERY_HIGH = 5
-
-
-class BinarySensorType(StrEnum):  # type: ignore
-    """State class for comfort advisor binary sensors."""
-
-    OPEN_WINDOWS = "open_windows"
-
-
-BINARY_SENSOR_DESCRIPTIONS = [
-    BinarySensorEntityDescription(
-        key=BinarySensorType.OPEN_WINDOWS,
-        device_class=BinarySensorDeviceClass.WINDOW,
-        icon="mdi:window",
-    ),
-]
-
-# TODO: can this be done with StrEnum and move BINARY_SENSOR_DESCRIPTIONS back to its place?
-ALL_BINARY_SENSOR_TYPES: list[str] = sorted(x.key for x in BINARY_SENSOR_DESCRIPTIONS)
-
-
-class SensorType(StrEnum):  # type: ignore
-    """State class for comfort advisor sensors."""
-
-    OPEN_WINDOWS_REASON = "open_windows_reason"
-    NEXT_CHANGE_TIME = "next_change_time"
-    HIGH_SIMMER_INDEX = "high_simmer_index"
-
-
-class DeviceClass(StrEnum):  # type: ignore
-    """State class for comfort advisor sensors."""
-
-    OPEN_WINDOWS_REASON = f"{DOMAIN}__{SensorType.OPEN_WINDOWS_REASON}"
-
-
-SENSOR_DESCRIPTIONS = [
-    SensorEntityDescription(
-        key=SensorType.OPEN_WINDOWS_REASON,
-        device_class=DeviceClass.OPEN_WINDOWS_REASON,
-        # icon="mdi:water",
-    ),
-    SensorEntityDescription(
-        key=SensorType.NEXT_CHANGE_TIME,
-        device_class=SensorDeviceClass.TIMESTAMP,
-    ),
-    SensorEntityDescription(
-        key=SensorType.HIGH_SIMMER_INDEX,
-        device_class=SensorDeviceClass.TEMPERATURE,
-        state_class=SensorStateClass.MEASUREMENT,
-    ),
-]
-
-
-# TODO: can this be done with StrEnum and move SENSOR_DESCRIPTIONS back to its place?
-ALL_SENSOR_TYPES: list[str] = sorted(x.key for x in SENSOR_DESCRIPTIONS)

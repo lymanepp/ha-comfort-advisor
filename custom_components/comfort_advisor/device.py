@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 import math
-from typing import Any, MutableMapping, TypedDict, cast
+from typing import Any, TypedDict, cast
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
@@ -39,8 +39,9 @@ from .const import (
     DEFAULT_NAME,
     DEFAULT_POLL_INTERVAL,
     DOMAIN,
-    BinarySensorType,
-    SensorType,
+    STATE_HIGH_SIMMER_INDEX,
+    STATE_NEXT_CHANGE_TIME,
+    STATE_OPEN_WINDOWS,
 )
 from .formulas import compute_dew_point, compute_simmer_index
 from .provider import Provider, WeatherData
@@ -100,7 +101,7 @@ class ComfortAdvisorDevice:
             hw_version=provider.version,
         )
 
-        self._temp_unit = self.hass.config.units.temperature_unit  # TODO: config entry?
+        self._temp_unit = self.hass.config.units.temperature_unit  # TODO: add config entry?
         self._realtime_service = realtime_service
         self._forecast_service = forecast_service
         self._entities: list[Entity] = []
@@ -274,9 +275,9 @@ class ComfortAdvisorDevice:
 
         self._state.update(
             {
-                SensorType.NEXT_CHANGE_TIME: next_day[change_ndx].date_time if change_ndx else None,  # type: ignore
-                SensorType.HIGH_SIMMER_INDEX: max(si_list) if si_list else None,
-                BinarySensorType.OPEN_WINDOWS: out_comfort,
+                STATE_HIGH_SIMMER_INDEX: max(si_list) if si_list else None,
+                STATE_NEXT_CHANGE_TIME: next_day[change_ndx].date_time if change_ndx else None,  # type: ignore
+                STATE_OPEN_WINDOWS: out_comfort,
             }
         )
         self._extra_state_attributes.update(

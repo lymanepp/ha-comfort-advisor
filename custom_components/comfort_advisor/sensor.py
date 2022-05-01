@@ -4,20 +4,81 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from homeassistant.backports.enum import StrEnum
 from homeassistant.components.sensor import (
     DOMAIN as SENSOR_DOMAIN,
+    SensorDeviceClass,
     SensorEntity,
     SensorEntityDescription,
+    SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import async_generate_entity_id
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import ALL_SENSOR_TYPES, CONF_ENABLED_SENSORS, DOMAIN, SENSOR_DESCRIPTIONS
+from .const import (
+    CONF_DEVICE,
+    CONF_ENABLED_SENSORS,
+    DOMAIN,
+    STATE_HIGH_SIMMER_INDEX,
+    STATE_NEXT_CHANGE_TIME,
+    STATE_OPEN_WINDOWS_REASON,
+)
 from .device import ComfortAdvisorDevice
 
 _LOGGER = logging.getLogger(__name__)
+
+
+async def async_setup_entry(
+    hass: HomeAssistant,
+    config_entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up entity configured via user interface."""
+    config: dict[str, Any] = config_entry.data | config_entry.options or {}
+    device: ComfortAdvisorDevice = hass.data[DOMAIN][config_entry.entry_id]
+
+    _LOGGER.debug("async_setup_entry: %s", config_entry)
+
+    enabled_sensors = config[CONF_DEVICE][CONF_ENABLED_SENSORS]
+
+    sensors = [
+        ComfortAdvisorSensor(
+            hass=hass,
+            device=device,
+            entity_description=entity_description,
+            enabled_default=entity_description.key in enabled_sensors,
+        )
+        for entity_description in SENSOR_DESCRIPTIONS
+    ]
+
+    if sensors:
+        async_add_entities(sensors)
+
+
+class ComfortAdvisorDeviceClass(StrEnum):  # type: ignore
+    """State class for comfort advisor sensors."""
+
+    OPEN_WINDOWS_REASON = f"{DOMAIN}__{STATE_OPEN_WINDOWS_REASON}"
+
+
+SENSOR_DESCRIPTIONS = [
+    SensorEntityDescription(
+        key=STATE_OPEN_WINDOWS_REASON,
+        device_class=ComfortAdvisorDeviceClass.OPEN_WINDOWS_REASON,
+        # icon="mdi:water",
+    ),
+    SensorEntityDescription(
+        key=STATE_NEXT_CHANGE_TIME,
+        device_class=SensorDeviceClass.TIMESTAMP,
+    ),
+    SensorEntityDescription(
+        key=STATE_HIGH_SIMMER_INDEX,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+]
 
 
 class ComfortAdvisorSensor(SensorEntity):  # type: ignore
@@ -63,30 +124,3 @@ class ComfortAdvisorSensor(SensorEntity):  # type: ignore
         if (value := self._device.state.get(self.entity_description.key)) is not None:
             self._attr_native_value = value
             self._attr_extra_state_attributes = self._device.extra_state_attributes
-
-
-async def async_setup_entry(
-    hass: HomeAssistant,
-    config_entry: ConfigEntry,
-    async_add_entities: AddEntitiesCallback,
-) -> None:
-    """Set up entity configured via user interface."""
-    config: dict[str, Any] = config_entry.data | config_entry.options or {}
-    device: ComfortAdvisorDevice = hass.data[DOMAIN][config_entry.entry_id]
-
-    _LOGGER.debug("async_setup_entry: %s", config_entry)
-
-    enabled_sensors = config.get(CONF_ENABLED_SENSORS, ALL_SENSOR_TYPES)
-
-    sensors = [
-        ComfortAdvisorSensor(
-            hass=hass,
-            device=device,
-            entity_description=entity_description,
-            enabled_default=entity_description.key in enabled_sensors,
-        )
-        for entity_description in SENSOR_DESCRIPTIONS
-    ]
-
-    if sensors:
-        async_add_entities(sensors)

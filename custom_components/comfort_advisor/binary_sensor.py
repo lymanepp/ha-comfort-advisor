@@ -6,6 +6,7 @@ from typing import Any
 
 from homeassistant.components.binary_sensor import (
     DOMAIN as BINARY_SENSOR_DOMAIN,
+    BinarySensorDeviceClass,
     BinarySensorEntity,
     BinarySensorEntityDescription,
 )
@@ -14,15 +15,46 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import async_generate_entity_id
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import (
-    ALL_BINARY_SENSOR_TYPES,
-    BINARY_SENSOR_DESCRIPTIONS,
-    CONF_ENABLED_SENSORS,
-    DOMAIN,
-)
+from .const import CONF_DEVICE, CONF_ENABLED_SENSORS, DOMAIN, STATE_OPEN_WINDOWS
 from .device import ComfortAdvisorDevice
 
 _LOGGER = logging.getLogger(__name__)
+
+
+async def async_setup_entry(
+    hass: HomeAssistant,
+    config_entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up entity configured via user interface."""
+    config: dict[str, Any] = config_entry.data | config_entry.options or {}
+    device: ComfortAdvisorDevice = hass.data[DOMAIN][config_entry.entry_id]
+
+    _LOGGER.debug("async_setup_entry: %s", config_entry)
+
+    enabled_sensors = config[CONF_DEVICE][CONF_ENABLED_SENSORS]
+
+    sensors = [
+        ComfortAdvisorBinarySensor(
+            hass=hass,
+            device=device,
+            entity_description=entity_description,
+            enabled_default=entity_description.key in enabled_sensors,
+        )
+        for entity_description in BINARY_SENSOR_DESCRIPTIONS
+    ]
+
+    if sensors:
+        async_add_entities(sensors)
+
+
+BINARY_SENSOR_DESCRIPTIONS = [
+    BinarySensorEntityDescription(
+        key=STATE_OPEN_WINDOWS,
+        device_class=BinarySensorDeviceClass.WINDOW,
+        icon="mdi:window",
+    ),
+]
 
 
 class ComfortAdvisorBinarySensor(BinarySensorEntity):  # type: ignore
@@ -65,30 +97,3 @@ class ComfortAdvisorBinarySensor(BinarySensorEntity):  # type: ignore
         if (value := self._device.state.get(self.entity_description.key)) is not None:
             self._attr_is_on = value
             self._attr_extra_state_attributes = self._device.extra_state_attributes
-
-
-async def async_setup_entry(
-    hass: HomeAssistant,
-    config_entry: ConfigEntry,
-    async_add_entities: AddEntitiesCallback,
-) -> None:
-    """Set up entity configured via user interface."""
-    config: dict[str, Any] = config_entry.data | config_entry.options or {}
-    device: ComfortAdvisorDevice = hass.data[DOMAIN][config_entry.entry_id]
-
-    _LOGGER.debug("async_setup_entry: %s", config_entry)
-
-    enabled_sensors = config.get(CONF_ENABLED_SENSORS, ALL_BINARY_SENSOR_TYPES)
-
-    sensors = [
-        ComfortAdvisorBinarySensor(
-            hass=hass,
-            device=device,
-            entity_description=entity_description,
-            enabled_default=entity_description.key in enabled_sensors,
-        )
-        for entity_description in BINARY_SENSOR_DESCRIPTIONS
-    ]
-
-    if sensors:
-        async_add_entities(sensors)
