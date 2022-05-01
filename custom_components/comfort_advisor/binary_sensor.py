@@ -31,6 +31,7 @@ class ComfortAdvisorBinarySensor(BinarySensorEntity):  # type: ignore
     def __init__(
         self,
         *,
+        hass: HomeAssistant,
         device: ComfortAdvisorDevice,
         entity_description: BinarySensorEntityDescription,
         enabled_default: bool = False,
@@ -47,7 +48,7 @@ class ComfortAdvisorBinarySensor(BinarySensorEntity):  # type: ignore
         self.entity_id = async_generate_entity_id(
             BINARY_SENSOR_DOMAIN + ".{}",
             f"{device.name}_{entity_description.key}",
-            hass=device.hass,
+            hass=hass,
         )
         self._attr_entity_registry_enabled_default = enabled_default
         self._attr_should_poll = False
@@ -81,6 +82,7 @@ async def async_setup_entry(
 
     sensors = [
         ComfortAdvisorBinarySensor(
+            hass=hass,
             device=device,
             entity_description=entity_description,
             enabled_default=entity_description.key in enabled_sensors,

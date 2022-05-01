@@ -47,7 +47,7 @@ from .provider import Provider, WeatherData
 
 
 @dataclass
-class DeviceRawState:
+class DeviceInputs:
     """The device state."""
 
     # weather provider
@@ -61,12 +61,6 @@ class DeviceRawState:
     outdoor_humidity: float = None  # type: ignore
     outdoor_pollen: int = None  # type: ignore
 
-    # computed values
-    # open_windows: bool | None = None
-    # open_windows_reason: str | None = None
-    # high_simmer_index: float | None = None
-    # next_change_time: datetime | None = None
-
 
 class DeviceState(TypedDict, total=False):
     """TODO."""
@@ -77,7 +71,7 @@ class DeviceState(TypedDict, total=False):
     next_change_time: datetime | None
 
 
-class ComfortAdvisorDevice(Entity):  # type: ignore
+class ComfortAdvisorDevice:
     """Representation of a Comfort Advisor Device."""
 
     def __init__(
@@ -89,22 +83,10 @@ class ComfortAdvisorDevice(Entity):  # type: ignore
         forecast_service: DataUpdateCoordinator[list[WeatherData]],
     ) -> None:
         """Initialize the device."""
-        self.hass = hass
-
         self._config = config_entry.data | config_entry.options or {}
-        self._temp_unit = self.hass.config.units.temperature_unit  # TODO: config entry?
-        self._realtime_service = realtime_service
-        self._forecast_service = forecast_service
-        self._entities: list[Entity] = []
-        self._raw_data = DeviceRawState()
-        self._attr_state = DeviceState()
-
-        self._attr_unique_id = config_entry.unique_id
-        self._attr_should_poll = self._config[CONF_DEVICE][CONF_POLL]
-        self._attr_extra_state_attributes: MutableMapping[str, Any] = {
-            ATTR_ATTRIBUTION: provider.attribution
-        }
-        self._attr_device_info = DeviceInfo(
+        self.hass = hass
+        self.unique_id = config_entry.unique_id
+        self.device_info = DeviceInfo(
             entry_type=DeviceEntryType.SERVICE,
             identifiers={(DOMAIN, self.unique_id)},
             manufacturer=DEFAULT_MANUFACTURER,
@@ -112,6 +94,18 @@ class ComfortAdvisorDevice(Entity):  # type: ignore
             name=self._config[CONF_DEVICE][CONF_NAME],
             hw_version=provider.version,
         )
+
+        self._temp_unit = self.hass.config.units.temperature_unit  # TODO: config entry?
+        self._realtime_service = realtime_service
+        self._forecast_service = forecast_service
+        self._entities: list[Entity] = []
+        self._inputs = DeviceInputs()
+        self._state = DeviceState()
+
+        self.should_poll = self._config[CONF_DEVICE][CONF_POLL]
+        self.extra_state_attributes: MutableMapping[str, Any] = {
+            ATTR_ATTRIBUTION: provider.attribution
+        }
 
         config_entry.async_on_unload(
             self._realtime_service.async_add_listener(self._realtime_updated)
@@ -141,6 +135,11 @@ class ComfortAdvisorDevice(Entity):  # type: ignore
                 self._config.get(CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL),
             )
 
+    @property
+    def state(self) -> DeviceState:
+        """TODO."""
+        return self._state
+
     def add_entity(self, entity: Entity) -> CALLBACK_TYPE:
         """TODO."""
         self._entities.append(entity)
@@ -151,36 +150,36 @@ class ComfortAdvisorDevice(Entity):  # type: ignore
         self.device_info["sw_version"] = custom_components[DOMAIN].version.string
 
     def _realtime_updated(self) -> None:
-        self._raw_data.realtime = self._realtime_service.data
+        self._inputs.realtime = self._realtime_service.data
         self.hass.async_create_task(self.async_update())  # run in event loop
 
     def _forecast_updated(self) -> None:
-        self._raw_data.forecast = self._forecast_service.data
+        self._inputs.forecast = self._forecast_service.data
         self.hass.async_create_task(self.async_update())  # run in event loop
 
     async def _in_temp_listener(self, event: Event) -> None:
         if (state := self._get_new_state(event)) is not None:
-            self._raw_data.indoor_temp = self._get_temp(state)
+            self._inputs.indoor_temp = self._get_temp(state)
             await self.async_update()
 
     async def _in_humidity_listener(self, event: Event) -> None:
         if (state := self._get_new_state(event)) is not None:
-            self._raw_data.indoor_humidity = float(state.state)
+            self._inputs.indoor_humidity = float(state.state)
             await self.async_update()
 
     async def _out_temp_listener(self, event: Event) -> None:
         if (state := self._get_new_state(event)) is not None:
-            self._raw_data.outdoor_temp = self._get_temp(state)
+            self._inputs.outdoor_temp = self._get_temp(state)
             await self.async_update()
 
     async def _out_humidity_listener(self, event: Event) -> None:
         if (state := self._get_new_state(event)) is not None:
-            self._raw_data.outdoor_humidity = float(state.state)
+            self._inputs.outdoor_humidity = float(state.state)
             await self.async_update()
 
     async def _out_pollen_listener(self, event: Event) -> None:
         if (state := self._get_new_state(event)) is not None:
-            self._raw_data.outdoor_pollen = state.state  # TODO
+            self._inputs.outdoor_pollen = state.state  # TODO
             await self.async_update()
 
     @staticmethod
@@ -226,12 +225,12 @@ class ComfortAdvisorDevice(Entity):  # type: ignore
         pollen_max: int,
         **kwargs,
     ) -> bool:
-        raw = self._raw_data
+        inputs = self._inputs
         if (
-            raw.indoor_temp is None
-            or raw.indoor_humidity is None
-            or raw.outdoor_temp is None
-            or raw.outdoor_humidity is None
+            inputs.indoor_temp is None
+            or inputs.indoor_humidity is None
+            or inputs.outdoor_temp is None
+            or inputs.outdoor_humidity is None
         ):
             return False
 
@@ -247,16 +246,16 @@ class ComfortAdvisorDevice(Entity):  # type: ignore
             return comfortable, dewp, si
 
         temp_unit = self._temp_unit
-        pollen = raw.outdoor_pollen or 0
+        pollen = inputs.outdoor_pollen or 0
 
-        _, in_dewp, in_si = calc(raw.indoor_temp, raw.indoor_humidity, 0)
-        out_comfort, out_dewp, out_si = calc(raw.indoor_temp, raw.indoor_humidity, pollen)
+        _, in_dewp, in_si = calc(inputs.indoor_temp, inputs.indoor_humidity, 0)
+        out_comfort, out_dewp, out_si = calc(inputs.indoor_temp, inputs.indoor_humidity, pollen)
 
         comfort_list: list[bool] = []
         si_list: list[float] = []
         start = utcnow()
         end = start + timedelta(days=1)
-        next_day = list(filter(lambda x: start <= x.date_time <= end, raw.forecast or []))
+        next_day = list(filter(lambda x: start <= x.date_time <= end, inputs.forecast or []))
 
         for entry in next_day:
             comfort, _, si = calc(entry.temp, entry.humidity, entry.pollen or 0)
@@ -265,9 +264,7 @@ class ComfortAdvisorDevice(Entity):  # type: ignore
 
         change_ndx = next((ndx for ndx, x in enumerate(comfort_list) if x != out_comfort), None)
 
-        state: DeviceState = self._attr_state
-
-        state.update(
+        self._state.update(
             {
                 SensorType.NEXT_CHANGE_TIME: next_day[change_ndx].date_time if change_ndx else None,  # type: ignore
                 SensorType.HIGH_SIMMER_INDEX: max(si_list) if si_list else None,
@@ -285,7 +282,7 @@ class ComfortAdvisorDevice(Entity):  # type: ignore
         # TODO: need to check when `si_list` will be higher than `in_si`
         # TODO: need to create `comfort score` and create sensor for that
 
-        self._attr_extra_state_attributes.update(
+        self.extra_state_attributes.update(
             {
                 "indoor_dew_point": in_dewp,
                 "indoor_simmer_index": in_si,

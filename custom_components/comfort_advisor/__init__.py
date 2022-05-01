@@ -1,4 +1,4 @@
-"""Custom integration to integrate comfort_advisor with Home Assistant.
+"""Custom integration to integrate Comfort Advisor with Home Assistant.
 
 For more details about this integration, please refer to
 https://github.com/lymanepp/ha-comfort-advisor
@@ -34,7 +34,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.config_entries.async_update_entry(entry, unique_id=entry.entry_id)
 
     try:
-        build_schema(hass)(config)
+        schema = build_schema(hass)
+        schema(config)
     except vol.Invalid as exc:
         _LOGGER.error("Invalid configuration: %s", exc)
         return False

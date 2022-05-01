@@ -26,6 +26,7 @@ class ComfortAdvisorSensor(SensorEntity):  # type: ignore
     def __init__(
         self,
         *,
+        hass: HomeAssistant,
         device: ComfortAdvisorDevice,
         entity_description: SensorEntityDescription,
         enabled_default: bool = False,
@@ -42,14 +43,14 @@ class ComfortAdvisorSensor(SensorEntity):  # type: ignore
         self.entity_id = async_generate_entity_id(
             SENSOR_DOMAIN + ".{}",
             f"{device.name}_{entity_description.key}",
-            hass=device.hass,
+            hass=hass,
         )
         self._attr_entity_registry_enabled_default = enabled_default
         self._attr_should_poll = False
         if device.unique_id:
             self._attr_unique_id = f"{device.unique_id}_{entity_description.key}"
         self._attr_native_unit_of_measurement = (
-            self._device.hass.config.units.temperature_unit  # TODO: necessary??
+            hass.config.units.temperature_unit  # TODO: necessary??
         )
 
     async def async_added_to_hass(self) -> None:
@@ -79,6 +80,7 @@ async def async_setup_entry(
 
     sensors = [
         ComfortAdvisorSensor(
+            hass=hass,
             device=device,
             entity_description=entity_description,
             enabled_default=entity_description.key in enabled_sensors,
