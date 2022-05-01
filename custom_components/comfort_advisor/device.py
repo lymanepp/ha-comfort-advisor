@@ -45,6 +45,11 @@ from .const import (
 from .formulas import compute_dew_point, compute_simmer_index
 from .provider import Provider, WeatherData
 
+ATTR_INDOOR_DEW_POINT = "indoor_dew_point"
+ATTR_INDOOR_SIMMER_INDEX = "indoor_simmer_index"
+ATTR_OUTDOOR_DEW_POINT = "outdoor_dew_point"
+ATTR_OUTDOOR_SIMMER_INDEX = "outdoor_simmer_index"
+
 
 @dataclass
 class DeviceInputs:
@@ -103,9 +108,7 @@ class ComfortAdvisorDevice:
         self._state = DeviceState()
 
         self.should_poll = self._config[CONF_DEVICE][CONF_POLL]
-        self.extra_state_attributes: MutableMapping[str, Any] = {
-            ATTR_ATTRIBUTION: provider.attribution
-        }
+        self._extra_state_attributes: dict[str, Any] = {ATTR_ATTRIBUTION: provider.attribution}
 
         config_entry.async_on_unload(
             self._realtime_service.async_add_listener(self._realtime_updated)
@@ -139,6 +142,11 @@ class ComfortAdvisorDevice:
     def state(self) -> DeviceState:
         """TODO."""
         return self._state
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """TODO."""
+        return self._extra_state_attributes
 
     def add_entity(self, entity: Entity) -> CALLBACK_TYPE:
         """TODO."""
@@ -271,24 +279,18 @@ class ComfortAdvisorDevice:
                 BinarySensorType.OPEN_WINDOWS: out_comfort,
             }
         )
+        self._extra_state_attributes.update(
+            {
+                ATTR_INDOOR_DEW_POINT: in_dewp,
+                ATTR_INDOOR_SIMMER_INDEX: in_si,
+                ATTR_OUTDOOR_DEW_POINT: out_dewp,
+                ATTR_OUTDOOR_SIMMER_INDEX: out_si,
+            }
+        )
 
-        # raw.open_windows = out_comfort
-        # raw.next_change_time = next_day[change_ndx].date_time if change_ndx else None
-        # raw.high_simmer_index = max(si_list) if si_list else None
-
-        # TODO: add sensors for `next_change_time` and `high_simmer_index` for blueprints
         # TODO: create blueprint that uses `next_change_time` if windows can be open "all night"?
         # TODO: blueprint checks `high_simmer_index` if it will be cool tomorrow and conserve heat
         # TODO: need to check when `si_list` will be higher than `in_si`
-        # TODO: need to create `comfort score` and create sensor for that
-
-        self.extra_state_attributes.update(
-            {
-                "indoor_dew_point": in_dewp,
-                "indoor_simmer_index": in_si,
-                "outdoor_dew_point": out_dewp,
-                "outdoor_simmer_index": out_si,
-            }
-        )
+        # TODO: create `comfort score` and create sensor for that?
 
         return True
