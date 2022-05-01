@@ -13,7 +13,11 @@ from .provider import PROVIDERS, Provider, WeatherData
 
 REQUIREMENTS: list[str] = []
 DESCRIPTION: Final = "Faking it since 1982"
-SCHEMA = vol.Schema({}, extra=vol.PREVENT_EXTRA)
+
+
+def build_schema(hass: HomeAssistant) -> vol.Schema:
+    """TODO."""
+    return vol.Schema({})
 
 
 @PROVIDERS.register("fake")

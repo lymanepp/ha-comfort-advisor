@@ -10,6 +10,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     ATTR_ATTRIBUTION,
     ATTR_UNIT_OF_MEASUREMENT,
+    CONF_NAME,
     STATE_UNAVAILABLE,
     STATE_UNKNOWN,
 )
@@ -25,14 +26,20 @@ from homeassistant.loader import async_get_custom_components
 from homeassistant.util.dt import utcnow
 
 from .const import (
+    CONF_COMFORT,
+    CONF_DEVICE,
+    CONF_INDOOR_HUMIDITY,
+    CONF_INDOOR_TEMPERATURE,
+    CONF_INPUTS,
+    CONF_OUTDOOR_HUMIDITY,
+    CONF_OUTDOOR_TEMPERATURE,
+    CONF_POLL,
+    CONF_POLL_INTERVAL,
     DEFAULT_MANUFACTURER,
     DEFAULT_NAME,
     DEFAULT_POLL_INTERVAL,
     DOMAIN,
     BinarySensorType,
-    DeviceConfig,
-    InputConfig,
-    SectionConfig,
     SensorType,
 )
 from .formulas import compute_dew_point, compute_simmer_index
@@ -93,7 +100,7 @@ class ComfortAdvisorDevice(Entity):  # type: ignore
         self._attr_state = DeviceState()
 
         self._attr_unique_id = config_entry.unique_id
-        self._attr_should_poll = self._config[SectionConfig.DEVICE][DeviceConfig.POLL]
+        self._attr_should_poll = self._config[CONF_DEVICE][CONF_POLL]
         self._attr_extra_state_attributes: MutableMapping[str, Any] = {
             ATTR_ATTRIBUTION: provider.attribution
         }
@@ -102,7 +109,7 @@ class ComfortAdvisorDevice(Entity):  # type: ignore
             identifiers={(DOMAIN, self.unique_id)},
             manufacturer=DEFAULT_MANUFACTURER,
             model=DEFAULT_NAME,
-            name=self._config[SectionConfig.DEVICE][DeviceConfig.NAME],
+            name=self._config[CONF_DEVICE][CONF_NAME],
             hw_version=provider.version,
         )
 
@@ -115,13 +122,12 @@ class ComfortAdvisorDevice(Entity):  # type: ignore
 
         # TODO: need common listener that updates the right state bucket
         for config_key, listener in (
-            (InputConfig.INDOOR_TEMPERATURE, self._in_temp_listener),
-            (InputConfig.INDOOR_HUMIDITY, self._in_humidity_listener),
-            (InputConfig.OUTDOOR_TEMPERATURE, self._out_temp_listener),
-            (InputConfig.OUTDOOR_HUMIDITY, self._out_humidity_listener),
-            (InputConfig.OUTDOOR_POLLEN, self._out_pollen_listener),
+            (CONF_INDOOR_TEMPERATURE, self._in_temp_listener),
+            (CONF_INDOOR_HUMIDITY, self._in_humidity_listener),
+            (CONF_OUTDOOR_TEMPERATURE, self._out_temp_listener),
+            (CONF_OUTDOOR_HUMIDITY, self._out_humidity_listener),
         ):
-            if entity_id := self._config[SectionConfig.INPUTS].get(config_key):
+            if entity_id := self._config[CONF_INPUTS].get(config_key):
                 config_entry.async_on_unload(
                     async_track_state_change_event(self.hass, entity_id, listener)
                 )
@@ -132,7 +138,7 @@ class ComfortAdvisorDevice(Entity):  # type: ignore
             async_track_time_interval(
                 self.hass,
                 self.async_update_entities,
-                self._config.get(DeviceConfig.POLL_INTERVAL, DEFAULT_POLL_INTERVAL),
+                self._config.get(CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL),
             )
 
     def add_entity(self, entity: Entity) -> CALLBACK_TYPE:
@@ -201,7 +207,7 @@ class ComfortAdvisorDevice(Entity):  # type: ignore
 
     async def async_update_entities(self, force_refresh: bool = False) -> None:
         """Update the state of the entities."""
-        if self._calculate_state(**(self._config[SectionConfig.COMFORT])):
+        if self._calculate_state(**(self._config[CONF_COMFORT])):
             for entity in self._entities:
                 entity.async_schedule_update_ha_state(force_refresh)
 
@@ -263,7 +269,7 @@ class ComfortAdvisorDevice(Entity):  # type: ignore
 
         state.update(
             {
-                SensorType.NEXT_CHANGE_TIME: next_day[change_ndx].date_time if change_ndx else None, # type: ignore
+                SensorType.NEXT_CHANGE_TIME: next_day[change_ndx].date_time if change_ndx else None,  # type: ignore
                 SensorType.HIGH_SIMMER_INDEX: max(si_list) if si_list else None,
                 BinarySensorType.OPEN_WINDOWS: out_comfort,
             }

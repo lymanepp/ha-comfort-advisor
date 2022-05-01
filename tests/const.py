@@ -2,20 +2,30 @@
 
 from typing import Any
 
-from custom_components.comfort_advisor.const import ConfigValue
+from homeassistant.const import CONF_NAME
+
+from custom_components.comfort_advisor.const import (
+    CONF_ENABLED_SENSORS,
+    CONF_INDOOR_HUMIDITY,
+    CONF_INDOOR_TEMPERATURE,
+    CONF_OUTDOOR_HUMIDITY,
+    CONF_OUTDOOR_TEMPERATURE,
+    CONF_POLL,
+    CONF_POLL_INTERVAL,
+)
 
 USER_INPUT: dict[str, Any] = {
-    str(ConfigValue.NAME): "New name",
-    str(ConfigValue.INDOOR_TEMPERATURE): "sensor.test_temperature_sensor",
-    str(ConfigValue.INDOOR_HUMIDITY): "sensor.test_humidity_sensor",
-    str(ConfigValue.OUTDOOR_TEMPERATURE): "sensor.test_temperature_sensor",
-    str(ConfigValue.OUTDOOR_HUMIDITY): "sensor.test_humidity_sensor",
-    str(ConfigValue.POLL): False,
-    str(ConfigValue.POLL_INTERVAL): 30,
+    CONF_INDOOR_TEMPERATURE: "sensor.test_temperature_sensor",
+    CONF_INDOOR_HUMIDITY: "sensor.test_humidity_sensor",
+    CONF_OUTDOOR_TEMPERATURE: "sensor.test_temperature_sensor",
+    CONF_OUTDOOR_HUMIDITY: "sensor.test_humidity_sensor",
+    CONF_NAME: "New name",
+    CONF_POLL: False,
+    CONF_POLL_INTERVAL: 30,
 }
 
 ADVANCED_USER_INPUT = {
     **USER_INPUT,
-    str(ConfigValue.NAME): "test_comfort_advisor",
-    str(ConfigValue.ENABLED_SENSORS): [],
+    CONF_NAME: "test_comfort_advisor",
+    CONF_ENABLED_SENSORS: [],
 }

@@ -15,9 +15,9 @@
       "inputs": {
         "title": "Configure ambient sensors",
         "data": {
-          "indoor_temp": "Indoor temperature sensor",
+          "indoor_temperature": "Indoor temperature sensor",
           "indoor_humidity": "Indoor humidity sensor",
-          "outdoor_temp": "Outdoor temperature sensor",
+          "outdoor_temperature": "Outdoor temperature sensor",
           "outdoor_humidity": "Outdoor humidity sensor"
         }
       },
@@ -55,30 +55,29 @@
     }
   },
   "options": {
-    "abort": {
-      "no_sensors": "No temperature or humidity sensors found."
-    },
-    "error": {
-      "api_error": "Service API error",
-      "cannot_connect": "Cannot connect to service",
-      "invalid_api_key": "API key is not valid",
-      "rate_limited": "Service is rate-limited"
-    },
     "step": {
       "init": {
-        "title": "Comfort Advisor settings",
+        "title": "Configure comfort settings",
         "data": {
-          "provider": "Select a weather provider",
-          "api_key": "API key",
-          "in_temp_sensor": "Indoor temperature sensor",
-          "in_humidity_sensor": "Indoor humidity sensor",
-          "out_temp_sensor": "Outdoor temperature sensor",
-          "out_humidity_sensor": "Outdoor humidity sensor",
+          "simmer_index_min": "Lowest comfortable summer simmer index",
+          "simmer_index_max": "Highest comfortable summer simmer index",
+          "dew_point_max": "Highest comfortable dew point.",
+          "humidity_max": "Highest comfortable relative humidity.",
+          "pollen_max": "Highest comfortable pollen level (if available from weather provider)."
+        },
+        "description": "The [Summer simmer index](http://summersimmer.com/home.htm) is a modern heat index equation. For SSI values between {70} and {77}, most people are comfortable, but slightly cool. From {77} to {83}, nearly everyone feels quite comfortable, while from {83} to {91} most are comfortable, but slightly warm.\n\n[Dew point temperatures](https://weatherology.com/trending/articles/Professor-Paul-Dew-Point-Relative-Humidity.html) tell the absolute quantity of moisture that is in the air, thereby indicating how humid it will feel outside to our bodies. On the other hand, relative humidity only tells us how saturated the air is compared to how much it can hold at the current temperature."
+      },
+      "device": {
+        "title": "Configure device settings",
+        "data": {
+          "name": "Name",
+          "enabled_sensors": "Enabled sensors",
           "poll": "Enable polling mode",
-          "poll_interval": "Poll interval (seconds)",
-          "enabled_sensors": "Enabled sensors"
+          "poll_interval": "Poll interval (seconds)"
         }
-      }
+      },
+      "error": {},
+      "abort": {}
     }
   }
 }

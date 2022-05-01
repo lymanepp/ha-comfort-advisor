@@ -5,6 +5,7 @@ from datetime import datetime
 import logging
 from typing import Any, Callable, Coroutine, Final, ParamSpec, TypeVar, cast
 
+from homeassistant.const import CONF_LATITUDE, CONF_LOCATION, CONF_LONGITUDE
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import selector
@@ -18,17 +19,12 @@ from pytomorrowio.exceptions import (
 import voluptuous as vol
 
 from .provider import PROVIDERS, Provider, ProviderError, WeatherData
+from .schemas import value_or_default
 
 _LOGGER = logging.getLogger(__name__)
 
 REQUIREMENTS: Final = ["pytomorrowio>=0.3.1"]
 DESCRIPTION: Final = "To get an API key, sign up at [Tomorrow.io](https://app.tomorrow.io/signup)."
-SCHEMA: Final = vol.Schema(
-    {
-        vol.Required("api_key"): str,
-        vol.Required("location"): selector({"location": {"radius": False}}),
-    }
-)
 
 
 TMRW_ATTR_TIMESTAMP = "startTime"
@@ -47,6 +43,18 @@ FIELDS = [
     TMRW_ATTR_POLLEN_TREE,
     TMRW_ATTR_POLLEN_WEED,
 ]
+
+
+def build_schema(hass: HomeAssistant, *, location: dict[str, float] = vol.UNDEFINED) -> vol.Schema:
+    """TODO."""
+    default_location = {CONF_LATITUDE: hass.config.latitude, CONF_LONGITUDE: hass.config.longitude}
+    return vol.Schema(
+        {
+            vol.Required(
+                CONF_LOCATION, default=value_or_default(location, default_location)
+            ): selector({"location": {"radius": False}})
+        }
+    )
 
 
 _ParamT = ParamSpec("_ParamT")  # the callable parameters

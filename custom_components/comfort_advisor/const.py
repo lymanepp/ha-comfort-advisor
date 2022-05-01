@@ -3,19 +3,36 @@ from datetime import timedelta
 from enum import IntEnum
 from typing import Final
 
+from homeassistant.backports.enum import StrEnum
 from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
     BinarySensorEntityDescription,
 )
 from homeassistant.components.sensor import (
-    SensorEntityDescription,
     SensorDeviceClass,
+    SensorEntityDescription,
     SensorStateClass,
 )
 
-from homeassistant.backports.enum import StrEnum
-
 DOMAIN: Final = "comfort_advisor"
+
+CONF_COMFORT: Final = "comfort"
+CONF_DEVICE: Final = "device"
+CONF_DEWPOINT_MAX: Final = "dew_point_max"
+CONF_ENABLED_SENSORS: Final = "enabled_sensors"
+CONF_HUMIDITY_MAX: Final = "humidity_max"
+CONF_INDOOR_HUMIDITY: Final = "indoor_humidity"
+CONF_INDOOR_TEMPERATURE: Final = "indoor_temperature"
+CONF_INPUTS: Final = "inputs"
+CONF_OUTDOOR_HUMIDITY: Final = "outdoor_humidity"
+CONF_OUTDOOR_TEMPERATURE: Final = "outdoor_temperature"
+CONF_POLL: Final = "poll"
+CONF_POLLEN_MAX: Final = "pollen_max"
+CONF_POLL_INTERVAL: Final = "poll_interval"
+CONF_PROVIDER: Final = "provider"
+CONF_PROVIDER_TYPE: Final = "provider_type"
+CONF_SIMMER_INDEX_MAX: Final = "simmer_index_max"
+CONF_SIMMER_INDEX_MIN: Final = "simmer_index_min"
 
 # DataUpdateCoordinator constants
 SCAN_INTERVAL_REALTIME: Final = timedelta(minutes=15)
@@ -31,50 +48,6 @@ DEFAULT_SIMMER_INDEX_MAX: Final = 85
 DEFAULT_SIMMER_INDEX_MIN: Final = 70
 DEFAULT_POLL: Final = False
 DEFAULT_POLL_INTERVAL: Final = 30
-
-
-class SectionConfig(StrEnum):  # type: ignore
-    """Configuration schema enum."""
-
-    PROVIDER = "provider"
-    INPUTS = "inputs"
-    COMFORT = "comfort"
-    DEVICE = "device"
-
-
-class ProviderConfig(StrEnum):  # type: ignore
-    """Configuration provider enum."""
-
-    TYPE = "type"
-
-
-class InputConfig(StrEnum):  # type: ignore
-    """Configuration section enum."""
-
-    INDOOR_HUMIDITY = "indoor_humidity"
-    INDOOR_TEMPERATURE = "indoor_temp"
-    OUTDOOR_HUMIDITY = "outdoor_humidity"
-    OUTDOOR_TEMPERATURE = "outdoor_temp"
-    OUTDOOR_POLLEN = "outdoor_pollen"
-
-
-class ComfortConfig(StrEnum):  # type: ignore
-    """Configuration comfort enum."""
-
-    DEWPOINT_MAX = "dew_point_max"
-    HUMIDITY_MAX = "humidity_max"
-    POLLEN_MAX = "pollen_max"
-    SIMMER_INDEX_MAX = "simmer_index_max"
-    SIMMER_INDEX_MIN = "simmer_index_min"
-
-
-class DeviceConfig(StrEnum):  # type: ignore
-    """Configuration value enum."""
-
-    ENABLED_SENSORS = "enabled_sensors"
-    NAME = "name"
-    POLL = "poll"
-    POLL_INTERVAL = "poll_interval"
 
 
 # can't be dynamic because providers are loaded on first use
@@ -110,7 +83,8 @@ BINARY_SENSOR_DESCRIPTIONS = [
     ),
 ]
 
-BINARY_SENSOR_TYPES: list[str] = sorted([x.key for x in BINARY_SENSOR_DESCRIPTIONS])
+# TODO: can this be done with StrEnum and move BINARY_SENSOR_DESCRIPTIONS back to its place?
+ALL_BINARY_SENSOR_TYPES: list[str] = sorted(x.key for x in BINARY_SENSOR_DESCRIPTIONS)
 
 
 class SensorType(StrEnum):  # type: ignore
@@ -145,4 +119,5 @@ SENSOR_DESCRIPTIONS = [
 ]
 
 
-SENSOR_TYPES: list[str] = sorted([x.key for x in SENSOR_DESCRIPTIONS])
+# TODO: can this be done with StrEnum and move SENSOR_DESCRIPTIONS back to its place?
+ALL_SENSOR_TYPES: list[str] = sorted(x.key for x in SENSOR_DESCRIPTIONS)

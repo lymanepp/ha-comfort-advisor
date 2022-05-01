@@ -1,12 +1,13 @@
 """The test for the Comfort Advisor sensor platform."""
-
 import logging
 
 from homeassistant.components.command_line.const import DOMAIN as COMMAND_LINE_DOMAIN
 from homeassistant.components.sensor import DOMAIN as PLATFORM_DOMAIN
 import pytest
 
-from custom_components.comfort_advisor.const import DOMAIN, SENSOR_TYPES
+from custom_components.comfort_advisor.binary_sensor import ALL_BINARY_SENSOR_TYPES
+from custom_components.comfort_advisor.const import DOMAIN
+from custom_components.comfort_advisor.sensor import ALL_SENSOR_TYPES
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -89,7 +90,8 @@ DEFAULT_TEST_SENSORS = [
     ],
 ]
 
-LEN_DEFAULT_SENSORS = len(SENSOR_TYPES)
+ALL_SENSOR_TYPES = sorted(ALL_BINARY_SENSOR_TYPES + ALL_SENSOR_TYPES)
+LEN_DEFAULT_SENSORS = len(ALL_SENSOR_TYPES)
 
 
 @pytest.mark.parametrize(*DEFAULT_TEST_SENSORS)

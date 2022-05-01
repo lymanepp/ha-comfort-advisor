@@ -14,7 +14,12 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import async_generate_entity_id
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import BINARY_SENSOR_DESCRIPTIONS, BINARY_SENSOR_TYPES, DOMAIN, DeviceConfig
+from .const import (
+    ALL_BINARY_SENSOR_TYPES,
+    BINARY_SENSOR_DESCRIPTIONS,
+    CONF_ENABLED_SENSORS,
+    DOMAIN,
+)
 from .device import ComfortAdvisorDevice
 
 _LOGGER = logging.getLogger(__name__)
@@ -72,7 +77,7 @@ async def async_setup_entry(
 
     _LOGGER.debug("async_setup_entry: %s", config_entry)
 
-    enabled_sensors = config.get(DeviceConfig.ENABLED_SENSORS, BINARY_SENSOR_TYPES)
+    enabled_sensors = config.get(CONF_ENABLED_SENSORS, ALL_BINARY_SENSOR_TYPES)
 
     sensors = [
         ComfortAdvisorBinarySensor(

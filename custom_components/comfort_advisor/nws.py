@@ -5,6 +5,7 @@ import logging
 from typing import Any, Callable, Coroutine, Final, ParamSpec, TypeVar, cast
 
 from aiohttp import ClientConnectionError
+from homeassistant.const import CONF_LATITUDE, CONF_LOCATION, CONF_LONGITUDE
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import selector
@@ -14,6 +15,7 @@ from pynws.const import Detail
 import voluptuous as vol
 
 from .provider import PROVIDERS, Provider, ProviderError, WeatherData
+from .schemas import value_or_default
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -21,12 +23,18 @@ REQUIREMENTS: Final = ["pynws>=1.4.1"]
 DESCRIPTION: Final = (
     "For now, an API Key can be anything. It is recommended to use a valid email address."
 )
-SCHEMA: Final = vol.Schema(
-    {
-        vol.Required("api_key"): str,
-        vol.Required("location"): selector({"location": {"radius": False}}),
-    }
-)
+
+
+def build_schema(hass: HomeAssistant, *, location: dict[str, float] = vol.UNDEFINED) -> vol.Schema:
+    """TODO."""
+    default_location = {CONF_LATITUDE: hass.config.latitude, CONF_LONGITUDE: hass.config.longitude}
+    return vol.Schema(
+        {
+            vol.Required(
+                CONF_LOCATION, default=value_or_default(location, default_location)
+            ): selector({"location": {"radius": False}})
+        }
+    )
 
 
 _ParamT = ParamSpec("_ParamT")  # the callable parameters
