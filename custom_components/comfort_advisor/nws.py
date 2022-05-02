@@ -2,20 +2,29 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Coroutine, Final, cast
+from typing import TYPE_CHECKING, cast
 
 from aiohttp import ClientConnectionError
-from homeassistant.const import CONF_LATITUDE, CONF_LOCATION, CONF_LONGITUDE, CONF_API_KEY
+from homeassistant.const import (
+    CONF_API_KEY,
+    CONF_LATITUDE,
+    CONF_LOCATION,
+    CONF_LONGITUDE,
+    TEMP_CELSIUS,
+)
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import selector
 from homeassistant.util.dt import parse_datetime, utcnow
+from homeassistant.util.temperature import convert as convert_temp
 from pynws import SimpleNWS, version as PYNWS_VERSION
-from pynws.const import Detail
 import voluptuous as vol
 
 from .provider import PROVIDERS, Provider, ProviderError, WeatherData
 from .schemas import value_or_default
+
+if TYPE_CHECKING:
+    from typing import Any, Callable, Coroutine, Final, ParamSpec, TypeVar
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -25,24 +34,7 @@ DESCRIPTION: Final = (
 )
 
 
-def build_schema(
-    hass: HomeAssistant, *, api_key: str = vol.UNDEFINED, location: dict[str, float] = vol.UNDEFINED
-) -> vol.Schema:
-    """TODO."""
-    default_location = {CONF_LATITUDE: hass.config.latitude, CONF_LONGITUDE: hass.config.longitude}
-    return vol.Schema(
-        {
-            vol.Required(CONF_API_KEY, default=api_key): vol.All(str, vol.Email),
-            vol.Required(
-                CONF_LOCATION, default=value_or_default(location, default_location)
-            ): selector({"location": {"radius": False}}),
-        }
-    )
-
-
 if TYPE_CHECKING:
-    from typing import ParamSpec, TypeVar
-
     _ParamT = ParamSpec("_ParamT")  # the callable parameters
     _ResultT = TypeVar("_ResultT")  # the callable/awaitable return type
 
@@ -64,6 +56,21 @@ def async_exception_handler(
     return wrapper
 
 
+def build_schema(
+    hass: HomeAssistant, *, api_key: str = vol.UNDEFINED, location: dict[str, float] = vol.UNDEFINED
+) -> vol.Schema:
+    """TODO."""
+    default_location = {CONF_LATITUDE: hass.config.latitude, CONF_LONGITUDE: hass.config.longitude}
+    return vol.Schema(
+        {
+            vol.Required(CONF_API_KEY, default=api_key): vol.All(str, vol.Length(min=1)),
+            vol.Required(
+                CONF_LOCATION, default=value_or_default(location, default_location)
+            ): selector({"location": {"radius": False}}),
+        }
+    )
+
+
 @PROVIDERS.register("nws")
 class NwsWeatherProvider(Provider):
     """TODO."""
@@ -77,6 +84,7 @@ class NwsWeatherProvider(Provider):
         **kwargs,
     ) -> None:
         """TODO."""
+        self._temp_unit = hass.config.units.temperature_unit
         latitude = float(location["latitude"])
         longitude = float(location["longitude"])
 
@@ -94,16 +102,31 @@ class NwsWeatherProvider(Provider):
         """Return dependency version."""
         return cast(str, PYNWS_VERSION)
 
+    def _to_weather_data(  # type: ignore
+        self,
+        *,
+        startTime: str,
+        temperature: float,
+        relativeHumidity: float,
+        windSpeed: float,
+        **kwargs,
+    ) -> WeatherData:
+        return WeatherData(
+            date_time=parse_datetime(startTime),
+            temp=convert_temp(temperature, TEMP_CELSIUS, self._temp_unit),
+            humidity=relativeHumidity,
+            wind_speed=windSpeed,
+            pollen=None,
+        )
+
     @async_exception_handler
     async def realtime(self) -> WeatherData:
         """TODO."""
         if not self._api.station:
             await self._api.set_station()
         await self._api.update_observation(limit=1)
-        # obs = self._api.observation
-        # TODO: map to WeatherData
-        # return self._to_weather_data(utcnow().replace(microsecond=0), realtime)
-        raise ProviderError("api_error")
+        start_time = utcnow().replace(microsecond=0).isoformat()
+        return self._to_weather_data(startTime=start_time, **(self._api.observation))
 
     @async_exception_handler
     async def forecast(self) -> list[WeatherData]:
@@ -112,20 +135,5 @@ class NwsWeatherProvider(Provider):
             await self._api.set_station()
         await self._api.update_detailed_forecast()
         forecast = self._api.detailed_forecast
-        now = utcnow()
-        details_by_hour = forecast.get_details_by_hour(start_time=now, hours=24)
-        result: list[WeatherData] = []
-        for details in details_by_hour:
-            start_time = parse_datetime(details[Detail.START_TIME])
-            if start_time < now:
-                continue
-            result.append(
-                WeatherData(
-                    date_time=start_time,
-                    temp=details[Detail.TEMPERATURE],
-                    humidity=details[Detail.RELATIVE_HUMIDITY],
-                    wind_speed=details[Detail.WIND_SPEED],
-                    pollen=None,
-                )
-            )
-        return result
+        hourly_forecast = forecast.get_details_by_hour(start_time=utcnow(), hours=24)
+        return [self._to_weather_data(**interval) for interval in hourly_forecast]

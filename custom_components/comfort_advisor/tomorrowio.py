@@ -3,9 +3,14 @@ from __future__ import annotations
 
 from datetime import datetime
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Coroutine, Final, cast
+from typing import TYPE_CHECKING, cast
 
-from homeassistant.const import CONF_LATITUDE, CONF_LOCATION, CONF_LONGITUDE, CONF_API_KEY
+from homeassistant.const import (
+    CONF_API_KEY,
+    CONF_LATITUDE,
+    CONF_LOCATION,
+    CONF_LONGITUDE,
+)
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import selector
@@ -21,6 +26,9 @@ import voluptuous as vol
 from .provider import PROVIDERS, Provider, ProviderError, WeatherData
 from .schemas import value_or_default
 
+if TYPE_CHECKING:
+    from typing import Any, Callable, Coroutine, Final, ParamSpec, TypeVar
+
 _LOGGER = logging.getLogger(__name__)
 
 REQUIREMENTS: Final = ["pytomorrowio>=0.3.1"]
@@ -28,25 +36,7 @@ DESCRIPTION: Final = "To get an API key, sign up at [Tomorrow.io](https://app.to
 
 FIELDS = ["temperature", "humidity", "windSpeed", "treeIndex", "weedIndex", "grassIndex"]
 
-
-def build_schema(
-    hass: HomeAssistant, *, api_key: str = vol.UNDEFINED, location: dict[str, float] = vol.UNDEFINED
-) -> vol.Schema:
-    """TODO."""
-    default_location = {CONF_LATITUDE: hass.config.latitude, CONF_LONGITUDE: hass.config.longitude}
-    return vol.Schema(
-        {
-            vol.Required(CONF_API_KEY, default=api_key): vol.All(str, vol.Length(min=1)),
-            vol.Required(
-                CONF_LOCATION, default=value_or_default(location, default_location)
-            ): selector({"location": {"radius": False}}),
-        }
-    )
-
-
 if TYPE_CHECKING:
-    from typing import ParamSpec, TypeVar
-
     _ParamT = ParamSpec("_ParamT")  # the callable parameters
     _ResultT = TypeVar("_ResultT")  # the callable/awaitable return type
 
@@ -70,6 +60,21 @@ def async_exception_handler(
             raise ProviderError("unknown") from exc
 
     return wrapper
+
+
+def build_schema(
+    hass: HomeAssistant, *, api_key: str = vol.UNDEFINED, location: dict[str, float] = vol.UNDEFINED
+) -> vol.Schema:
+    """TODO."""
+    default_location = {CONF_LATITUDE: hass.config.latitude, CONF_LONGITUDE: hass.config.longitude}
+    return vol.Schema(
+        {
+            vol.Required(CONF_API_KEY, default=api_key): vol.All(str, vol.Length(min=1)),
+            vol.Required(
+                CONF_LOCATION, default=value_or_default(location, default_location)
+            ): selector({"location": {"radius": False}}),
+        }
+    )
 
 
 @PROVIDERS.register("tomorrowio")
@@ -110,8 +115,8 @@ class TomorrowioWeatherProvider(Provider):
 
     @staticmethod
     def _to_weather_data(  # type: ignore
-        date_time: datetime,
         *,
+        startTime: str,
         temperature: float,
         humidity: float,
         windSpeed: float,
@@ -121,7 +126,7 @@ class TomorrowioWeatherProvider(Provider):
         **kwargs,
     ) -> WeatherData:
         return WeatherData(
-            date_time=date_time,
+            date_time=parse_datetime(startTime),
             temp=temperature,
             humidity=humidity,
             wind_speed=windSpeed,
@@ -132,14 +137,11 @@ class TomorrowioWeatherProvider(Provider):
     async def realtime(self) -> WeatherData:
         """Retrieve realtime weather from pytomorrowio."""
         realtime = await self._api.realtime(FIELDS)
-        return self._to_weather_data(utcnow().replace(microsecond=0), **realtime)
+        start_time = utcnow().replace(microsecond=0).isoformat()
+        return self._to_weather_data(startTime=start_time, **realtime)
 
     @async_exception_handler
     async def forecast(self) -> list[WeatherData]:
         """Retrieve weather forecast from pytomorrowio."""
         hourly_forecast = await self._api.forecast_hourly(FIELDS, start_time=utcnow())
-        result: list[WeatherData] = []
-        for interval in hourly_forecast:
-            start_time = parse_datetime(interval.get("startTime"))
-            result.append(self._to_weather_data(start_time, **interval["values"]))
-        return result
+        return [self._to_weather_data(**interval) for interval in hourly_forecast]
