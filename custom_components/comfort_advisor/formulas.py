@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from enum import IntEnum
 import math
+from typing import cast
 
 from homeassistant.const import TEMP_CELSIUS, TEMP_FAHRENHEIT, TEMP_KELVIN
 from homeassistant.util.temperature import convert as convert_temp
@@ -29,10 +30,10 @@ def compute_dew_point(temp: float, rh: float, temp_unit: str) -> float:
     b, c = 17.67, 243.5
     gamma = math.log(rh / 100) + b * T / (c + T)
     Td = c * gamma / (b - gamma)
-    return round(convert_temp(Td, TEMP_CELSIUS, temp_unit), 2)  # type: ignore
+    return cast(float, round(convert_temp(Td, TEMP_CELSIUS, temp_unit), 2))
 
 
-def heat_index(temp: float, rh: float, temp_unit: str) -> float:
+def compute_heat_index(temp: float, rh: float, temp_unit: str) -> float:
     """Calculate heat index from temperature and humidity.
 
     http://www.wpc.ncep.noaa.gov/html/heatindex_equation.shtml
@@ -56,10 +57,10 @@ def heat_index(temp: float, rh: float, temp_unit: str) -> float:
         elif rh > 85 and 80 <= T <= 87:
             HI += ((rh - 85) * 0.1) * ((87 - T) * 0.2)
 
-    return round(convert_temp(HI, TEMP_FAHRENHEIT, temp_unit), 2)  # type: ignore
+    return cast(float, round(convert_temp(HI, TEMP_FAHRENHEIT, temp_unit), 2))
 
 
-def absolute_humidity(temp: float, rh: float, temp_unit: str) -> float:
+def compute_absolute_humidity(temp: float, rh: float, temp_unit: str) -> float:
     """Calculate absolute humidity from temperature and humidity.
 
     https://carnotcycle.wordpress.com/2012/08/04/how-to-convert-relative-humidity-to-absolute-humidity
@@ -69,7 +70,7 @@ def absolute_humidity(temp: float, rh: float, temp_unit: str) -> float:
     return round(abs_humidity, 2)  # type: ignore
 
 
-def frost_point(temp: float, rh: float, temp_unit: str) -> float:
+def compute_frost_point(temp: float, rh: float, temp_unit: str) -> float:
     """Calculate frost point from temperature and humidity.
 
     https://pon.fr/dzvents-alerte-givre-et-calcul-humidite-absolue
@@ -80,13 +81,13 @@ def frost_point(temp: float, rh: float, temp_unit: str) -> float:
 
     frostpoint = (Td + (2671.02 / ((2954.61 / T) + 2.193665 * math.log(T) - 13.3448)) - T) - 273.15
 
-    return round(convert_temp(frostpoint, TEMP_CELSIUS, temp_unit), 2)  # type: ignore
+    return cast(float, round(convert_temp(frostpoint, TEMP_CELSIUS, temp_unit), 2))
 
 
-def frost_risk(temp: float, rh: float, temp_unit: str) -> FrostRisk:
+def compute_frost_risk(temp: float, rh: float, temp_unit: str) -> FrostRisk:
     """Calculate frost risk from temperature and humidity."""
-    abshum = absolute_humidity(temp, rh, temp_unit)
-    frostpoint = frost_point(temp, rh, temp_unit)
+    abshum = compute_absolute_humidity(temp, rh, temp_unit)
+    frostpoint = compute_frost_point(temp, rh, temp_unit)
 
     temp_c = convert_temp(temp, temp_unit, TEMP_CELSIUS)
     frostpoint_c = convert_temp(frostpoint, temp_unit, TEMP_CELSIUS)
@@ -109,4 +110,4 @@ def compute_simmer_index(temp: float, rh: float, temp_unit: str) -> float:
     """
     Tf = convert_temp(temp, temp_unit, TEMP_FAHRENHEIT)
     ssi = 1.98 * (Tf - (0.55 - (0.0055 * rh)) * (Tf - 58)) - 56.83
-    return round(convert_temp(ssi, TEMP_FAHRENHEIT, temp_unit), 2)  # type: ignore
+    return cast(float, round(convert_temp(ssi, TEMP_FAHRENHEIT, temp_unit), 2))
