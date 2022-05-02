@@ -276,7 +276,7 @@ class ComfortAdvisorDevice:
         self._state.update(
             {
                 STATE_HIGH_SIMMER_INDEX: max(si_list) if si_list else None,
-                STATE_NEXT_CHANGE_TIME: next_day[change_ndx].date_time if change_ndx else None,  # type: ignore
+                STATE_NEXT_CHANGE_TIME: next_day[change_ndx].date_time if change_ndx else None,
                 STATE_OPEN_WINDOWS: out_comfort,
             }
         )

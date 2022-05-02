@@ -40,7 +40,7 @@ from .const import (
     DEFAULT_SIMMER_INDEX_MIN,
     PROVIDER_TYPES,
 )
-from .helpers import humidity_sensor_selector, temp_sensor_selector
+from .helpers import HUMIDITY_SENSOR_SELECTOR, TEMP_SENSOR_SELECTOR
 
 
 def value_or_default(value: Any, default: Any) -> Any:
@@ -66,10 +66,10 @@ def build_inputs_schema(
     """TODO."""
     return vol.Schema(
         {
-            vol.Required(CONF_INDOOR_TEMPERATURE, default=indoor_temp): temp_sensor_selector,
-            vol.Required(CONF_INDOOR_HUMIDITY, default=indoor_humidity): humidity_sensor_selector,
-            vol.Required(CONF_OUTDOOR_TEMPERATURE, default=outdoor_temp): temp_sensor_selector,
-            vol.Required(CONF_OUTDOOR_HUMIDITY, default=outdoor_humidity): humidity_sensor_selector,
+            vol.Required(CONF_INDOOR_TEMPERATURE, default=indoor_temp): TEMP_SENSOR_SELECTOR,
+            vol.Required(CONF_INDOOR_HUMIDITY, default=indoor_humidity): HUMIDITY_SENSOR_SELECTOR,
+            vol.Required(CONF_OUTDOOR_TEMPERATURE, default=outdoor_temp): TEMP_SENSOR_SELECTOR,
+            vol.Required(CONF_OUTDOOR_HUMIDITY, default=outdoor_humidity): HUMIDITY_SENSOR_SELECTOR,
         }
     )
 

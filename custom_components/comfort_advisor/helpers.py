@@ -17,10 +17,10 @@ from .const import DOMAIN
 _LOGGER = logging.getLogger(__name__)
 
 
-temp_sensor_selector = selector(
+TEMP_SENSOR_SELECTOR = selector(
     {"entity": {"domain": "sensor", "device_class": SensorDeviceClass.TEMPERATURE}}
 )
-humidity_sensor_selector = selector(
+HUMIDITY_SENSOR_SELECTOR = selector(
     {"entity": {"domain": "sensor", "device_class": SensorDeviceClass.HUMIDITY}}
 )
 

@@ -3,7 +3,16 @@ from __future__ import annotations
 
 from datetime import datetime
 import logging
-from typing import Any, Callable, Coroutine, Final, ParamSpec, TypeVar, cast
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Coroutine,
+    Final,
+    ParamSpec,
+    TypeVar,
+    cast,
+)
 
 from homeassistant.const import CONF_LATITUDE, CONF_LOCATION, CONF_LONGITUDE
 from homeassistant.core import HomeAssistant
@@ -57,8 +66,9 @@ def build_schema(hass: HomeAssistant, *, location: dict[str, float] = vol.UNDEFI
     )
 
 
-_ParamT = ParamSpec("_ParamT")  # the callable parameters
-_ResultT = TypeVar("_ResultT")  # the callable/awaitable return type
+if TYPE_CHECKING:
+    _ParamT = ParamSpec("_ParamT")  # the callable parameters
+    _ResultT = TypeVar("_ResultT")  # the callable/awaitable return type
 
 
 def async_exception_handler(
