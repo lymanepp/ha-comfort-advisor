@@ -2,7 +2,17 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, cast
+from typing import (
+    Any,
+    Callable,
+    Coroutine,
+    Final,
+    Mapping,
+    ParamSpec,
+    Sequence,
+    TypeVar,
+    cast,
+)
 
 from aiohttp import ClientConnectionError
 from homeassistant.const import (
@@ -25,18 +35,14 @@ import voluptuous as vol
 from .provider import PROVIDERS, Provider, ProviderError, WeatherData
 from .schemas import value_or_default
 
-if TYPE_CHECKING:
-    from typing import Any, Callable, Coroutine, Final, ParamSpec, TypeVar
-
 _LOGGER = logging.getLogger(__name__)
 
 REQUIREMENTS: Final = ["pynws>=1.4.1"]
 DESCRIPTION: Final = "For now, an API Key can be anything. It is recommended to use a valid email address.\n\nThe National Weather Service API does not provide pollen data."
 
 
-if TYPE_CHECKING:
-    _ParamT = ParamSpec("_ParamT")  # the callable parameters
-    _ResultT = TypeVar("_ResultT")  # the callable/awaitable return type
+_ParamT = ParamSpec("_ParamT")
+_ResultT = TypeVar("_ResultT")
 
 
 def async_exception_handler(
@@ -57,9 +63,12 @@ def async_exception_handler(
 
 
 def build_schema(
-    hass: HomeAssistant, *, api_key: str = vol.UNDEFINED, location: dict[str, float] = vol.UNDEFINED
+    hass: HomeAssistant,
+    *,
+    api_key: str = vol.UNDEFINED,
+    location: Mapping[str, float] = vol.UNDEFINED,
 ) -> vol.Schema:
-    """TODO."""
+    """Build provider data schema."""
     default_location = {CONF_LATITUDE: hass.config.latitude, CONF_LONGITUDE: hass.config.longitude}
     return vol.Schema(
         {
@@ -73,23 +82,21 @@ def build_schema(
 
 @PROVIDERS.register("nws")
 class NwsWeatherProvider(Provider):
-    """TODO."""
+    """National Weather Service weather provider."""
 
-    def __init__(  # type: ignore
+    def __init__(
         self,
         hass: HomeAssistant,
         /,
         api_key: str,
-        location: dict[str, float],
-        **kwargs,
+        location: Mapping[str, float],
     ) -> None:
-        """TODO."""
+        """Initialize provider."""
         self._temp_unit = hass.config.units.temperature_unit
         self._speed_unit = hass.config.units.wind_speed_unit
 
         latitude = float(location["latitude"])
         longitude = float(location["longitude"])
-
         session = async_get_clientsession(hass)
 
         self._api = SimpleNWS(latitude, longitude, api_key, session)
@@ -97,7 +104,7 @@ class NwsWeatherProvider(Provider):
     @property
     def attribution(self) -> str:
         """Return attribution."""
-        return "Forecast provided by the National Weather Service/NOAA"
+        return "Weather data provided by the National Weather Service/NOAA"
 
     @property
     def version(self) -> str:
@@ -106,7 +113,7 @@ class NwsWeatherProvider(Provider):
 
     def _to_weather_data(  # type: ignore
         self,
-        *,
+        /,
         startTime: str,
         temperature: float,
         relativeHumidity: float,
@@ -123,7 +130,7 @@ class NwsWeatherProvider(Provider):
 
     @async_exception_handler
     async def realtime(self) -> WeatherData:
-        """TODO."""
+        """Retrieve realtime weather from pynws."""
         if not self._api.station:
             await self._api.set_station()
         await self._api.update_observation(limit=1)
@@ -131,8 +138,8 @@ class NwsWeatherProvider(Provider):
         return self._to_weather_data(startTime=start_time, **(self._api.observation))
 
     @async_exception_handler
-    async def forecast(self) -> list[WeatherData]:
-        """TODO."""
+    async def forecast(self) -> Sequence[WeatherData]:
+        """Retrieve weather forecast from pynws."""
         if not self._api.station:
             await self._api.set_station()
         await self._api.update_detailed_forecast()

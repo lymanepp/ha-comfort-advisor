@@ -2,7 +2,17 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, cast
+from typing import (
+    Any,
+    Callable,
+    Coroutine,
+    Final,
+    Mapping,
+    ParamSpec,
+    Sequence,
+    TypeVar,
+    cast,
+)
 
 from homeassistant.const import (
     CONF_API_KEY,
@@ -25,9 +35,6 @@ import voluptuous as vol
 from .provider import PROVIDERS, Provider, ProviderError, WeatherData
 from .schemas import value_or_default
 
-if TYPE_CHECKING:
-    from typing import Any, Callable, Coroutine, Final, ParamSpec, TypeVar
-
 _LOGGER = logging.getLogger(__name__)
 
 REQUIREMENTS: Final = ["pytomorrowio>=0.3.1"]
@@ -35,9 +42,8 @@ DESCRIPTION: Final = "To get an API key, sign up at [Tomorrow.io](https://app.to
 
 FIELDS = ["temperature", "humidity", "windSpeed", "treeIndex", "weedIndex", "grassIndex"]
 
-if TYPE_CHECKING:
-    _ParamT = ParamSpec("_ParamT")  # the callable parameters
-    _ResultT = TypeVar("_ResultT")  # the callable/awaitable return type
+_ParamT = ParamSpec("_ParamT")
+_ResultT = TypeVar("_ResultT")
 
 
 def async_exception_handler(
@@ -62,9 +68,12 @@ def async_exception_handler(
 
 
 def build_schema(
-    hass: HomeAssistant, *, api_key: str = vol.UNDEFINED, location: dict[str, float] = vol.UNDEFINED
+    hass: HomeAssistant,
+    *,
+    api_key: str = vol.UNDEFINED,
+    location: Mapping[str, float] = vol.UNDEFINED,
 ) -> vol.Schema:
-    """TODO."""
+    """Build provider data schema."""
     default_location = {CONF_LATITUDE: hass.config.latitude, CONF_LONGITUDE: hass.config.longitude}
     return vol.Schema(
         {
@@ -78,17 +87,16 @@ def build_schema(
 
 @PROVIDERS.register("tomorrowio")
 class TomorrowioWeatherProvider(Provider):
-    """TODO."""
+    """Tomorrow.io weather provider."""
 
-    def __init__(  # type: ignore
+    def __init__(
         self,
         hass: HomeAssistant,
         /,
         api_key: str,
-        location: dict[str, float],
-        **kwargs,
+        location: Mapping[str, float],
     ) -> None:
-        """TODO."""
+        """Initialize provider."""
         latitude = float(location["latitude"])
         longitude = float(location["longitude"])
 
@@ -105,7 +113,7 @@ class TomorrowioWeatherProvider(Provider):
     @property
     def attribution(self) -> str:
         """Return attribution."""
-        return "Weather forecast provided by Tomorrow.io"
+        return "Weather data provided by Tomorrow.io"
 
     @property
     def version(self) -> str:
@@ -113,16 +121,15 @@ class TomorrowioWeatherProvider(Provider):
         return cast(str, PYTOMORROWIO_VERSION)
 
     @staticmethod
-    def _to_weather_data(  # type: ignore
+    def _to_weather_data(
         startTime: str,
-        *,
+        /,
         temperature: float,
         humidity: float,
         windSpeed: float,
         treeIndex: int = 0,
         weedIndex: int = 0,
         grassIndex: int = 0,
-        **kwargs,
     ) -> WeatherData:
         return WeatherData(
             date_time=parse_datetime(startTime),
@@ -140,7 +147,7 @@ class TomorrowioWeatherProvider(Provider):
         return self._to_weather_data(start_time, **realtime)
 
     @async_exception_handler
-    async def forecast(self) -> list[WeatherData]:
+    async def forecast(self) -> Sequence[WeatherData]:
         """Retrieve weather forecast from pytomorrowio."""
         hourly_forecast = await self._api.forecast_hourly(FIELDS, start_time=utcnow())
         return [

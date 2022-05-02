@@ -6,7 +6,7 @@ https://github.com/lymanepp/ha-comfort-advisor
 from __future__ import annotations
 
 import logging
-from typing import Final
+from typing import Final, Sequence
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
@@ -51,7 +51,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         update_method=provider.realtime,
     )
 
-    forecast_service = DataUpdateCoordinator[list[WeatherData]](
+    forecast_service = DataUpdateCoordinator[Sequence[WeatherData]](
         hass,
         _LOGGER,
         name=f"{DOMAIN}_forecast_service",

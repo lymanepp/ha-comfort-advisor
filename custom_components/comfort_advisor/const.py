@@ -1,6 +1,6 @@
 """General comfort_advisor constants."""
 from datetime import timedelta
-from typing import Final
+from typing import Final, Mapping
 
 DOMAIN: Final = "comfort_advisor"
 
@@ -47,7 +47,7 @@ ALL_BINARY_SENSOR_TYPES = [STATE_OPEN_WINDOWS]
 ALL_SENSOR_TYPES = [STATE_OPEN_WINDOWS_REASON, STATE_HIGH_SIMMER_INDEX, STATE_NEXT_CHANGE_TIME]
 
 # can't be dynamic because providers are loaded on first use
-PROVIDER_TYPES: Final[dict[str, str]] = {
+PROVIDER_TYPES: Final[Mapping[str, str]] = {
     "fake": "Fake!",
     "nws": "National Weather Service",
     "tomorrowio": "Tomorrow.io",

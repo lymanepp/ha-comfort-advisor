@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, Mapping
 
 from homeassistant.backports.enum import StrEnum
 from homeassistant.components.sensor import (
@@ -36,7 +36,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up entity configured via user interface."""
-    config: dict[str, Any] = config_entry.data | config_entry.options or {}
+    config: Mapping[str, Any] = config_entry.data | config_entry.options or {}
     device: ComfortAdvisorDevice = hass.data[DOMAIN][config_entry.entry_id]
 
     _LOGGER.debug("async_setup_entry: %s", config_entry)
@@ -55,30 +55,6 @@ async def async_setup_entry(
 
     if sensors:
         async_add_entities(sensors)
-
-
-class ComfortAdvisorDeviceClass(StrEnum):  # type: ignore
-    """State class for comfort advisor sensors."""
-
-    OPEN_WINDOWS_REASON = f"{DOMAIN}__{STATE_OPEN_WINDOWS_REASON}"
-
-
-SENSOR_DESCRIPTIONS = [
-    SensorEntityDescription(
-        key=STATE_OPEN_WINDOWS_REASON,
-        device_class=ComfortAdvisorDeviceClass.OPEN_WINDOWS_REASON,
-        # icon="mdi:water",
-    ),
-    SensorEntityDescription(
-        key=STATE_NEXT_CHANGE_TIME,
-        device_class=SensorDeviceClass.TIMESTAMP,
-    ),
-    SensorEntityDescription(
-        key=STATE_HIGH_SIMMER_INDEX,
-        device_class=SensorDeviceClass.TEMPERATURE,
-        state_class=SensorStateClass.MEASUREMENT,
-    ),
-]
 
 
 class ComfortAdvisorSensor(SensorEntity):  # type: ignore
@@ -110,9 +86,6 @@ class ComfortAdvisorSensor(SensorEntity):  # type: ignore
         self._attr_should_poll = False
         if device.unique_id:
             self._attr_unique_id = f"{device.unique_id}_{entity_description.key}"
-        self._attr_native_unit_of_measurement = (
-            hass.config.units.temperature_unit  # TODO: necessary??
-        )
 
     async def async_added_to_hass(self) -> None:
         """Run when entity about to be added to hass."""
@@ -124,3 +97,27 @@ class ComfortAdvisorSensor(SensorEntity):  # type: ignore
         if (value := self._device.calculated.get(self.entity_description.key)) is not None:
             self._attr_native_value = value
             self._attr_extra_state_attributes = self._device.extra_state_attributes
+
+
+class ComfortAdvisorDeviceClass(StrEnum):  # type: ignore
+    """State class for comfort advisor sensors."""
+
+    OPEN_WINDOWS_REASON = f"{DOMAIN}__{STATE_OPEN_WINDOWS_REASON}"
+
+
+SENSOR_DESCRIPTIONS = [
+    SensorEntityDescription(
+        key=STATE_OPEN_WINDOWS_REASON,
+        device_class=ComfortAdvisorDeviceClass.OPEN_WINDOWS_REASON,
+        # icon="mdi:water",
+    ),
+    SensorEntityDescription(
+        key=STATE_NEXT_CHANGE_TIME,
+        device_class=SensorDeviceClass.TIMESTAMP,
+    ),
+    SensorEntityDescription(
+        key=STATE_HIGH_SIMMER_INDEX,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+]

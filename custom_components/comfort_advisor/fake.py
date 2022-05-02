@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
-from typing import Any, Final
+from typing import Any, Final, Mapping, Sequence
 
 from homeassistant.const import SPEED_MILES_PER_HOUR, TEMP_FAHRENHEIT
 from homeassistant.core import HomeAssistant
@@ -11,7 +11,7 @@ import voluptuous as vol
 
 from .provider import PROVIDERS, Provider, WeatherData
 
-REQUIREMENTS: list[str] = []
+REQUIREMENTS: Sequence[str] = []
 DESCRIPTION: Final = "Faking it since 1982"
 
 
@@ -28,7 +28,7 @@ class FakeProvider(Provider):
         """TODO."""
         self._units = hass.config.units
 
-    def _to_native_units(self, data: dict[str, Any]) -> WeatherData:
+    def _to_native_units(self, data: Mapping[str, Any]) -> WeatherData:
         return WeatherData(
             date_time=data["date_time"],
             temp=self._units.temperature(data["temp"], TEMP_FAHRENHEIT),
@@ -58,7 +58,7 @@ class FakeProvider(Provider):
         }
         return self._to_native_units(results)
 
-    async def forecast(self) -> list[WeatherData]:
+    async def forecast(self) -> Sequence[WeatherData]:
         """TODO."""
         start_time = utcnow().replace(minute=0, second=0, microsecond=0)
         results = [

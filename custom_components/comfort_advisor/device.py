@@ -3,7 +3,15 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 import math
-from typing import Any, TypedDict, cast
+from typing import (
+    Any,
+    Mapping,
+    MutableMapping,
+    MutableSequence,
+    Sequence,
+    TypedDict,
+    cast,
+)
 
 from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.config_entries import ConfigEntry
@@ -72,7 +80,7 @@ class ComfortAdvisorDevice:
         config_entry: ConfigEntry,
         provider: Provider,
         realtime_service: DataUpdateCoordinator[WeatherData],
-        forecast_service: DataUpdateCoordinator[list[WeatherData]],
+        forecast_service: DataUpdateCoordinator[Sequence[WeatherData]],
     ) -> None:
         """Initialize the device."""
         self._config = config_entry.data | config_entry.options or {}
@@ -90,12 +98,14 @@ class ComfortAdvisorDevice:
         self._temp_unit = self.hass.config.units.temperature_unit  # TODO: add config entry?
         self._realtime_service = realtime_service
         self._forecast_service = forecast_service
-        self._entities: list[Entity] = []
-        self._inputs: dict[str, Any] = {}
+        self._entities: MutableSequence[Entity] = []
+        self._inputs: MutableMapping[str, Any] = {}
         self._calculated = _CalculatedState()
 
         self.should_poll = self._config[CONF_DEVICE][CONF_POLL]
-        self._extra_state_attributes: dict[str, Any] = {ATTR_ATTRIBUTION: provider.attribution}
+        self._extra_state_attributes: MutableMapping[str, Any] = {
+            ATTR_ATTRIBUTION: provider.attribution
+        }
 
         config_entry.async_on_unload(
             self._realtime_service.async_add_listener(self._realtime_updated)
@@ -104,7 +114,7 @@ class ComfortAdvisorDevice:
             self._forecast_service.async_add_listener(self._forecast_updated)
         )
 
-        self._entity_id_map: dict[str, list[str]] = {}
+        self._entity_id_map: MutableMapping[str, MutableSequence[str]] = {}
 
         for input_key in [
             CONF_INDOOR_TEMPERATURE,
@@ -143,7 +153,7 @@ class ComfortAdvisorDevice:
         return self._calculated
 
     @property
-    def extra_state_attributes(self) -> dict[str, Any]:
+    def extra_state_attributes(self) -> Mapping[str, Any]:
         """Return the extra device attributes."""
         return self._extra_state_attributes
 
@@ -197,7 +207,7 @@ class ComfortAdvisorDevice:
             for entity in self._entities:
                 entity.async_schedule_update_ha_state(force_refresh)
 
-    def _calculate_state(  # type: ignore
+    def _calculate_state(
         self,
         *,
         # config values
@@ -212,7 +222,7 @@ class ComfortAdvisorDevice:
         outdoor_temperature: float | None = None,
         outdoor_humidity: float | None = None,
         realtime: WeatherData | None = None,
-        forecast: list[WeatherData] | None = None,
+        forecast: Sequence[WeatherData] | None = None,
     ) -> bool:
         if (
             indoor_temperature is None

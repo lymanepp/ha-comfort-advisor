@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, Mapping
 
 from homeassistant.components.binary_sensor import (
     DOMAIN as BINARY_SENSOR_DOMAIN,
@@ -27,7 +27,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up entity configured via user interface."""
-    config: dict[str, Any] = config_entry.data | config_entry.options or {}
+    config: Mapping[str, Any] = config_entry.data | config_entry.options or {}
     device: ComfortAdvisorDevice = hass.data[DOMAIN][config_entry.entry_id]
 
     _LOGGER.debug("async_setup_entry: %s", config_entry)
@@ -46,15 +46,6 @@ async def async_setup_entry(
 
     if sensors:
         async_add_entities(sensors)
-
-
-BINARY_SENSOR_DESCRIPTIONS = [
-    BinarySensorEntityDescription(
-        key=STATE_OPEN_WINDOWS,
-        device_class=BinarySensorDeviceClass.WINDOW,
-        icon="mdi:window",
-    ),
-]
 
 
 class ComfortAdvisorBinarySensor(BinarySensorEntity):  # type: ignore
@@ -97,3 +88,12 @@ class ComfortAdvisorBinarySensor(BinarySensorEntity):  # type: ignore
         if (value := self._device.calculated.get(self.entity_description.key)) is not None:
             self._attr_is_on = value
             self._attr_extra_state_attributes = self._device.extra_state_attributes
+
+
+BINARY_SENSOR_DESCRIPTIONS = [
+    BinarySensorEntityDescription(
+        key=STATE_OPEN_WINDOWS,
+        device_class=BinarySensorDeviceClass.WINDOW,
+        icon="mdi:window",
+    ),
+]

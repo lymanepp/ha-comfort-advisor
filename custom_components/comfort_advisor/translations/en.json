@@ -2,6 +2,15 @@
   "config": {
     "step": {
       "user": {
+        "title": "Configure ambient sensors",
+        "data": {
+          "indoor_temperature": "Indoor temperature sensor",
+          "indoor_humidity": "Indoor humidity sensor",
+          "outdoor_temperature": "Outdoor temperature sensor",
+          "outdoor_humidity": "Outdoor humidity sensor"
+        }
+      },
+      "choose": {
         "title": "Choose a weather provider"
       },
       "provider": {
@@ -11,15 +20,6 @@
           "location": "Location"
         },
         "description": "{provider_desc}"
-      },
-      "inputs": {
-        "title": "Configure ambient sensors",
-        "data": {
-          "indoor_temperature": "Indoor temperature sensor",
-          "indoor_humidity": "Indoor humidity sensor",
-          "outdoor_temperature": "Outdoor temperature sensor",
-          "outdoor_humidity": "Outdoor humidity sensor"
-        }
       },
       "comfort": {
         "title": "Configure comfort settings",

@@ -4,27 +4,19 @@ from __future__ import annotations
 from abc import ABCMeta, abstractmethod
 from datetime import datetime
 import logging
-from typing import NamedTuple
+from typing import NamedTuple, Sequence
 
 from homeassistant.core import HomeAssistant
 from homeassistant.util.decorator import Registry
 import voluptuous as vol
 from voluptuous.humanize import humanize_error
 
-from .const import CONF_PROVIDER_TYPE, PROVIDER_TYPES
 from .helpers import load_module
 from .schemas import build_provider_schema
 
 _LOGGER = logging.getLogger(__name__)
 
 PROVIDERS: Registry[str, type[Provider]] = Registry()
-
-PROVIDER_SCHEMA = vol.Schema(
-    {
-        vol.Required(CONF_PROVIDER_TYPE): vol.In(PROVIDER_TYPES),
-    },
-    extra=vol.ALLOW_EXTRA,
-)
 
 
 class WeatherData(NamedTuple):
@@ -68,7 +60,7 @@ class Provider(metaclass=ABCMeta):
         raise NotImplementedError
 
     @abstractmethod
-    async def forecast(self) -> list[WeatherData]:
+    async def forecast(self) -> Sequence[WeatherData]:
         """Retrieve weather forecast from provider."""
         raise NotImplementedError
 
@@ -78,13 +70,12 @@ async def provider_from_config(  # type: ignore
 ) -> Provider | None:
     """Initialize a weather provider from a config."""
 
-    config = {CONF_PROVIDER_TYPE: provider_type, **kwargs}
-
     try:
         schema = build_provider_schema()
         module = await load_module(hass, provider_type)
         provider_schema: vol.Schema = module.build_schema(hass, **kwargs)
         schema = schema.extend(provider_schema.schema, extra=vol.PREVENT_EXTRA)
+        config = {"provider_type": provider_type, **kwargs}
         schema(config)
     except vol.Invalid as exc:
         _LOGGER.error(
@@ -97,6 +88,6 @@ async def provider_from_config(  # type: ignore
         return None
 
     provider_factory = PROVIDERS[provider_type]
-    provider = provider_factory(hass, **config)
+    provider = provider_factory(hass, **kwargs)
     assert isinstance(provider, Provider)
     return provider

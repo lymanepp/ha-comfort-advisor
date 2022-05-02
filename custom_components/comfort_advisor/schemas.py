@@ -1,7 +1,7 @@
 """Tests for config flows."""
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Sequence
 
 from homeassistant.const import CONF_NAME, TEMP_FAHRENHEIT
 from homeassistant.core import HomeAssistant
@@ -122,7 +122,7 @@ def build_comfort_schema(
 def build_device_schema(
     *,
     name: str = vol.UNDEFINED,
-    enabled_sensors: list[str] = vol.UNDEFINED,
+    enabled_sensors: Sequence[str] = vol.UNDEFINED,
     poll: bool = vol.UNDEFINED,
     poll_interval: int = vol.UNDEFINED,
 ) -> vol.Schema:
