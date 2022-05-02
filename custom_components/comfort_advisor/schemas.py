@@ -132,11 +132,11 @@ def build_device_schema(
     return vol.Schema(
         {
             vol.Required(CONF_NAME, default=value_or_default(name, DEFAULT_NAME)): str,
-            vol.Optional(
+            vol.Required(
                 CONF_ENABLED_SENSORS, default=value_or_default(enabled_sensors, all_sensor_types)
             ): cv.multi_select(sensor_type_dict),
-            vol.Optional(CONF_POLL, default=value_or_default(poll, DEFAULT_POLL)): bool,
-            vol.Optional(
+            vol.Required(CONF_POLL, default=value_or_default(poll, DEFAULT_POLL)): bool,
+            vol.Required(
                 CONF_POLL_INTERVAL, default=value_or_default(poll_interval, DEFAULT_POLL_INTERVAL)
             ): vol.All(vol.Coerce(int), vol.Range(min=1, max=300)),
         }

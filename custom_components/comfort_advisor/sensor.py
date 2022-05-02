@@ -86,6 +86,8 @@ class ComfortAdvisorSensor(SensorEntity):  # type: ignore
         self._attr_should_poll = False
         if device.unique_id:
             self._attr_unique_id = f"{device.unique_id}_{entity_description.key}"
+        if entity_description.device_class == SensorDeviceClass.TEMPERATURE:
+            entity_description.native_unit_of_measurement = hass.config.units.temperature_unit
 
     async def async_added_to_hass(self) -> None:
         """Run when entity about to be added to hass."""

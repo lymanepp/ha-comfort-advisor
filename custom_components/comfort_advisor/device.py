@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+import logging
 import math
 from typing import (
     Any,
@@ -47,14 +48,17 @@ from .const import (
     CONF_POLL_INTERVAL,
     DEFAULT_MANUFACTURER,
     DEFAULT_NAME,
-    DEFAULT_POLL_INTERVAL,
     DOMAIN,
+    SCAN_INTERVAL_FORECAST,
+    SCAN_INTERVAL_REALTIME,
     STATE_HIGH_SIMMER_INDEX,
     STATE_NEXT_CHANGE_TIME,
     STATE_OPEN_WINDOWS,
 )
 from .formulas import compute_dew_point, compute_simmer_index
 from .provider import Provider, WeatherData
+
+_LOGGER = logging.getLogger(__name__)
 
 ATTR_INDOOR_DEW_POINT = "indoor_dew_point"
 ATTR_INDOOR_SIMMER_INDEX = "indoor_simmer_index"
@@ -79,8 +83,6 @@ class ComfortAdvisorDevice:
         hass: HomeAssistant,
         config_entry: ConfigEntry,
         provider: Provider,
-        realtime_service: DataUpdateCoordinator[WeatherData],
-        forecast_service: DataUpdateCoordinator[Sequence[WeatherData]],
     ) -> None:
         """Initialize the device."""
         self._config = config_entry.data | config_entry.options or {}
@@ -96,26 +98,32 @@ class ComfortAdvisorDevice:
         )
 
         self._temp_unit = self.hass.config.units.temperature_unit  # TODO: add config entry?
-        self._realtime_service = realtime_service
-        self._forecast_service = forecast_service
         self._entities: MutableSequence[Entity] = []
         self._inputs: MutableMapping[str, Any] = {}
         self._calculated = _CalculatedState()
 
-        self.should_poll = self._config[CONF_DEVICE][CONF_POLL]
+        self._polling = self._config[CONF_DEVICE][CONF_POLL]
         self._extra_state_attributes: MutableMapping[str, Any] = {
             ATTR_ATTRIBUTION: provider.attribution
         }
 
-        config_entry.async_on_unload(
-            self._realtime_service.async_add_listener(self._realtime_updated)
+        self._realtime_service = DataUpdateCoordinator[WeatherData](
+            hass,
+            _LOGGER,
+            name=f"{DOMAIN}_realtime_service",
+            update_interval=SCAN_INTERVAL_REALTIME,
+            update_method=provider.realtime,
         )
-        config_entry.async_on_unload(
-            self._forecast_service.async_add_listener(self._forecast_updated)
+
+        self._forecast_service = DataUpdateCoordinator[Sequence[WeatherData]](
+            hass,
+            _LOGGER,
+            name=f"{DOMAIN}_forecast_service",
+            update_interval=SCAN_INTERVAL_FORECAST,
+            update_method=provider.forecast,
         )
 
         self._entity_id_map: MutableMapping[str, MutableSequence[str]] = {}
-
         for input_key in [
             CONF_INDOOR_TEMPERATURE,
             CONF_INDOOR_HUMIDITY,
@@ -127,20 +135,38 @@ class ComfortAdvisorDevice:
             # TODO: prevent that in config_flow when done testing
             self._entity_id_map.setdefault(entity_id, []).append(input_key)
 
+    async def async_setup_entry(self, config_entry: ConfigEntry) -> bool:
+        """Set up device."""
+        assert config_entry.unique_id
+
+        config_entry.async_on_unload(
+            self._realtime_service.async_add_listener(self._realtime_updated)
+        )
+        config_entry.async_on_unload(
+            self._forecast_service.async_add_listener(self._forecast_updated)
+        )
         config_entry.async_on_unload(
             async_track_state_change_event(
                 self.hass, self._entity_id_map.keys(), self._event_handler
             )
         )
 
-        hass.async_create_task(self._set_sw_version())
+        await self._realtime_service.async_config_entry_first_refresh()
+        await self._forecast_service.async_config_entry_first_refresh()
 
-        if self.should_poll:  # TODO: this blows up if enabled
-            async_track_time_interval(
-                self.hass,
-                self._async_update_entities,
-                self._config.get(CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL),
+        for entity_id in self._entity_id_map:
+            self._update_input_state(self.hass.states.get(entity_id))
+
+        if self._polling:
+            poll_interval = self._config[CONF_DEVICE][CONF_POLL_INTERVAL]
+            config_entry.async_on_unload(
+                async_track_time_interval(
+                    self.hass, self._async_update_entities, timedelta(seconds=poll_interval)
+                )
             )
+
+        self.hass.async_create_task(self._set_sw_version())
+        return True
 
     @property
     def name(self) -> str:
@@ -199,8 +225,43 @@ class ComfortAdvisorDevice:
         await self._async_update()
 
     async def _async_update(self) -> None:
-        if not self.should_poll:
+        if not self._polling:
             await self._async_update_entities(force_refresh=True)
+
+    def _new_realtime_updated(self) -> None:
+        self._inputs["realtime"] = self._realtime_service.data
+        if not self._polling:
+            self.hass.async_create_task(self._async_update_entities(force_refresh=True))
+
+    def _new_forecast_updated(self) -> None:
+        self._inputs["forecast"] = self._forecast_service.data
+        if not self._polling:
+            self.hass.async_create_task(self._async_update_entities(force_refresh=True))
+
+    async def _new_event_handler(self, event: Event) -> None:  # TODO: async??
+        state: State = event.data.get("new_state")
+        if self._update_input_state(state) and not self._polling:
+            await self._async_update_entities(force_refresh=False)
+
+    def _update_input_state(self, state: State) -> bool:
+        if state is None or state.state in (None, STATE_UNKNOWN, STATE_UNAVAILABLE):
+            return False
+        try:
+            value = float(state.state)
+        except ValueError:
+            return False
+        if math.isnan(value):
+            return False
+
+        device_class: str = state.attributes.get(ATTR_DEVICE_CLASS)
+        if device_class == SensorDeviceClass.TEMPERATURE:
+            unit: str = state.attributes.get(ATTR_UNIT_OF_MEASUREMENT)
+            if unit and unit != self._temp_unit:
+                value = convert_temp(value, unit, self._temp_unit)
+
+        for input_key in self._entity_id_map[state.entity_id]:
+            self._inputs[input_key] = value
+        return True
 
     async def _async_update_entities(self, force_refresh: bool = False) -> None:
         if self._calculate_state(**(self._config[CONF_COMFORT]), **(self._inputs)):
