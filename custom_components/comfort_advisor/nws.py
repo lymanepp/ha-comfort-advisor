@@ -31,9 +31,7 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 REQUIREMENTS: Final = ["pynws>=1.4.1"]
-DESCRIPTION: Final = (
-    "For now, an API Key can be anything. It is recommended to use a valid email address."
-)
+DESCRIPTION: Final = "For now, an API Key can be anything. It is recommended to use a valid email address.\n\nThe National Weather Service API does not provide pollen data."
 
 
 if TYPE_CHECKING:
