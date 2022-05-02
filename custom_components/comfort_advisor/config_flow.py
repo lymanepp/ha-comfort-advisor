@@ -99,6 +99,10 @@ def _create_unique_id(hass: HomeAssistant, inputs_config: ConfigType) -> str:
     return md5(str(values).encode("utf8")).hexdigest()
 
 
+def _build_comfort_placeholders(temp_unit: str) -> dict[str, Any]:
+    return {str(x): round(convert_temp(x, TEMP_FAHRENHEIT, temp_unit), 1) for x in (70, 77, 83, 91)}
+
+
 class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
     """Configuration flow for setting up new comfort_advisor entry."""
 
@@ -106,12 +110,7 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
         """TODO."""
 
         self._config: dict[str, Any] = {}
-        self._provider_type: str | None = None
         self._provider_module: ModuleType | None = None
-
-        self._provider_config: dict[str, Any] | None = None
-        self._inputs_config: dict[str, Any] | None = None
-        self._comfort_config: dict[str, Any] | None = None
 
     async def async_step_user(self, user_input: ConfigType | None = None) -> FlowResult:
         """Handle a flow initialized by the user. Choose a provider."""
@@ -121,7 +120,7 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
             user_input = {CONF_PROVIDER_TYPE: list(PROVIDER_TYPES.keys())[0]}
 
         if user_input:
-            self._provider_type = user_input[CONF_PROVIDER_TYPE]
+            self._config[CONF_PROVIDER] = user_input
             return await self.async_step_provider()
 
         schema = build_provider_schema()
@@ -133,26 +132,26 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
         user_input = user_input or {}
         errors: ErrorsType = {}
 
-        assert self._provider_type is not None
-        default_config: dict[str, Any] = {CONF_PROVIDER_TYPE: self._provider_type}
+        provider_data = self._config[CONF_PROVIDER]
 
         if user_input:
-            config = {**default_config, **user_input}
-            if await _async_test_provider(self.hass, errors, **config):
-                self._provider_config = config
+            test_config = {**provider_data, **user_input}
+            if await _async_test_provider(self.hass, errors, **test_config):
+                self._config[CONF_PROVIDER] = test_config]
                 return await self.async_step_inputs()
 
         if self._provider_module is None:
+            provider_type = provider_data[CONF_PROVIDER_TYPE]
             try:
-                self._provider_module = await load_module(self.hass, self._provider_type)
+                self._provider_module = await load_module(self.hass, provider_type)
             except (ImportError, RequirementsNotFound) as exc:
                 issue_url = await create_issue_tracker_url(
-                    self.hass, exc, title=f"Error loading '{self._provider_type}' provider"
+                    self.hass, exc, title=f"Error loading '{provider_type}' provider"
                 )
                 return self.async_abort(
                     reason="load_provider",
                     description_placeholders={
-                        "provider": self._provider_type,
+                        "provider": provider_type,
                         "message": getattr(exc, "msg"),
                         "issue_url": issue_url,
                     },
@@ -160,7 +159,6 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
 
         schema: vol.Schema = self._provider_module.build_schema(self.hass, **user_input)
         if not schema.schema:
-            self._provider_config = default_config
             return await self.async_step_inputs()
 
         return self.async_show_form(
@@ -179,7 +177,7 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
 
         if user_input:
             if _async_test_inputs(self.hass, errors, **user_input):  # pylint: disable=missing-kwoa
-                self._inputs_config = user_input
+                self._config[CONF_INPUTS] = user_input
                 return await self.async_step_comfort()
 
         return self.async_show_form(
@@ -194,19 +192,16 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
         errors: ErrorsType = {}
 
         if user_input:
-            self._comfort_config = user_input
+            self._config[CONF_COMFORT] = user_input
             return await self.async_step_device()
 
         temp_unit = self.hass.config.units.temperature_unit
-        description_placeholders = {
-            str(x): round(convert_temp(x, TEMP_FAHRENHEIT, temp_unit), 1) for x in (70, 77, 83, 91)
-        }
 
         return self.async_show_form(
             step_id="comfort",
             errors=errors,
             data_schema=build_comfort_schema(self.hass, **user_input),
-            description_placeholders=description_placeholders,
+            description_placeholders=_build_comfort_placeholders(temp_unit),
         )
 
     async def async_step_device(self, user_input: ConfigType | None = None) -> FlowResult:
@@ -215,16 +210,11 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
         errors: ErrorsType = {}
 
         if user_input:
-            config = {
-                CONF_PROVIDER: self._provider_config,
-                CONF_INPUTS: self._inputs_config,
-                CONF_COMFORT: self._comfort_config,
-                CONF_DEVICE: user_input,
-            }
-            unique_id = _create_unique_id(self.hass, self._inputs_config)
+            self._config[CONF_DEVICE] = user_input
+            unique_id = _create_unique_id(self.hass, self._config[CONF_INPUTS])
             await self.async_set_unique_id(unique_id)
             self._abort_if_unique_id_configured()
-            return self.async_create_entry(title=user_input[CONF_NAME], data=config)
+            return self.async_create_entry(title=user_input[CONF_NAME], data=self._config)
 
         return self.async_show_form(
             step_id="device",
@@ -244,8 +234,8 @@ class ComfortAdvisorOptionsFlow(OptionsFlow):  # type: ignore
 
     def __init__(self, config_entry: ConfigEntry):
         """Initialize options flow."""
-        self.config_entry = config_entry
-        self._comfort_config: dict[str, Any] | None = None
+        self._original = config_entry.data | config_entry.options
+        self._config: dict[str, Any] = {}
 
     async def async_step_init(self, user_input: ConfigType = None) -> FlowResult:
         """Manage the options."""
@@ -253,19 +243,16 @@ class ComfortAdvisorOptionsFlow(OptionsFlow):  # type: ignore
         errors: ErrorsType = {}
 
         if user_input:
-            self._comfort_config = user_input
+            self._config[CONF_COMFORT] = user_input
             return await self.async_step_device()
 
         temp_unit = self.hass.config.units.temperature_unit
-        description_placeholders = {
-            str(x): round(convert_temp(x, TEMP_FAHRENHEIT, temp_unit), 1) for x in (70, 77, 83, 91)
-        }
 
         return self.async_show_form(
             step_id="init",
             errors=errors,
-            data_schema=build_comfort_schema(self.hass, **user_input),
-            description_placeholders=description_placeholders,
+            data_schema=build_comfort_schema(self.hass, **self._original[CONF_COMFORT]),
+            description_placeholders=_build_comfort_placeholders(temp_unit),
         )
 
     async def async_step_device(self, user_input: ConfigType | None = None) -> FlowResult:
@@ -274,14 +261,11 @@ class ComfortAdvisorOptionsFlow(OptionsFlow):  # type: ignore
         errors: ErrorsType = {}
 
         if user_input:
-            config = {
-                CONF_COMFORT: self._comfort_config,
-                CONF_DEVICE: user_input,
-            }
-            return self.async_create_entry(title=user_input[CONF_NAME], data=config)
+            self._config[CONF_DEVICE] = user_input
+            return self.async_create_entry(title=user_input[CONF_NAME], data=self._config)
 
         return self.async_show_form(
             step_id="device",
             errors=errors,
-            data_schema=build_device_schema(**user_input),
+            data_schema=build_device_schema(**self._original[CONF_DEVICE]),
         )
