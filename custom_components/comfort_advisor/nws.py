@@ -11,12 +11,14 @@ from homeassistant.const import (
     CONF_LOCATION,
     CONF_LONGITUDE,
     TEMP_CELSIUS,
+    SPEED_KILOMETERS_PER_HOUR,
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import selector
 from homeassistant.util.dt import parse_datetime, utcnow
 from homeassistant.util.temperature import convert as convert_temp
+from homeassistant.util.speed import convert as convert_speed
 from pynws import SimpleNWS, version as PYNWS_VERSION
 import voluptuous as vol
 
@@ -85,6 +87,8 @@ class NwsWeatherProvider(Provider):
     ) -> None:
         """TODO."""
         self._temp_unit = hass.config.units.temperature_unit
+        self._speed_unit = hass.config.units.wind_speed_unit
+
         latitude = float(location["latitude"])
         longitude = float(location["longitude"])
 
@@ -115,7 +119,7 @@ class NwsWeatherProvider(Provider):
             date_time=parse_datetime(startTime),
             temp=convert_temp(temperature, TEMP_CELSIUS, self._temp_unit),
             humidity=relativeHumidity,
-            wind_speed=windSpeed,
+            wind_speed=convert_speed(windSpeed, SPEED_KILOMETERS_PER_HOUR, self._speed_unit),
             pollen=None,
         )
 
