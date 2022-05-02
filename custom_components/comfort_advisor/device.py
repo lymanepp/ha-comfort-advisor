@@ -24,6 +24,7 @@ from homeassistant.helpers.event import (
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.loader import async_get_custom_components
 from homeassistant.util.dt import utcnow
+from homeassistant.util.temperature import convert as convert_temp
 
 from .const import (
     CONF_COMFORT,
@@ -53,7 +54,7 @@ ATTR_OUTDOOR_SIMMER_INDEX = "outdoor_simmer_index"
 
 
 @dataclass
-class DeviceInputs:
+class InputState:
     """The device state."""
 
     # weather provider
@@ -68,7 +69,7 @@ class DeviceInputs:
     outdoor_pollen: int = None  # type: ignore
 
 
-class DeviceState(TypedDict, total=False):
+class CalculatedState(TypedDict, total=False):
     """TODO."""
 
     open_windows: bool | None
@@ -105,8 +106,8 @@ class ComfortAdvisorDevice:
         self._realtime_service = realtime_service
         self._forecast_service = forecast_service
         self._entities: list[Entity] = []
-        self._inputs = DeviceInputs()
-        self._state = DeviceState()
+        self._inputs = InputState()
+        self._calculated = CalculatedState()
 
         self.should_poll = self._config[CONF_DEVICE][CONF_POLL]
         self._extra_state_attributes: dict[str, Any] = {ATTR_ATTRIBUTION: provider.attribution}
@@ -135,24 +136,31 @@ class ComfortAdvisorDevice:
         if self.should_poll:  # TODO: this blows up if enabled
             async_track_time_interval(
                 self.hass,
-                self.async_update_entities,
+                self._async_update_entities,
                 self._config.get(CONF_POLL_INTERVAL, DEFAULT_POLL_INTERVAL),
             )
 
     @property
-    def state(self) -> DeviceState:
-        """TODO."""
-        return self._state
+    def name(self) -> str:
+        """Return the name."""
+        return cast(str, self.device_info["name"])
+
+    @property
+    def calculated(self) -> CalculatedState:
+        """Return the calculated state."""
+        return self._calculated
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        """TODO."""
+        """Return the extra device attributes."""
         return self._extra_state_attributes
 
     def add_entity(self, entity: Entity) -> CALLBACK_TYPE:
-        """TODO."""
+        """Add entity to receive callback when the calculated state is updated."""
         self._entities.append(entity)
         return lambda: self._entities.remove(entity)
+
+    # Internal methods
 
     async def _set_sw_version(self) -> None:
         custom_components = await async_get_custom_components(self.hass)
@@ -160,36 +168,36 @@ class ComfortAdvisorDevice:
 
     def _realtime_updated(self) -> None:
         self._inputs.realtime = self._realtime_service.data
-        self.hass.async_create_task(self.async_update())  # run in event loop
+        self.hass.async_create_task(self._async_update())  # run in event loop
 
     def _forecast_updated(self) -> None:
         self._inputs.forecast = self._forecast_service.data
-        self.hass.async_create_task(self.async_update())  # run in event loop
+        self.hass.async_create_task(self._async_update())  # run in event loop
 
     async def _in_temp_listener(self, event: Event) -> None:
         if (state := self._get_new_state(event)) is not None:
             self._inputs.indoor_temp = self._get_temp(state)
-            await self.async_update()
+            await self._async_update()
 
     async def _in_humidity_listener(self, event: Event) -> None:
         if (state := self._get_new_state(event)) is not None:
             self._inputs.indoor_humidity = float(state.state)
-            await self.async_update()
+            await self._async_update()
 
     async def _out_temp_listener(self, event: Event) -> None:
         if (state := self._get_new_state(event)) is not None:
             self._inputs.outdoor_temp = self._get_temp(state)
-            await self.async_update()
+            await self._async_update()
 
     async def _out_humidity_listener(self, event: Event) -> None:
         if (state := self._get_new_state(event)) is not None:
             self._inputs.outdoor_humidity = float(state.state)
-            await self.async_update()
+            await self._async_update()
 
     async def _out_pollen_listener(self, event: Event) -> None:
         if (state := self._get_new_state(event)) is not None:
             self._inputs.outdoor_pollen = state.state  # TODO
-            await self.async_update()
+            await self._async_update()
 
     @staticmethod
     def _get_new_state(event: Event) -> State | None:
@@ -204,25 +212,19 @@ class ComfortAdvisorDevice:
 
     def _get_temp(self, state: State) -> float:
         temperature = float(state.state)
-        if unit := state.attributes.get(ATTR_UNIT_OF_MEASUREMENT):
-            temperature = self.hass.config.units.temperature(temperature, unit)
+        unit: str = state.attributes.get(ATTR_UNIT_OF_MEASUREMENT)
+        if unit and unit != self._temp_unit:
+            temperature = convert_temp(temperature, unit, self._temp_unit)
         return temperature
 
-    async def async_update(self) -> None:
-        """Update the state."""
+    async def _async_update(self) -> None:
         if not self.should_poll:
-            await self.async_update_entities(force_refresh=True)
+            await self._async_update_entities(force_refresh=True)
 
-    async def async_update_entities(self, force_refresh: bool = False) -> None:
-        """Update the state of the entities."""
+    async def _async_update_entities(self, force_refresh: bool = False) -> None:
         if self._calculate_state(**(self._config[CONF_COMFORT])):
             for entity in self._entities:
                 entity.async_schedule_update_ha_state(force_refresh)
-
-    @property
-    def name(self) -> str:
-        """Return the name."""
-        return cast(str, self.device_info["name"])
 
     def _calculate_state(  # type: ignore
         self,
@@ -258,7 +260,7 @@ class ComfortAdvisorDevice:
         pollen = inputs.outdoor_pollen or 0
 
         _, in_dewp, in_si = calc(inputs.indoor_temp, inputs.indoor_humidity, 0)
-        out_comfort, out_dewp, out_si = calc(inputs.indoor_temp, inputs.indoor_humidity, pollen)
+        out_comfort, out_dewp, out_si = calc(inputs.outdoor_temp, inputs.outdoor_humidity, pollen)
 
         comfort_list: list[bool] = []
         si_list: list[float] = []
@@ -273,7 +275,7 @@ class ComfortAdvisorDevice:
 
         change_ndx = next((ndx for ndx, x in enumerate(comfort_list) if x != out_comfort), None)
 
-        self._state.update(
+        self._calculated.update(
             {
                 STATE_HIGH_SIMMER_INDEX: max(si_list) if si_list else None,
                 STATE_NEXT_CHANGE_TIME: next_day[change_ndx].date_time if change_ndx else None,

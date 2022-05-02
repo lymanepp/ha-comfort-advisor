@@ -94,6 +94,6 @@ class ComfortAdvisorBinarySensor(BinarySensorEntity):  # type: ignore
 
     async def async_update(self) -> None:
         """Update the state of the sensor."""
-        if (value := self._device.state.get(self.entity_description.key)) is not None:
+        if (value := self._device.calculated.get(self.entity_description.key)) is not None:
             self._attr_is_on = value
             self._attr_extra_state_attributes = self._device.extra_state_attributes

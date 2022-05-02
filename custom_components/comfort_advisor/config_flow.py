@@ -137,7 +137,7 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
         if user_input:
             test_config = {**provider_data, **user_input}
             if await _async_test_provider(self.hass, errors, **test_config):
-                self._config[CONF_PROVIDER] = test_config]
+                self._config[CONF_PROVIDER] = test_config
                 return await self.async_step_inputs()
 
         if self._provider_module is None:

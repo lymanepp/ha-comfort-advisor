@@ -1,7 +1,6 @@
 """TODO."""
 from __future__ import annotations
 
-from datetime import datetime
 import logging
 from typing import TYPE_CHECKING, cast
 
@@ -115,8 +114,8 @@ class TomorrowioWeatherProvider(Provider):
 
     @staticmethod
     def _to_weather_data(  # type: ignore
-        *,
         startTime: str,
+        *,
         temperature: float,
         humidity: float,
         windSpeed: float,
@@ -138,10 +137,13 @@ class TomorrowioWeatherProvider(Provider):
         """Retrieve realtime weather from pytomorrowio."""
         realtime = await self._api.realtime(FIELDS)
         start_time = utcnow().replace(microsecond=0).isoformat()
-        return self._to_weather_data(startTime=start_time, **realtime)
+        return self._to_weather_data(start_time, **realtime)
 
     @async_exception_handler
     async def forecast(self) -> list[WeatherData]:
         """Retrieve weather forecast from pytomorrowio."""
         hourly_forecast = await self._api.forecast_hourly(FIELDS, start_time=utcnow())
-        return [self._to_weather_data(**interval) for interval in hourly_forecast]
+        return [
+            self._to_weather_data(interval["startTime"], **interval["values"])
+            for interval in hourly_forecast
+        ]
