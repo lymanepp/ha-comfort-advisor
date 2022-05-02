@@ -50,9 +50,6 @@ class ProviderError(Exception):
 class Provider(metaclass=ABCMeta):
     """Abstract weather provider."""
 
-    def __init__(self, *, provider_type: str):  # pylint: disable=redefined-builtin
-        """Eat the `provider_type` kwarg."""
-
     @property
     @abstractmethod
     def attribution(self) -> str:

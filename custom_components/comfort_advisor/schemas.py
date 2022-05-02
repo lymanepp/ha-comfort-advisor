@@ -151,5 +151,6 @@ def build_schema(hass: HomeAssistant) -> vol.Schema:
             vol.Required(CONF_INPUTS): build_inputs_schema().schema,
             vol.Required(CONF_COMFORT): build_comfort_schema(hass).schema,
             vol.Required(CONF_DEVICE): build_device_schema().schema,
-        }
+        },
+        extra=vol.ALLOW_EXTRA,
     )

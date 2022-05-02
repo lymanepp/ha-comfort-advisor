@@ -49,7 +49,7 @@ ErrorsType = dict[str, str]
 
 
 async def _async_test_provider(
-    hass: HomeAssistant, errors: ErrorsType, provider_type: str, **kwargs: dict[str, Any]
+    hass: HomeAssistant, errors: ErrorsType, *, provider_type: str, **kwargs: dict[str, Any]
 ) -> bool:
     factory = PROVIDERS.get(provider_type)
     provider = factory(hass, **kwargs)
@@ -134,11 +134,12 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
         errors: ErrorsType = {}
 
         assert self._provider_type is not None
-        default_provider_config = {CONF_PROVIDER_TYPE: self._provider_type}
+        default_config: dict[str, Any] = {CONF_PROVIDER_TYPE: self._provider_type}
 
         if user_input:
-            if await _async_test_provider(self.hass, errors, self._provider_type, **user_input):
-                self._provider_config = {**default_provider_config, **user_input}
+            config = {**default_config, **user_input}
+            if await _async_test_provider(self.hass, errors, **config):
+                self._provider_config = config
                 return await self.async_step_inputs()
 
         if self._provider_module is None:
@@ -159,7 +160,7 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
 
         schema: vol.Schema = self._provider_module.build_schema(self.hass, **user_input)
         if not schema.schema:
-            self._provider_config = default_provider_config
+            self._provider_config = default_config
             return await self.async_step_inputs()
 
         return self.async_show_form(

@@ -2,19 +2,10 @@
 from __future__ import annotations
 
 import logging
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Coroutine,
-    Final,
-    ParamSpec,
-    TypeVar,
-    cast,
-)
+from typing import TYPE_CHECKING, Any, Callable, Coroutine, Final, cast
 
 from aiohttp import ClientConnectionError
-from homeassistant.const import CONF_LATITUDE, CONF_LOCATION, CONF_LONGITUDE
+from homeassistant.const import CONF_LATITUDE, CONF_LOCATION, CONF_LONGITUDE, CONF_API_KEY
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import selector
@@ -34,19 +25,24 @@ DESCRIPTION: Final = (
 )
 
 
-def build_schema(hass: HomeAssistant, *, location: dict[str, float] = vol.UNDEFINED) -> vol.Schema:
+def build_schema(
+    hass: HomeAssistant, *, api_key: str = vol.UNDEFINED, location: dict[str, float] = vol.UNDEFINED
+) -> vol.Schema:
     """TODO."""
     default_location = {CONF_LATITUDE: hass.config.latitude, CONF_LONGITUDE: hass.config.longitude}
     return vol.Schema(
         {
+            vol.Required(CONF_API_KEY, default=api_key): vol.All(str, vol.Email),
             vol.Required(
                 CONF_LOCATION, default=value_or_default(location, default_location)
-            ): selector({"location": {"radius": False}})
+            ): selector({"location": {"radius": False}}),
         }
     )
 
 
 if TYPE_CHECKING:
+    from typing import ParamSpec, TypeVar
+
     _ParamT = ParamSpec("_ParamT")  # the callable parameters
     _ResultT = TypeVar("_ResultT")  # the callable/awaitable return type
 
@@ -81,7 +77,6 @@ class NwsWeatherProvider(Provider):
         **kwargs,
     ) -> None:
         """TODO."""
-        super().__init__(**kwargs)
         latitude = float(location["latitude"])
         longitude = float(location["longitude"])
 

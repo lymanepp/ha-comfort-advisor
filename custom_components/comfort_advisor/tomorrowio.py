@@ -3,18 +3,9 @@ from __future__ import annotations
 
 from datetime import datetime
 import logging
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Coroutine,
-    Final,
-    ParamSpec,
-    TypeVar,
-    cast,
-)
+from typing import TYPE_CHECKING, Any, Callable, Coroutine, Final, cast
 
-from homeassistant.const import CONF_LATITUDE, CONF_LOCATION, CONF_LONGITUDE
+from homeassistant.const import CONF_LATITUDE, CONF_LOCATION, CONF_LONGITUDE, CONF_API_KEY
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import selector
@@ -35,38 +26,27 @@ _LOGGER = logging.getLogger(__name__)
 REQUIREMENTS: Final = ["pytomorrowio>=0.3.1"]
 DESCRIPTION: Final = "To get an API key, sign up at [Tomorrow.io](https://app.tomorrow.io/signup)."
 
-
-TMRW_ATTR_TIMESTAMP = "startTime"
-TMRW_ATTR_TEMPERATURE = "temperature"
-TMRW_ATTR_HUMIDITY = "humidity"
-TMRW_ATTR_WIND_SPEED = "windSpeed"
-TMRW_ATTR_POLLEN_TREE = "treeIndex"
-TMRW_ATTR_POLLEN_WEED = "weedIndex"
-TMRW_ATTR_POLLEN_GRASS = "grassIndex"
-
-FIELDS = [
-    TMRW_ATTR_TEMPERATURE,
-    TMRW_ATTR_HUMIDITY,
-    TMRW_ATTR_WIND_SPEED,
-    TMRW_ATTR_POLLEN_GRASS,
-    TMRW_ATTR_POLLEN_TREE,
-    TMRW_ATTR_POLLEN_WEED,
-]
+FIELDS = ["temperature", "humidity", "windSpeed", "treeIndex", "weedIndex", "grassIndex"]
 
 
-def build_schema(hass: HomeAssistant, *, location: dict[str, float] = vol.UNDEFINED) -> vol.Schema:
+def build_schema(
+    hass: HomeAssistant, *, api_key: str = vol.UNDEFINED, location: dict[str, float] = vol.UNDEFINED
+) -> vol.Schema:
     """TODO."""
     default_location = {CONF_LATITUDE: hass.config.latitude, CONF_LONGITUDE: hass.config.longitude}
     return vol.Schema(
         {
+            vol.Required(CONF_API_KEY, default=api_key): vol.All(str, vol.Length(min=1)),
             vol.Required(
                 CONF_LOCATION, default=value_or_default(location, default_location)
-            ): selector({"location": {"radius": False}})
+            ): selector({"location": {"radius": False}}),
         }
     )
 
 
 if TYPE_CHECKING:
+    from typing import ParamSpec, TypeVar
+
     _ParamT = ParamSpec("_ParamT")  # the callable parameters
     _ResultT = TypeVar("_ResultT")  # the callable/awaitable return type
 
@@ -105,7 +85,6 @@ class TomorrowioWeatherProvider(Provider):
         **kwargs,
     ) -> None:
         """TODO."""
-        super().__init__(**kwargs)
         latitude = float(location["latitude"])
         longitude = float(location["longitude"])
 
@@ -130,35 +109,37 @@ class TomorrowioWeatherProvider(Provider):
         return cast(str, PYTOMORROWIO_VERSION)
 
     @staticmethod
-    def _to_weather_data(date_time: datetime, values: dict[str, Any]) -> WeatherData:
+    def _to_weather_data(  # type: ignore
+        date_time: datetime,
+        *,
+        temperature: float,
+        humidity: float,
+        windSpeed: float,
+        treeIndex: int = 0,
+        weedIndex: int = 0,
+        grassIndex: int = 0,
+        **kwargs,
+    ) -> WeatherData:
         return WeatherData(
             date_time=date_time,
-            temp=values[TMRW_ATTR_TEMPERATURE],
-            humidity=values[TMRW_ATTR_HUMIDITY],
-            wind_speed=values[TMRW_ATTR_WIND_SPEED],
-            pollen=max(
-                values.get(TMRW_ATTR_POLLEN_TREE, 0),
-                values.get(TMRW_ATTR_POLLEN_WEED, 0),
-                values.get(TMRW_ATTR_POLLEN_GRASS, 0),
-            ),
+            temp=temperature,
+            humidity=humidity,
+            wind_speed=windSpeed,
+            pollen=max(treeIndex, weedIndex, grassIndex),
         )
 
     @async_exception_handler
     async def realtime(self) -> WeatherData:
         """Retrieve realtime weather from pytomorrowio."""
         realtime = await self._api.realtime(FIELDS)
-        return self._to_weather_data(utcnow().replace(microsecond=0), realtime)
+        return self._to_weather_data(utcnow().replace(microsecond=0), **realtime)
 
     @async_exception_handler
     async def forecast(self) -> list[WeatherData]:
         """Retrieve weather forecast from pytomorrowio."""
         hourly_forecast = await self._api.forecast_hourly(FIELDS, start_time=utcnow())
-
         result: list[WeatherData] = []
-        for forecast in hourly_forecast:
-            start_time = parse_datetime(forecast.get(TMRW_ATTR_TIMESTAMP))
-            values = forecast.get("values")
-            if not start_time or not values:
-                break
-            result.append(self._to_weather_data(start_time, values))
+        for interval in hourly_forecast:
+            start_time = parse_datetime(interval.get("startTime"))
+            result.append(self._to_weather_data(start_time, **interval["values"]))
         return result

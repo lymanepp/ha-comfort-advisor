@@ -26,7 +26,6 @@ class FakeProvider(Provider):
 
     def __init__(self, hass: HomeAssistant, **kwargs) -> None:  # type: ignore
         """TODO."""
-        super().__init__(**kwargs)
         self._units = hass.config.units
 
     def _to_native_units(self, data: dict[str, Any]) -> WeatherData:
