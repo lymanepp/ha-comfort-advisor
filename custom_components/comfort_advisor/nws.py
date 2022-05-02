@@ -10,15 +10,15 @@ from homeassistant.const import (
     CONF_LATITUDE,
     CONF_LOCATION,
     CONF_LONGITUDE,
-    TEMP_CELSIUS,
     SPEED_KILOMETERS_PER_HOUR,
+    TEMP_CELSIUS,
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import selector
 from homeassistant.util.dt import parse_datetime, utcnow
-from homeassistant.util.temperature import convert as convert_temp
 from homeassistant.util.speed import convert as convert_speed
+from homeassistant.util.temperature import convert as convert_temp
 from pynws import SimpleNWS, version as PYNWS_VERSION
 import voluptuous as vol
 
