@@ -109,7 +109,7 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
     def __init__(self) -> None:
         """TODO."""
 
-        self._config: MutableMapping[str, Any] = {}
+        self._config: dict[str, Any] = {}
         self._provider_module: ModuleType | None = None
 
     async def async_step_user(self, user_input: ConfigType | None = None) -> FlowResult:
@@ -234,7 +234,7 @@ class ComfortAdvisorOptionsFlow(OptionsFlow):  # type: ignore
     def __init__(self, config_entry: ConfigEntry):
         """Initialize options flow."""
         self._original = config_entry.data | config_entry.options
-        self._config: MutableMapping[str, Any] = {}
+        self._config: dict[str, Any] = {}
 
     async def async_step_init(self, user_input: ConfigType = None) -> FlowResult:
         """Manage the options."""

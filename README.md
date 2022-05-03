@@ -6,13 +6,17 @@ Comfort Advisor provides the following calculated sensors for Home Assistant.
 
 ## Sensors
 
-**Open Windows**
+**Can Open Windows**
 
 > The weather outside is comfortable and windows can be opened.
 
-**Open Windows Reason**
+**High Simmer Index**
 
-> The explanation why window **Open Windows** sensor is on or off.
+> The high simmer index over the next 24 hours.
+
+**Next Change Time**
+
+> The next time the windows are recommended to be opened or closed.
 
 ## Usage
 

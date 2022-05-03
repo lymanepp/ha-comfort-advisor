@@ -38,13 +38,12 @@ DEFAULT_POLL: Final = False
 DEFAULT_POLL_INTERVAL: Final = 30
 
 # Device states
-STATE_OPEN_WINDOWS: Final = "open_windows"
-STATE_OPEN_WINDOWS_REASON: Final = "open_windows_reason"
+STATE_CAN_OPEN_WINDOWS: Final = "can_open_windows"
 STATE_HIGH_SIMMER_INDEX: Final = "high_simmer_index"
 STATE_NEXT_CHANGE_TIME: Final = "next_change_time"
 
-ALL_BINARY_SENSOR_TYPES = [STATE_OPEN_WINDOWS]
-ALL_SENSOR_TYPES = [STATE_OPEN_WINDOWS_REASON, STATE_HIGH_SIMMER_INDEX, STATE_NEXT_CHANGE_TIME]
+ALL_BINARY_SENSOR_TYPES = [STATE_CAN_OPEN_WINDOWS]
+ALL_SENSOR_TYPES = [STATE_HIGH_SIMMER_INDEX, STATE_NEXT_CHANGE_TIME]
 
 # can't be dynamic because providers are loaded on first use
 PROVIDER_TYPES: Final[Mapping[str, str]] = {

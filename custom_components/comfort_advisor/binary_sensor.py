@@ -15,7 +15,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import async_generate_entity_id
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import CONF_DEVICE, CONF_ENABLED_SENSORS, DOMAIN, STATE_OPEN_WINDOWS
+from .const import CONF_DEVICE, CONF_ENABLED_SENSORS, DOMAIN, STATE_CAN_OPEN_WINDOWS
 from .device import ComfortAdvisorDevice
 
 _LOGGER = logging.getLogger(__name__)
@@ -30,7 +30,7 @@ async def async_setup_entry(
     config: Mapping[str, Any] = config_entry.data | config_entry.options or {}
     device: ComfortAdvisorDevice = hass.data[DOMAIN][config_entry.entry_id]
 
-    _LOGGER.debug("async_setup_entry: %s", config_entry)
+    _LOGGER.debug("async_setup_entry: %s", config_entry.title)
 
     enabled_sensors = config[CONF_DEVICE][CONF_ENABLED_SENSORS]
 
@@ -81,18 +81,22 @@ class ComfortAdvisorBinarySensor(BinarySensorEntity):  # type: ignore
     async def async_added_to_hass(self) -> None:
         """Run when entity about to be added to hass."""
         self.async_on_remove(self._device.add_entity(self))
-        self.async_schedule_update_ha_state(True)
 
     async def async_update(self) -> None:
         """Update the state of the sensor."""
+        _LOGGER.debug(
+            "async_update called for %s - state(%s)",
+            self.entity_id,
+            str(self._device.calculated.get(self.entity_description.key)),
+        )
         if (value := self._device.calculated.get(self.entity_description.key)) is not None:
-            self._attr_is_on = value
+            self._attr_is_on = bool(value)
             self._attr_extra_state_attributes = self._device.extra_state_attributes
 
 
 BINARY_SENSOR_DESCRIPTIONS = [
     BinarySensorEntityDescription(
-        key=STATE_OPEN_WINDOWS,
+        key=STATE_CAN_OPEN_WINDOWS,
         device_class=BinarySensorDeviceClass.WINDOW,
         icon="mdi:window",
     ),

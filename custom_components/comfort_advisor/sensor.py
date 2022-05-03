@@ -4,7 +4,6 @@ from __future__ import annotations
 import logging
 from typing import Any, Mapping
 
-from homeassistant.backports.enum import StrEnum
 from homeassistant.components.sensor import (
     DOMAIN as SENSOR_DOMAIN,
     SensorDeviceClass,
@@ -23,7 +22,6 @@ from .const import (
     DOMAIN,
     STATE_HIGH_SIMMER_INDEX,
     STATE_NEXT_CHANGE_TIME,
-    STATE_OPEN_WINDOWS_REASON,
 )
 from .device import ComfortAdvisorDevice
 
@@ -39,7 +37,7 @@ async def async_setup_entry(
     config: Mapping[str, Any] = config_entry.data | config_entry.options or {}
     device: ComfortAdvisorDevice = hass.data[DOMAIN][config_entry.entry_id]
 
-    _LOGGER.debug("async_setup_entry: %s", config_entry)
+    _LOGGER.debug("async_setup_entry: %s", config_entry.title)
 
     enabled_sensors = config[CONF_DEVICE][CONF_ENABLED_SENSORS]
 
@@ -92,27 +90,20 @@ class ComfortAdvisorSensor(SensorEntity):  # type: ignore
     async def async_added_to_hass(self) -> None:
         """Run when entity about to be added to hass."""
         self.async_on_remove(self._device.add_entity(self))
-        self.async_schedule_update_ha_state(True)
 
     async def async_update(self) -> None:
         """Update the state of the sensor."""
+        _LOGGER.debug(
+            "async_update called for %s - state(%s)",
+            self.entity_id,
+            str(self._device.calculated.get(self.entity_description.key)),
+        )
         if (value := self._device.calculated.get(self.entity_description.key)) is not None:
             self._attr_native_value = value
             self._attr_extra_state_attributes = self._device.extra_state_attributes
 
 
-class ComfortAdvisorDeviceClass(StrEnum):  # type: ignore
-    """State class for comfort advisor sensors."""
-
-    OPEN_WINDOWS_REASON = f"{DOMAIN}__{STATE_OPEN_WINDOWS_REASON}"
-
-
 SENSOR_DESCRIPTIONS = [
-    SensorEntityDescription(
-        key=STATE_OPEN_WINDOWS_REASON,
-        device_class=ComfortAdvisorDeviceClass.OPEN_WINDOWS_REASON,
-        # icon="mdi:water",
-    ),
     SensorEntityDescription(
         key=STATE_NEXT_CHANGE_TIME,
         device_class=SensorDeviceClass.TIMESTAMP,
