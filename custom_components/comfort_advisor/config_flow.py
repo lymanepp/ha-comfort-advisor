@@ -54,7 +54,7 @@ async def _async_test_provider(
     provider_factory = PROVIDERS.get(provider_type)
     provider = provider_factory(hass, **kwargs)
     try:
-        await provider.realtime()
+        await provider.fetch_realtime()
         return True
     except ProviderError as exc:
         errors["base"] = exc.error_key

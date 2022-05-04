@@ -21,6 +21,7 @@ from .const import (
     CONF_ENABLED_SENSORS,
     DOMAIN,
     STATE_HIGH_SIMMER_INDEX,
+    STATE_LOW_SIMMER_INDEX,
     STATE_NEXT_CHANGE_TIME,
 )
 from .device import ComfortAdvisorDevice
@@ -107,6 +108,11 @@ SENSOR_DESCRIPTIONS = [
     SensorEntityDescription(
         key=STATE_NEXT_CHANGE_TIME,
         device_class=SensorDeviceClass.TIMESTAMP,
+    ),
+    SensorEntityDescription(
+        key=STATE_LOW_SIMMER_INDEX,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
     ),
     SensorEntityDescription(
         key=STATE_HIGH_SIMMER_INDEX,

@@ -23,7 +23,6 @@ from homeassistant.helpers.event import (
     async_track_state_change_event,
     async_track_time_interval,
 )
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.loader import async_get_custom_components
 from homeassistant.util.dt import utcnow
 from homeassistant.util.temperature import convert as convert_temp
@@ -41,11 +40,6 @@ from .const import (
     DEFAULT_MANUFACTURER,
     DEFAULT_NAME,
     DOMAIN,
-    SCAN_INTERVAL_FORECAST,
-    SCAN_INTERVAL_REALTIME,
-    STATE_CAN_OPEN_WINDOWS,
-    STATE_HIGH_SIMMER_INDEX,
-    STATE_NEXT_CHANGE_TIME,
 )
 from .formulas import compute_dew_point, compute_simmer_index
 from .provider import Provider, WeatherData
@@ -62,6 +56,7 @@ class _CalculatedState(TypedDict, total=False):
     """TODO."""
 
     can_open_windows: bool | None
+    low_simmer_index: float | None
     high_simmer_index: float | None
     next_change_time: datetime | None
 
@@ -88,6 +83,7 @@ class ComfortAdvisorDevice:
             hw_version=provider.version,
         )
 
+        self._provider = provider
         self._temp_unit = self.hass.config.units.temperature_unit  # TODO: add config entry?
         self._entities: list[Entity] = []
         self._inputs: dict[str, Any] = {}
@@ -96,22 +92,6 @@ class ComfortAdvisorDevice:
 
         self._polling = self._config[CONF_DEVICE][CONF_POLL]
         self._extra_state_attributes: dict[str, Any] = {ATTR_ATTRIBUTION: provider.attribution}
-
-        self._realtime = DataUpdateCoordinator[WeatherData](
-            hass,
-            _LOGGER,
-            name=f"{DOMAIN}_realtime",
-            update_interval=SCAN_INTERVAL_REALTIME,
-            update_method=provider.realtime,
-        )
-
-        self._forecast = DataUpdateCoordinator[list[WeatherData]](
-            hass,
-            _LOGGER,
-            name=f"{DOMAIN}_forecast",
-            update_interval=SCAN_INTERVAL_FORECAST,
-            update_method=provider.forecast,
-        )
 
         self._entity_id_map: dict[str, list[str]] = {}
         for input_key in [
@@ -129,20 +109,21 @@ class ComfortAdvisorDevice:
         """Set up device."""
         assert config_entry.unique_id
 
-        config_entry.async_on_unload(self._realtime.async_add_listener(self._realtime_updated))
-        config_entry.async_on_unload(self._forecast.async_add_listener(self._forecast_updated))
+        config_entry.async_on_unload(
+            self._provider.async_add_realtime_listener(self._realtime_updated)
+        )
+        config_entry.async_on_unload(
+            self._provider.async_add_forecast_listener(self._forecast_updated)
+        )
         config_entry.async_on_unload(
             async_track_state_change_event(
-                self.hass, self._entity_id_map.keys(), self._event_handler
+                self.hass, self._entity_id_map.keys(), self._input_event_handler
             )
         )
 
-        await self._realtime.async_config_entry_first_refresh()
-        await self._forecast.async_config_entry_first_refresh()
-
         for entity_id in self._entity_id_map:
             if (state := self.hass.states.get(entity_id)) is not None:
-                self._update_input_state(state)
+                self._process_state_change(state)
 
         if self._polling:
             poll_interval = self._config[CONF_DEVICE][CONF_POLL_INTERVAL]
@@ -184,20 +165,16 @@ class ComfortAdvisorDevice:
         self.device_info["sw_version"] = custom_components[DOMAIN].version.string
 
     def _realtime_updated(self) -> None:
-        _LOGGER.debug("_realtime_updated called for %s", self.device_info["name"])
-        if self._realtime.data:
-            self._inputs["realtime"] = self._realtime.data
+        if self._update_input_value("realtime", self._provider.realtime_service.data):
             if not self._polling:
                 self.hass.async_create_task(self._async_update())  # run in event loop
 
     def _forecast_updated(self) -> None:
-        _LOGGER.debug("_forecast_updated called for %s", self.device_info["name"])
-        if self._forecast.data:
-            self._inputs["forecast"] = self._forecast.data
+        if self._update_input_value("forecast", self._provider.forecast_service.data):
             if not self._polling:
                 self.hass.async_create_task(self._async_update())  # run in event loop
 
-    async def _event_handler(self, event: Event) -> None:
+    async def _input_event_handler(self, event: Event) -> None:
         state: State = event.data.get("new_state")
         _LOGGER.debug(
             "_event_handler called for %s - entity(%s) - state(%s)",
@@ -205,10 +182,11 @@ class ComfortAdvisorDevice:
             state.entity_id if state else None,
             state.state if state else None,
         )
-        if self._update_input_state(state) and not self._polling:
-            await self._async_update(force_refresh=False)
+        if self._process_state_change(state):
+            if not self._polling:
+                await self._async_update(force_refresh=False)
 
-    def _update_input_state(self, state: State) -> bool:
+    def _process_state_change(self, state: State) -> bool:
         _LOGGER.debug(
             "_update_input_state called for %s - entity(%s) - state(%s)",
             self.device_info["name"],
@@ -231,10 +209,16 @@ class ComfortAdvisorDevice:
                 value = convert_temp(value, unit, self._temp_unit)
 
         for input_key in self._entity_id_map[state.entity_id]:
-            if self._inputs.get(input_key) != value:
-                self._inputs[input_key] = value
-                self._have_changes = True
+            self._update_input_value(input_key, value)
         return True
+
+    def _update_input_value(self, input_key: str, value: Any) -> bool:
+        _LOGGER.debug("%s updated %s to %s", self.device_info["name"], input_key, str(value))
+        if self._inputs.get(input_key) != value:
+            self._inputs[input_key] = value
+            self._have_changes = True
+            return True
+        return False
 
     # `async_track_time_interval` adds a `now` arg that must be stripped
     async def _async_update_scheduled(self, now: datetime) -> None:
@@ -296,28 +280,6 @@ class ComfortAdvisorDevice:
         _, in_dewp, in_si = calc(indoor_temperature, indoor_humidity, 0)
         out_comfort, out_dewp, out_si = calc(outdoor_temperature, outdoor_humidity, outdoor_pollen)
 
-        start_time = utcnow()
-        end_time = start_time + timedelta(days=1)
-
-        next_change_time: datetime | None = None
-        high_si = out_si
-
-        for entry in forecast or []:
-            if entry.date_time < start_time:
-                continue
-            comfort, _, si = calc(entry.temp, entry.humidity, entry.pollen or 0)
-            if next_change_time is None and comfort != out_comfort:
-                next_change_time = entry.date_time
-            if entry.date_time <= end_time:
-                high_si = max(high_si, si)
-
-        self._calculated.update(
-            {
-                STATE_HIGH_SIMMER_INDEX: high_si,
-                STATE_NEXT_CHANGE_TIME: next_change_time,
-                STATE_CAN_OPEN_WINDOWS: out_comfort,
-            }
-        )
         self._extra_state_attributes.update(
             {
                 ATTR_INDOOR_DEW_POINT: in_dewp,
@@ -326,6 +288,27 @@ class ComfortAdvisorDevice:
                 ATTR_OUTDOOR_SIMMER_INDEX: out_si,
             }
         )
+
+        self._calculated["can_open_windows"] = out_comfort
+
+        if forecast:
+            start_time = utcnow()
+            end_time = start_time + timedelta(days=1)
+
+            next_change_time: datetime | None = None
+            high_si = low_si = out_si
+
+            for interval in filter(lambda x: x.date_time >= start_time, forecast):
+                comfort, _, si = calc(interval.temp, interval.humidity, interval.pollen or 0)
+                if next_change_time is None and comfort != out_comfort:
+                    next_change_time = interval.date_time
+                if interval.date_time <= end_time:
+                    low_si = min(low_si, si)
+                    high_si = max(high_si, si)
+
+            self._calculated["low_simmer_index"] = low_si
+            self._calculated["high_simmer_index"] = high_si
+            self._calculated["next_change_time"] = next_change_time
 
         # TODO: create blueprint that uses `next_change_time` if windows can be open "all night"?
         # TODO: blueprint checks `high_simmer_index` if it will be cool tomorrow and conserve heat

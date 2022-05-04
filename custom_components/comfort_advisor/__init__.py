@@ -15,7 +15,7 @@ import voluptuous as vol
 
 from .const import CONF_PROVIDER, DOMAIN
 from .device import ComfortAdvisorDevice
-from .provider import provider_from_config
+from .provider import async_get_provider
 from .schemas import build_schema
 
 _LOGGER = logging.getLogger(__name__)
@@ -39,7 +39,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
         _LOGGER.error("Invalid configuration: %s", exc)
         return False
 
-    if not (provider := await provider_from_config(hass, **config[CONF_PROVIDER])):
+    if not (provider := await async_get_provider(hass, **config[CONF_PROVIDER])):
         return False
 
     device = ComfortAdvisorDevice(hass, config_entry, provider)

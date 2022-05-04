@@ -60,8 +60,8 @@ def async_exception_handler(
             raise ProviderError("rate_limited") from exc
         except CantConnectException as exc:
             raise ProviderError("cannot_connect") from exc
-        except Exception as exc:
-            _LOGGER.exception("Error from pytomorrowio: %s", exc_info=exc)
+        except Exception as exc:  # pylint: disable=broad-except
+            _LOGGER.exception("%s from pytomorrowio", type(exc), exc_info=exc)
             raise ProviderError("unknown") from exc
 
     return wrapper
@@ -97,6 +97,7 @@ class TomorrowioWeatherProvider(Provider):
         location: Mapping[str, float],
     ) -> None:
         """Initialize provider."""
+        super().__init__(hass)
         latitude = float(location["latitude"])
         longitude = float(location["longitude"])
 
@@ -140,14 +141,14 @@ class TomorrowioWeatherProvider(Provider):
         )
 
     @async_exception_handler
-    async def realtime(self) -> WeatherData:
+    async def fetch_realtime(self) -> WeatherData | None:
         """Retrieve realtime weather from pytomorrowio."""
         realtime = await self._api.realtime(FIELDS)
         start_time = utcnow().replace(microsecond=0).isoformat()
         return self._to_weather_data(start_time, **realtime)
 
     @async_exception_handler
-    async def forecast(self) -> Sequence[WeatherData]:
+    async def fetch_forecast(self) -> Sequence[WeatherData] | None:
         """Retrieve weather forecast from pytomorrowio."""
         hourly_forecast = await self._api.forecast_hourly(FIELDS, start_time=utcnow())
         return [

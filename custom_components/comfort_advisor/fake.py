@@ -24,8 +24,9 @@ def build_schema(hass: HomeAssistant) -> vol.Schema:
 class FakeProvider(Provider):
     """TODO."""
 
-    def __init__(self, hass: HomeAssistant, **kwargs) -> None:  # type: ignore
+    def __init__(self, hass: HomeAssistant) -> None:
         """TODO."""
+        super().__init__(hass)
         self._units = hass.config.units
 
     def _to_native_units(self, data: Mapping[str, Any]) -> WeatherData:
@@ -47,7 +48,7 @@ class FakeProvider(Provider):
         """Return attribution to use in UI."""
         return "v.fake"
 
-    async def realtime(self) -> WeatherData:
+    async def fetch_realtime(self) -> WeatherData:
         """TODO."""
         results = {
             "date_time": utcnow().replace(microsecond=0),
@@ -58,7 +59,7 @@ class FakeProvider(Provider):
         }
         return self._to_native_units(results)
 
-    async def forecast(self) -> Sequence[WeatherData]:
+    async def fetch_forecast(self) -> Sequence[WeatherData]:
         """TODO."""
         start_time = utcnow().replace(minute=0, second=0, microsecond=0)
         results = [

@@ -3,16 +3,18 @@ from __future__ import annotations
 
 from abc import ABCMeta, abstractmethod
 from datetime import datetime
+import json
 import logging
 from typing import NamedTuple, Sequence
 
-from homeassistant.core import HomeAssistant
+from homeassistant.core import CALLBACK_TYPE, HomeAssistant
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util.decorator import Registry
 import voluptuous as vol
 from voluptuous.humanize import humanize_error
 
+from .const import DOMAIN, SCAN_INTERVAL_FORECAST, SCAN_INTERVAL_REALTIME
 from .helpers import load_module
-from .schemas import build_provider_schema
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -29,7 +31,7 @@ class WeatherData(NamedTuple):
     pollen: int | None
 
 
-class ProviderError(Exception):
+class ProviderError(UpdateFailed):  # type:ignore
     """Weather provider error."""
 
     def __init__(self, error_key: str, extra_info: str | None = None) -> None:
@@ -41,6 +43,43 @@ class ProviderError(Exception):
 
 class Provider(metaclass=ABCMeta):
     """Abstract weather provider."""
+
+    def __init__(self, hass: HomeAssistant) -> None:
+        """TODO."""
+        self.hass = hass
+
+        self.realtime_service = DataUpdateCoordinator[WeatherData](
+            hass,
+            _LOGGER,
+            name=f"{DOMAIN}_realtime",
+            update_interval=SCAN_INTERVAL_REALTIME,
+            update_method=self.fetch_realtime,
+        )
+        self.forecast_service = DataUpdateCoordinator[list[WeatherData]](
+            hass,
+            _LOGGER,
+            name=f"{DOMAIN}_forecast",
+            update_interval=SCAN_INTERVAL_FORECAST,
+            update_method=self.fetch_forecast,
+        )
+
+    def async_add_realtime_listener(self, update_callback: CALLBACK_TYPE) -> CALLBACK_TYPE:
+        """Listen for data updates."""
+        remover: CALLBACK_TYPE = self.realtime_service.async_add_listener(update_callback)
+        if self.realtime_service.data is None:
+            self.hass.async_create_task(self.realtime_service.async_config_entry_first_refresh())
+        else:
+            update_callback()
+        return remover
+
+    def async_add_forecast_listener(self, update_callback: CALLBACK_TYPE) -> CALLBACK_TYPE:
+        """Listen for data updates."""
+        remover: CALLBACK_TYPE = self.forecast_service.async_add_listener(update_callback)
+        if self.forecast_service.data is None:
+            self.hass.async_create_task(self.forecast_service.async_config_entry_first_refresh())
+        else:
+            update_callback()
+        return remover
 
     @property
     @abstractmethod
@@ -55,39 +94,47 @@ class Provider(metaclass=ABCMeta):
         raise NotImplementedError
 
     @abstractmethod
-    async def realtime(self) -> WeatherData:
+    async def fetch_realtime(self) -> WeatherData | None:
         """Retrieve realtime weather from provider."""
         raise NotImplementedError
 
     @abstractmethod
-    async def forecast(self) -> Sequence[WeatherData]:
+    async def fetch_forecast(self) -> Sequence[WeatherData] | None:
         """Retrieve weather forecast from provider."""
         raise NotImplementedError
 
 
-async def provider_from_config(  # type: ignore
-    hass: HomeAssistant, *, provider_type: str, **kwargs
-) -> Provider | None:
+async def async_get_provider(hass: HomeAssistant, **kwargs: str) -> Provider:
     """Initialize a weather provider from a config."""
 
+    providers: dict[str, Provider] = hass.data[DOMAIN].setdefault("providers", {})
+    hashable_key = json.dumps(kwargs, sort_keys=True)
+
+    if (provider := providers.get(hashable_key)) is not None:
+        return provider
+
+    type_ = kwargs.pop("provider_type")
+
     try:
-        schema = build_provider_schema()
-        module = await load_module(hass, provider_type)
-        provider_schema: vol.Schema = module.build_schema(hass, **kwargs)
-        schema = schema.extend(provider_schema.schema, extra=vol.PREVENT_EXTRA)
-        config = {"provider_type": provider_type, **kwargs}
-        schema(config)
+        module = await load_module(hass, type_)
+    except ImportError as exc:
+        _LOGGER.error("Unable to load provider: %s, %s", type_, exc)
+        raise ProviderError("import_error") from exc
+
+    schema: vol.Schema = module.build_schema(hass, **kwargs)
+
+    try:
+        schema(kwargs)
     except vol.Invalid as exc:
         _LOGGER.error(
-            "Invalid configuration for weather provider: %s",
-            humanize_error(config, exc),
+            "Invalid configuration for provider: %s",
+            humanize_error(kwargs, exc),
         )
-        return None
-    except ImportError as exc:
-        _LOGGER.error("Unable to load provider: %s, %s", provider_type, exc)
-        return None
+        raise ProviderError("schema_error") from exc
 
-    provider_factory = PROVIDERS[provider_type]
-    provider = provider_factory(hass, **kwargs)
+    factory = PROVIDERS[type_]
+    provider = factory(hass, **kwargs)
     assert isinstance(provider, Provider)
+
+    providers[hashable_key] = provider
     return provider
