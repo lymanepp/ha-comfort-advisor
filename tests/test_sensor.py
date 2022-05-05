@@ -6,7 +6,6 @@ from homeassistant.components.sensor import DOMAIN as PLATFORM_DOMAIN
 import pytest
 
 from custom_components.comfort_advisor.const import (
-    ALL_BINARY_SENSOR_TYPES,
     ALL_SENSOR_TYPES,
     DOMAIN,
 )
@@ -92,7 +91,7 @@ DEFAULT_TEST_SENSORS = [
     ],
 ]
 
-ALL_SENSOR_TYPES = sorted(ALL_BINARY_SENSOR_TYPES + ALL_SENSOR_TYPES)
+ALL_SENSOR_TYPES = sorted(ALL_SENSOR_TYPES)
 LEN_DEFAULT_SENSORS = len(ALL_SENSOR_TYPES)
 
 

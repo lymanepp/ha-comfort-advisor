@@ -40,6 +40,7 @@ from .const import (
     DEFAULT_MANUFACTURER,
     DEFAULT_NAME,
     DOMAIN,
+    STATE_CAN_OPEN_WINDOWS,
 )
 from .formulas import compute_dew_point, compute_simmer_index
 from .provider import Provider, WeatherData
@@ -51,11 +52,13 @@ ATTR_INDOOR_SIMMER_INDEX = "indoor_simmer_index"
 ATTR_OUTDOOR_DEW_POINT = "outdoor_dew_point"
 ATTR_OUTDOOR_SIMMER_INDEX = "outdoor_simmer_index"
 
+NO_YES = ["no", "yes"]
+
 
 class _CalculatedState(TypedDict, total=False):
     """TODO."""
 
-    can_open_windows: bool | None
+    can_open_windows: str | None
     low_simmer_index: float | None
     high_simmer_index: float | None
     next_change_time: datetime | None
@@ -289,7 +292,7 @@ class ComfortAdvisorDevice:
             }
         )
 
-        self._calculated["can_open_windows"] = out_comfort
+        self._calculated[STATE_CAN_OPEN_WINDOWS] = NO_YES[out_comfort]
 
         if forecast:
             start_time = utcnow()

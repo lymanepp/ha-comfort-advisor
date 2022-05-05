@@ -11,7 +11,6 @@ from homeassistant.util.temperature import convert as convert_temp
 import voluptuous as vol
 
 from .const import (
-    ALL_BINARY_SENSOR_TYPES,
     ALL_SENSOR_TYPES,
     CONF_COMFORT,
     CONF_DEVICE,
@@ -127,7 +126,7 @@ def build_device_schema(
     poll_interval: int = vol.UNDEFINED,
 ) -> vol.Schema:
     """TODO."""
-    all_sensor_types = sorted(ALL_BINARY_SENSOR_TYPES + ALL_SENSOR_TYPES)
+    all_sensor_types = sorted(ALL_SENSOR_TYPES)
     sensor_type_dict = {x: x.replace("_", " ").title() for x in all_sensor_types}
     return vol.Schema(
         {

@@ -43,8 +43,12 @@ STATE_LOW_SIMMER_INDEX: Final = "low_simmer_index"
 STATE_HIGH_SIMMER_INDEX: Final = "high_simmer_index"
 STATE_NEXT_CHANGE_TIME: Final = "next_change_time"
 
-ALL_BINARY_SENSOR_TYPES = [STATE_CAN_OPEN_WINDOWS]
-ALL_SENSOR_TYPES = [STATE_LOW_SIMMER_INDEX, STATE_HIGH_SIMMER_INDEX, STATE_NEXT_CHANGE_TIME]
+ALL_SENSOR_TYPES = [
+    STATE_CAN_OPEN_WINDOWS,
+    STATE_HIGH_SIMMER_INDEX,
+    STATE_LOW_SIMMER_INDEX,
+    STATE_NEXT_CHANGE_TIME,
+]
 
 # can't be dynamic because providers are loaded on first use
 PROVIDER_TYPES: Final[Mapping[str, str]] = {

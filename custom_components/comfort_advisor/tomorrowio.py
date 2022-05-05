@@ -2,17 +2,8 @@
 from __future__ import annotations
 
 import logging
-from typing import (
-    Any,
-    Callable,
-    Coroutine,
-    Final,
-    Mapping,
-    ParamSpec,
-    Sequence,
-    TypeVar,
-    cast,
-)
+import sys
+from typing import Any, Callable, Coroutine, Final, Mapping, Sequence, TypeVar, cast
 
 from homeassistant.const import (
     CONF_API_KEY,
@@ -34,6 +25,12 @@ import voluptuous as vol
 
 from .provider import PROVIDERS, Provider, ProviderError, WeatherData
 from .schemas import value_or_default
+
+if sys.version_info >= (3, 10):
+    from typing import ParamSpec
+else:
+    from typing_extensions import ParamSpec
+
 
 _LOGGER = logging.getLogger(__name__)
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Mapping
 
+from homeassistant.backports.enum import StrEnum
 from homeassistant.components.sensor import (
     DOMAIN as SENSOR_DOMAIN,
     SensorDeviceClass,
@@ -20,6 +21,7 @@ from .const import (
     CONF_DEVICE,
     CONF_ENABLED_SENSORS,
     DOMAIN,
+    STATE_CAN_OPEN_WINDOWS,
     STATE_HIGH_SIMMER_INDEX,
     STATE_LOW_SIMMER_INDEX,
     STATE_NEXT_CHANGE_TIME,
@@ -104,10 +106,22 @@ class ComfortAdvisorSensor(SensorEntity):  # type: ignore
             self._attr_extra_state_attributes = self._device.extra_state_attributes
 
 
+class ComfortAdvisorDeviceClass(StrEnum):  # type: ignore
+    """State class for thermal comfort sensors."""
+
+    CAN_OPEN_WINDOWS = "comfort_advisor__can_open_windows"
+
+
 SENSOR_DESCRIPTIONS = [
     SensorEntityDescription(
-        key=STATE_NEXT_CHANGE_TIME,
-        device_class=SensorDeviceClass.TIMESTAMP,
+        key=STATE_CAN_OPEN_WINDOWS,
+        device_class=ComfortAdvisorDeviceClass.CAN_OPEN_WINDOWS,
+        icon="mdi:window-closed",
+    ),
+    SensorEntityDescription(
+        key=STATE_HIGH_SIMMER_INDEX,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
     ),
     SensorEntityDescription(
         key=STATE_LOW_SIMMER_INDEX,
@@ -115,8 +129,7 @@ SENSOR_DESCRIPTIONS = [
         state_class=SensorStateClass.MEASUREMENT,
     ),
     SensorEntityDescription(
-        key=STATE_HIGH_SIMMER_INDEX,
-        device_class=SensorDeviceClass.TEMPERATURE,
-        state_class=SensorStateClass.MEASUREMENT,
+        key=STATE_NEXT_CHANGE_TIME,
+        device_class=SensorDeviceClass.TIMESTAMP,
     ),
 ]

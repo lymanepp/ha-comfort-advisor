@@ -20,7 +20,7 @@ from .schemas import build_schema
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: Final = [Platform.SENSOR, Platform.BINARY_SENSOR]
+PLATFORMS: Final = [Platform.SENSOR]
 
 
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:

@@ -2,17 +2,8 @@
 from __future__ import annotations
 
 import logging
-from typing import (
-    Any,
-    Callable,
-    Coroutine,
-    Final,
-    Mapping,
-    ParamSpec,
-    Sequence,
-    TypeVar,
-    cast,
-)
+import sys
+from typing import Any, Callable, Coroutine, Final, Mapping, Sequence, TypeVar, cast
 
 from aiohttp import ClientConnectionError
 from homeassistant.const import (
@@ -36,10 +27,16 @@ import voluptuous as vol
 from .provider import PROVIDERS, Provider, ProviderError, WeatherData
 from .schemas import value_or_default
 
+if sys.version_info >= (3, 10):
+    from typing import ParamSpec
+else:
+    from typing_extensions import ParamSpec
+
+
 _LOGGER = logging.getLogger(__name__)
 
 REQUIREMENTS: Final = ["pynws>=1.4.1"]
-DESCRIPTION: Final = "For now, an API Key can be anything. It is recommended to use a valid email address.\n\nThe National Weather Service API does not provide pollen data."
+DESCRIPTION: Final = "For now, an API Key can be anything. It is recommended to use a valid email address.\n\nThe National Weather Service does not provide pollen data."
 
 _ParamT = ParamSpec("_ParamT")
 _ResultT = TypeVar("_ResultT")
