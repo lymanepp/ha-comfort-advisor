@@ -3,11 +3,16 @@ from __future__ import annotations
 
 from typing import Any, Sequence
 
-from homeassistant.const import CONF_NAME, TEMP_FAHRENHEIT
+from homeassistant.components.sensor import SensorDeviceClass
+from homeassistant.const import CONF_NAME, PERCENTAGE, TEMP_FAHRENHEIT
 from homeassistant.core import HomeAssistant
 import homeassistant.helpers.config_validation as cv
+from homeassistant.helpers.entityfilter import CONF_INCLUDE_ENTITIES
 from homeassistant.helpers.selector import selector
-from homeassistant.util.temperature import convert as convert_temp
+from homeassistant.util.temperature import (
+    VALID_UNITS as VALID_TEMP_UNITS,
+    convert as convert_temp,
+)
 import voluptuous as vol
 
 from .const import (
@@ -22,8 +27,6 @@ from .const import (
     CONF_INPUTS,
     CONF_OUTDOOR_HUMIDITY,
     CONF_OUTDOOR_TEMPERATURE,
-    CONF_POLL,
-    CONF_POLL_INTERVAL,
     CONF_POLLEN_MAX,
     CONF_PROVIDER,
     CONF_PROVIDER_TYPE,
@@ -32,14 +35,12 @@ from .const import (
     DEFAULT_DEWPOINT_MAX,
     DEFAULT_HUMIDITY_MAX,
     DEFAULT_NAME,
-    DEFAULT_POLL,
-    DEFAULT_POLL_INTERVAL,
     DEFAULT_POLLEN_MAX,
     DEFAULT_SIMMER_INDEX_MAX,
     DEFAULT_SIMMER_INDEX_MIN,
     PROVIDER_TYPES,
 )
-from .helpers import HUMIDITY_SENSOR_SELECTOR, TEMP_SENSOR_SELECTOR
+from .helpers import get_sensor_entities
 
 
 def value_or_default(value: Any, default: Any) -> Any:
@@ -48,7 +49,7 @@ def value_or_default(value: Any, default: Any) -> Any:
 
 
 def build_provider_schema() -> vol.Schema:
-    """TODO."""
+    """Build provider schema."""
     return vol.Schema(
         {vol.Required(CONF_PROVIDER_TYPE): vol.In(PROVIDER_TYPES)},
         extra=vol.ALLOW_EXTRA,
@@ -56,19 +57,29 @@ def build_provider_schema() -> vol.Schema:
 
 
 def build_inputs_schema(
+    hass: HomeAssistant,
     *,
-    indoor_temp: float = vol.UNDEFINED,
+    indoor_temperature: float = vol.UNDEFINED,
     indoor_humidity: float = vol.UNDEFINED,
-    outdoor_temp: float = vol.UNDEFINED,
+    outdoor_temperature: float = vol.UNDEFINED,
     outdoor_humidity: float = vol.UNDEFINED,
 ) -> vol.Schema:
-    """TODO."""
+    """Build inputs schema."""
+
+    temp_sensors = get_sensor_entities(hass, SensorDeviceClass.TEMPERATURE, VALID_TEMP_UNITS)
+    humidity_sensors = get_sensor_entities(hass, SensorDeviceClass.HUMIDITY, [PERCENTAGE])
+
+    temp_sensor_selector = selector({"entity": {CONF_INCLUDE_ENTITIES: temp_sensors}})
+    humidity_sensor_selector = selector({"entity": {CONF_INCLUDE_ENTITIES: humidity_sensors}})
+
     return vol.Schema(
         {
-            vol.Required(CONF_INDOOR_TEMPERATURE, default=indoor_temp): TEMP_SENSOR_SELECTOR,
-            vol.Required(CONF_INDOOR_HUMIDITY, default=indoor_humidity): HUMIDITY_SENSOR_SELECTOR,
-            vol.Required(CONF_OUTDOOR_TEMPERATURE, default=outdoor_temp): TEMP_SENSOR_SELECTOR,
-            vol.Required(CONF_OUTDOOR_HUMIDITY, default=outdoor_humidity): HUMIDITY_SENSOR_SELECTOR,
+            vol.Required(CONF_INDOOR_TEMPERATURE, default=indoor_temperature): temp_sensor_selector,
+            vol.Required(CONF_INDOOR_HUMIDITY, default=indoor_humidity): humidity_sensor_selector,
+            vol.Required(
+                CONF_OUTDOOR_TEMPERATURE, default=outdoor_temperature
+            ): temp_sensor_selector,
+            vol.Required(CONF_OUTDOOR_HUMIDITY, default=outdoor_humidity): humidity_sensor_selector,
         }
     )
 
@@ -82,7 +93,7 @@ def build_comfort_schema(
     humidity_max: float = vol.UNDEFINED,
     pollen_max: int = vol.UNDEFINED,
 ) -> vol.Schema:
-    """TODO."""
+    """Build comfort settings schema."""
     temp_unit = hass.config.units.temperature_unit
 
     # TODO: round to nearest 0.5?
@@ -122,10 +133,8 @@ def build_device_schema(
     *,
     name: str = vol.UNDEFINED,
     enabled_sensors: Sequence[str] = vol.UNDEFINED,
-    poll: bool = vol.UNDEFINED,
-    poll_interval: int = vol.UNDEFINED,
 ) -> vol.Schema:
-    """TODO."""
+    """Build device settings schema."""
     all_sensor_types = sorted(ALL_SENSOR_TYPES)
     sensor_type_dict = {x: x.replace("_", " ").title() for x in all_sensor_types}
     return vol.Schema(
@@ -134,10 +143,6 @@ def build_device_schema(
             vol.Required(
                 CONF_ENABLED_SENSORS, default=value_or_default(enabled_sensors, all_sensor_types)
             ): cv.multi_select(sensor_type_dict),
-            vol.Required(CONF_POLL, default=value_or_default(poll, DEFAULT_POLL)): bool,
-            vol.Required(
-                CONF_POLL_INTERVAL, default=value_or_default(poll_interval, DEFAULT_POLL_INTERVAL)
-            ): vol.All(vol.Coerce(int), vol.Range(min=1, max=300)),
         }
     )
 
@@ -147,7 +152,7 @@ def build_schema(hass: HomeAssistant) -> vol.Schema:
     return vol.Schema(
         {
             vol.Required(CONF_PROVIDER): build_provider_schema().schema,
-            vol.Required(CONF_INPUTS): build_inputs_schema().schema,
+            vol.Required(CONF_INPUTS): build_inputs_schema(hass).schema,
             vol.Required(CONF_COMFORT): build_comfort_schema(hass).schema,
             vol.Required(CONF_DEVICE): build_device_schema().schema,
         },

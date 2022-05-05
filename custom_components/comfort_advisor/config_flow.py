@@ -107,7 +107,7 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
     """Configuration flow for setting up new comfort_advisor entry."""
 
     def __init__(self) -> None:
-        """TODO."""
+        """Initialize config flow."""
 
         self._config: dict[str, Any] = {}
         self._provider_module: ModuleType | None = None
@@ -118,18 +118,24 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
         errors: ErrorsType = {}
 
         if user_input:
-            unique_id = _create_unique_id(self.hass, user_input)
-            await self.async_set_unique_id(unique_id)
-            self._abort_if_unique_id_configured()
+            if (
+                user_input[CONF_INDOOR_TEMPERATURE] == user_input[CONF_OUTDOOR_TEMPERATURE]
+                or user_input[CONF_INDOOR_HUMIDITY] == user_input[CONF_OUTDOOR_HUMIDITY]
+            ):
+                errors["base"] = "sensors_not_unique"
+            else:
+                unique_id = _create_unique_id(self.hass, user_input)
+                await self.async_set_unique_id(unique_id)
+                self._abort_if_unique_id_configured()
 
-            if _async_test_inputs(self.hass, errors, **user_input):
-                self._config[CONF_INPUTS] = user_input
-                return await self.async_step_choose()
+                if _async_test_inputs(self.hass, errors, **user_input):
+                    self._config[CONF_INPUTS] = user_input
+                    return await self.async_step_choose()
 
         return self.async_show_form(
             step_id="user",
             errors=errors,
-            data_schema=build_inputs_schema(**user_input),
+            data_schema=build_inputs_schema(self.hass, **user_input),
         )
 
     async def async_step_choose(self, user_input: ConfigType | None = None) -> FlowResult:
@@ -207,7 +213,7 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
         )
 
     async def async_step_device(self, user_input: ConfigType | None = None) -> FlowResult:
-        """TODO."""
+        """Adjust device settings."""
         user_input = user_input or {}
         errors: ErrorsType = {}
 
@@ -237,7 +243,7 @@ class ComfortAdvisorOptionsFlow(OptionsFlow):  # type: ignore
         self._config: dict[str, Any] = {}
 
     async def async_step_init(self, user_input: ConfigType = None) -> FlowResult:
-        """Manage the options."""
+        """Adjust comfort values."""
         user_input = user_input or {}
         errors: ErrorsType = {}
 
@@ -255,7 +261,7 @@ class ComfortAdvisorOptionsFlow(OptionsFlow):  # type: ignore
         )
 
     async def async_step_device(self, user_input: ConfigType | None = None) -> FlowResult:
-        """TODO."""
+        """Adjust device settings."""
         user_input = user_input or {}
         errors: ErrorsType = {}
 

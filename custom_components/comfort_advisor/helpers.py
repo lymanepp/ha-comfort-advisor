@@ -1,28 +1,56 @@
-"""TODO."""
+"""Helper functions."""
 from __future__ import annotations
 
+import asyncio
 import importlib
 import logging
+import sys
 from types import ModuleType
+from typing import Any, Callable, Coroutine, Iterable, Sequence, TypeVar, cast
 
+from aiohttp.web_exceptions import HTTPServerError
 from homeassistant.components.sensor import SensorDeviceClass
+from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.selector import selector
+from homeassistant.helpers import device_registry, entity_registry
+from homeassistant.helpers.entity_registry import RegistryEntry as EntityRegistryEntry
 from homeassistant.loader import Integration, async_get_custom_components
 from homeassistant.requirements import RequirementsNotFound, async_process_requirements
 from yarl import URL
 
 from .const import DOMAIN
 
+if sys.version_info >= (3, 10):
+    from typing import ParamSpec
+else:
+    from typing_extensions import ParamSpec
+
 _LOGGER = logging.getLogger(__name__)
 
+_ParamT = ParamSpec("_ParamT")
+_ResultT = TypeVar("_ResultT")
 
-TEMP_SENSOR_SELECTOR = selector(
-    {"entity": {"domain": "sensor", "device_class": SensorDeviceClass.TEMPERATURE}}
-)
-HUMIDITY_SENSOR_SELECTOR = selector(
-    {"entity": {"domain": "sensor", "device_class": SensorDeviceClass.HUMIDITY}}
-)
+EXCLUDED_PLATFORMS = (DOMAIN, "thermal_comfort")
+
+
+def get_sensor_entities(
+    hass: HomeAssistant,
+    device_class: SensorDeviceClass,
+    valid_units: Iterable[str],
+) -> Sequence[str]:
+    """Get list of sensor entities matching device_class and valid_units."""
+
+    def include_sensors(entity: EntityRegistryEntry) -> bool:
+        return (
+            not entity.disabled
+            and entity.domain == Platform.SENSOR
+            and entity.platform not in EXCLUDED_PLATFORMS
+            and (entity.device_class or entity.original_device_class) == device_class
+            and entity.unit_of_measurement in valid_units
+        )
+
+    all_entities = entity_registry.async_get(hass).entities.values()
+    return [entity.entity_id for entity in filter(include_sensors, all_entities)]
 
 
 async def load_module(hass: HomeAssistant, name: str) -> ModuleType:
@@ -62,3 +90,37 @@ async def create_issue_tracker_url(hass: HomeAssistant, exc: Exception, *, title
         body += f"\n**Message:** {msg}"
     url = url.with_query({"title": title, "body": body})
     return str(url)
+
+
+def async_retry(
+    wrapped: Callable[_ParamT, Coroutine[Any, Any, _ResultT]]
+) -> Callable[_ParamT, Coroutine[Any, Any, _ResultT]]:
+    """`HTTPServerError` retry handler."""
+
+    async def wrapper(*args: _ParamT.args, **kwargs: _ParamT.kwargs) -> _ResultT:
+        retries = 5
+        while True:
+            try:
+                return await wrapped(*args, **kwargs)
+            except HTTPServerError:
+                retries -= 1
+                if retries == 0:
+                    raise
+            except Exception as exc:
+                _LOGGER.exception("%s from pynws", type(exc), exc_info=exc)
+                raise
+            await asyncio.sleep(1)
+
+    return wrapper
+
+
+def get_entity_area(hass: HomeAssistant, entity_id: str) -> str | None:
+    """Get the area of an entity (if one is assigned)."""
+    ent_reg = entity_registry.async_get(hass)
+    entity = ent_reg.async_get(entity_id)
+    if entity.area_id:
+        return cast(str, entity.area_id)
+
+    dev_reg = device_registry.async_get(hass)
+    device = dev_reg.async_get(entity.device_id)
+    return cast(str, device.area_id)

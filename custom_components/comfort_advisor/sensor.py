@@ -92,6 +92,8 @@ class ComfortAdvisorSensor(SensorEntity):  # type: ignore
 
     async def async_added_to_hass(self) -> None:
         """Run when entity about to be added to hass."""
+
+        # TODO: subscribe to `self.entity_description.key`
         self.async_on_remove(self._device.add_entity(self))
 
     async def async_update(self) -> None:

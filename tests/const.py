@@ -10,8 +10,6 @@ from custom_components.comfort_advisor.const import (
     CONF_INDOOR_TEMPERATURE,
     CONF_OUTDOOR_HUMIDITY,
     CONF_OUTDOOR_TEMPERATURE,
-    CONF_POLL,
-    CONF_POLL_INTERVAL,
 )
 
 USER_INPUT: dict[str, Any] = {
@@ -20,8 +18,6 @@ USER_INPUT: dict[str, Any] = {
     CONF_OUTDOOR_TEMPERATURE: "sensor.test_temperature_sensor",
     CONF_OUTDOOR_HUMIDITY: "sensor.test_humidity_sensor",
     CONF_NAME: "New name",
-    CONF_POLL: False,
-    CONF_POLL_INTERVAL: 30,
 }
 
 ADVANCED_USER_INPUT = {

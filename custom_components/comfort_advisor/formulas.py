@@ -10,7 +10,7 @@ from homeassistant.util.temperature import convert as convert_temp
 
 
 class FrostRisk(IntEnum):
-    """TODO."""
+    """Risk of frost formation."""
 
     NO_RISK = 0
     UNLIKELY = 1

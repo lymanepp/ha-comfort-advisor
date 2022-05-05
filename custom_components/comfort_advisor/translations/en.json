@@ -3,6 +3,7 @@
     "step": {
       "user": {
         "title": "Configure ambient sensors",
+        "description": "Comfort Advisor compares the indoor and outdoor comfort levels to suggest when windows can be open. Use the [Comfort Advisor blueprint](https://github.com/lymanepp/ha-blueprints/blob/main/comfort-advisor.yaml) for creating automations.\n\nTip: you can use current temperature and humidity sensors from a weather integration if you don't have outdoor temperature and humidity sensors.",
         "data": {
           "indoor_temperature": "Indoor temperature sensor",
           "indoor_humidity": "Indoor humidity sensor",
@@ -23,22 +24,20 @@
       },
       "comfort": {
         "title": "Configure comfort settings",
+        "description": "The [Summer simmer index](http://summersimmer.com/home.htm) is a modern heat index equation. For SSI values between {70} and {77}, most people are comfortable, but slightly cool. From {77} to {83}, nearly everyone feels quite comfortable, while from {83} to {91} most are comfortable, but slightly warm.\n\n[Dew point temperatures](https://weatherology.com/trending/articles/Professor-Paul-Dew-Point-Relative-Humidity.html) tell the absolute quantity of moisture that is in the air, thereby indicating how humid it will feel outside to our bodies. On the other hand, relative humidity only tells us how saturated the air is compared to how much it can hold at the current temperature.",
         "data": {
           "simmer_index_min": "Lowest comfortable summer simmer index",
           "simmer_index_max": "Highest comfortable summer simmer index",
           "dew_point_max": "Highest comfortable dew point.",
           "humidity_max": "Highest comfortable relative humidity.",
           "pollen_max": "Highest comfortable pollen level (if available from weather provider)."
-        },
-        "description": "The [Summer simmer index](http://summersimmer.com/home.htm) is a modern heat index equation. For SSI values between {70} and {77}, most people are comfortable, but slightly cool. From {77} to {83}, nearly everyone feels quite comfortable, while from {83} to {91} most are comfortable, but slightly warm.\n\n[Dew point temperatures](https://weatherology.com/trending/articles/Professor-Paul-Dew-Point-Relative-Humidity.html) tell the absolute quantity of moisture that is in the air, thereby indicating how humid it will feel outside to our bodies. On the other hand, relative humidity only tells us how saturated the air is compared to how much it can hold at the current temperature."
+        }
       },
       "device": {
         "title": "Configure device settings",
         "data": {
           "name": "Name",
-          "enabled_sensors": "Enabled sensors",
-          "poll": "Enable polling mode",
-          "poll_interval": "Poll interval (seconds)"
+          "enabled_sensors": "Enabled sensors"
         }
       }
     },
@@ -46,7 +45,8 @@
       "api_error": "Service API error.",
       "cannot_connect": "Cannot connect to service.",
       "invalid_api_key": "API key is not valid.",
-      "rate_limited": "Currently rate limited, please try again later."
+      "rate_limited": "Currently rate limited, please try again later.",
+      "sensors_not_unique": "Sensors must be unique."
     },
     "abort": {
       "no_sensors": "No temperature or humidity sensors found.",
@@ -71,9 +71,7 @@
         "title": "Configure device settings",
         "data": {
           "name": "Name",
-          "enabled_sensors": "Enabled sensors",
-          "poll": "Enable polling mode",
-          "poll_interval": "Poll interval (seconds)"
+          "enabled_sensors": "Enabled sensors"
         }
       },
       "error": {},

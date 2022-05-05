@@ -5,7 +5,7 @@ import logging
 import sys
 from typing import Any, Callable, Coroutine, Final, Mapping, Sequence, TypeVar, cast
 
-from aiohttp import ClientConnectionError
+from aiohttp import ClientError
 from homeassistant.const import (
     CONF_API_KEY,
     CONF_LATITUDE,
@@ -50,7 +50,7 @@ def async_exception_handler(
     async def wrapper(*args: _ParamT.args, **kwargs: _ParamT.kwargs) -> _ResultT:
         try:
             return await wrapped(*args, **kwargs)
-        except ClientConnectionError as exc:
+        except ClientError as exc:
             raise ProviderError("cannot_connect") from exc
         except Exception as exc:  # pylint: disable=broad-except
             _LOGGER.exception("%s from pynws", type(exc), exc_info=exc)

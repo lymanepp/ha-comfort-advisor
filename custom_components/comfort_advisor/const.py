@@ -14,9 +14,7 @@ CONF_INDOOR_TEMPERATURE: Final = "indoor_temperature"
 CONF_INPUTS: Final = "inputs"
 CONF_OUTDOOR_HUMIDITY: Final = "outdoor_humidity"
 CONF_OUTDOOR_TEMPERATURE: Final = "outdoor_temperature"
-CONF_POLL: Final = "poll"
 CONF_POLLEN_MAX: Final = "pollen_max"
-CONF_POLL_INTERVAL: Final = "poll_interval"
 CONF_PROVIDER: Final = "provider"
 CONF_PROVIDER_TYPE: Final = "provider_type"
 CONF_SIMMER_INDEX_MAX: Final = "simmer_index_max"
@@ -34,8 +32,7 @@ DEFAULT_HUMIDITY_MAX: Final = 95
 DEFAULT_POLLEN_MAX: Final = 2
 DEFAULT_SIMMER_INDEX_MAX: Final = 85
 DEFAULT_SIMMER_INDEX_MIN: Final = 70
-DEFAULT_POLL: Final = False
-DEFAULT_POLL_INTERVAL: Final = 30
+DEFAULT_POLL_INTERVAL: Final = 60
 
 # Device states
 STATE_CAN_OPEN_WINDOWS: Final = "can_open_windows"

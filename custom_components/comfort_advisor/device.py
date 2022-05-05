@@ -1,6 +1,7 @@
 """Device for comfort_advisor."""
 from __future__ import annotations
 
+import contextlib
 from datetime import datetime, timedelta
 import logging
 import math
@@ -13,8 +14,6 @@ from homeassistant.const import (
     ATTR_DEVICE_CLASS,
     ATTR_UNIT_OF_MEASUREMENT,
     CONF_NAME,
-    STATE_UNAVAILABLE,
-    STATE_UNKNOWN,
 )
 from homeassistant.core import CALLBACK_TYPE, Event, HomeAssistant, State
 from homeassistant.helpers.device_registry import DeviceEntryType
@@ -35,14 +34,14 @@ from .const import (
     CONF_INPUTS,
     CONF_OUTDOOR_HUMIDITY,
     CONF_OUTDOOR_TEMPERATURE,
-    CONF_POLL,
-    CONF_POLL_INTERVAL,
     DEFAULT_MANUFACTURER,
     DEFAULT_NAME,
+    DEFAULT_POLL_INTERVAL,
     DOMAIN,
     STATE_CAN_OPEN_WINDOWS,
 )
 from .formulas import compute_dew_point, compute_simmer_index
+from .helpers import get_entity_area
 from .provider import Provider, WeatherData
 
 _LOGGER = logging.getLogger(__name__)
@@ -56,7 +55,7 @@ NO_YES = ["no", "yes"]
 
 
 class _CalculatedState(TypedDict, total=False):
-    """TODO."""
+    """State calculated from input sensors and weather data."""
 
     can_open_windows: str | None
     low_simmer_index: float | None
@@ -77,6 +76,12 @@ class ComfortAdvisorDevice:
         self._config = config_entry.data | config_entry.options or {}
         self.hass = hass
         self.unique_id = config_entry.unique_id
+
+        inputs_config = self._config[CONF_INPUTS]
+        suggested_area = get_entity_area(
+            hass, inputs_config[CONF_INDOOR_TEMPERATURE]
+        ) or get_entity_area(hass, inputs_config[CONF_INDOOR_HUMIDITY])
+
         self.device_info = DeviceInfo(
             entry_type=DeviceEntryType.SERVICE,
             identifiers={(DOMAIN, self.unique_id)},
@@ -84,16 +89,17 @@ class ComfortAdvisorDevice:
             model=DEFAULT_NAME,
             name=self._config[CONF_DEVICE][CONF_NAME],
             hw_version=provider.version,
+            suggested_area=suggested_area,
         )
 
         self._provider = provider
-        self._temp_unit = self.hass.config.units.temperature_unit  # TODO: add config entry?
+        self._temp_unit = self.hass.config.units.temperature_unit  # TODO: add to config entry?
         self._entities: list[Entity] = []
         self._inputs: dict[str, Any] = {}
         self._calculated = _CalculatedState()
         self._have_changes = False
+        self._first_time = True
 
-        self._polling = self._config[CONF_DEVICE][CONF_POLL]
         self._extra_state_attributes: dict[str, Any] = {ATTR_ATTRIBUTION: provider.attribution}
 
         self._entity_id_map: dict[str, list[str]] = {}
@@ -103,7 +109,7 @@ class ComfortAdvisorDevice:
             CONF_OUTDOOR_TEMPERATURE,
             CONF_OUTDOOR_HUMIDITY,
         ]:
-            entity_id = self._config[CONF_INPUTS][input_key]
+            entity_id = inputs_config[input_key]
             # creating a list allows a sensor to be used multiple times
             # TODO: prevent that in config_flow when done testing
             self._entity_id_map.setdefault(entity_id, []).append(input_key)
@@ -126,17 +132,17 @@ class ComfortAdvisorDevice:
 
         for entity_id in self._entity_id_map:
             if (state := self.hass.states.get(entity_id)) is not None:
-                self._process_state_change(state)
+                self._update_with_state(state)
 
-        if self._polling:
-            poll_interval = self._config[CONF_DEVICE][CONF_POLL_INTERVAL]
-            config_entry.async_on_unload(
-                async_track_time_interval(
-                    self.hass,
-                    self._async_update_scheduled,
-                    timedelta(seconds=poll_interval),
-                )
+        await self._async_update()
+
+        config_entry.async_on_unload(
+            async_track_time_interval(
+                self.hass,
+                self._async_update_scheduled,
+                timedelta(seconds=DEFAULT_POLL_INTERVAL),
             )
+        )
 
         self.hass.async_create_task(self._set_sw_version())
         return True
@@ -168,14 +174,14 @@ class ComfortAdvisorDevice:
         self.device_info["sw_version"] = custom_components[DOMAIN].version.string
 
     def _realtime_updated(self) -> None:
-        if self._update_input_value("realtime", self._provider.realtime_service.data):
-            if not self._polling:
-                self.hass.async_create_task(self._async_update())  # run in event loop
+        self._update_input_value("realtime", self._provider.realtime_service.data)
+        if self._first_time:
+            self.hass.async_create_task(self._async_update())
 
     def _forecast_updated(self) -> None:
-        if self._update_input_value("forecast", self._provider.forecast_service.data):
-            if not self._polling:
-                self.hass.async_create_task(self._async_update())  # run in event loop
+        self._update_input_value("forecast", self._provider.forecast_service.data)
+        if self._first_time:
+            self.hass.async_create_task(self._async_update())
 
     async def _input_event_handler(self, event: Event) -> None:
         state: State = event.data.get("new_state")
@@ -185,24 +191,16 @@ class ComfortAdvisorDevice:
             state.entity_id if state else None,
             state.state if state else None,
         )
-        if self._process_state_change(state):
-            if not self._polling:
-                await self._async_update(force_refresh=False)
+        self._update_with_state(state)
 
-    def _process_state_change(self, state: State) -> bool:
+    def _update_with_state(self, state: State) -> bool:
         _LOGGER.debug(
-            "_update_input_state called for %s - entity(%s) - state(%s)",
+            "_update_with_state called for %s - entity(%s) - state(%s)",
             self.device_info["name"],
             state.entity_id if state else None,
             state.state if state else None,
         )
-        if state is None or state.state in (None, STATE_UNKNOWN, STATE_UNAVAILABLE):
-            return False
-        try:
-            value = float(state.state)
-        except ValueError:
-            return False
-        if math.isnan(value):
+        if not (value := self._get_state_value(state)):
             return False
 
         device_class: str = state.attributes.get(ATTR_DEVICE_CLASS)
@@ -211,9 +209,21 @@ class ComfortAdvisorDevice:
             if unit and unit != self._temp_unit:
                 value = convert_temp(value, unit, self._temp_unit)
 
+        # TODO: loop is temporary
         for input_key in self._entity_id_map[state.entity_id]:
             self._update_input_value(input_key, value)
+
+        if self._first_time:
+            self.hass.async_create_task(self._async_update())
         return True
+
+    @staticmethod
+    def _get_state_value(state: State) -> float | None:
+        with contextlib.suppress(ValueError):
+            value = float(state.state)
+            if not math.isnan(value):
+                return value
+        return None
 
     def _update_input_value(self, input_key: str, value: Any) -> bool:
         _LOGGER.debug("%s updated %s to %s", self.device_info["name"], input_key, str(value))
@@ -233,9 +243,10 @@ class ComfortAdvisorDevice:
             self.device_info["name"],
             str(force_refresh),
         )
-        if self._have_changes:
+        if self._have_changes or self._first_time:
             # TODO: do this on task instead of in event loop?
             if self._calculate_state(**(self._config[CONF_COMFORT]), **(self._inputs)):
+                self._first_time = False
                 for entity in self._entities:
                     entity.async_schedule_update_ha_state(force_refresh)
             self._have_changes = False

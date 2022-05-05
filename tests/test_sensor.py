@@ -5,10 +5,7 @@ from homeassistant.components.command_line.const import DOMAIN as COMMAND_LINE_D
 from homeassistant.components.sensor import DOMAIN as PLATFORM_DOMAIN
 import pytest
 
-from custom_components.comfort_advisor.const import (
-    ALL_SENSOR_TYPES,
-    DOMAIN,
-)
+from custom_components.comfort_advisor.const import ALL_SENSOR_TYPES, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
