@@ -39,6 +39,7 @@ from .const import (
 from .helpers import create_issue_tracker_url, load_module
 from .provider import PROVIDERS, ProviderError
 from .schemas import (
+    DATA_SCHEMA,
     build_comfort_schema,
     build_device_schema,
     build_inputs_schema,
@@ -219,7 +220,8 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
 
         if user_input:
             self._config[CONF_DEVICE] = user_input
-            return self.async_create_entry(title=user_input[CONF_NAME], data=self._config)
+            config = DATA_SCHEMA(self._config)
+            return self.async_create_entry(title=user_input[CONF_NAME], data=config)
 
         return self.async_show_form(
             step_id="device",

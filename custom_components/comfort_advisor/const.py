@@ -6,7 +6,7 @@ DOMAIN: Final = "comfort_advisor"
 
 CONF_COMFORT: Final = "comfort"
 CONF_DEVICE: Final = "device"
-CONF_DEWPOINT_MAX: Final = "dew_point_max"
+CONF_DEW_POINT_MAX: Final = "dew_point_max"
 CONF_ENABLED_SENSORS: Final = "enabled_sensors"
 CONF_HUMIDITY_MAX: Final = "humidity_max"
 CONF_INDOOR_HUMIDITY: Final = "indoor_humidity"

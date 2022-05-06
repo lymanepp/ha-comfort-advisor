@@ -16,7 +16,7 @@ import voluptuous as vol
 from .const import CONF_PROVIDER, DOMAIN
 from .device import ComfortAdvisorDevice
 from .provider import async_get_provider
-from .schemas import build_schema
+from .schemas import DATA_SCHEMA
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -33,8 +33,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
         hass.config_entries.async_update_entry(config_entry, unique_id=config_entry.entry_id)
 
     try:
-        schema = build_schema(hass)
-        schema(config)
+        config = DATA_SCHEMA(config)
     except vol.Invalid as exc:
         _LOGGER.error("Invalid configuration: %s", exc)
         return False

@@ -10,10 +10,9 @@ from typing import Any, Callable, Coroutine, Iterable, Sequence, TypeVar, cast
 
 from aiohttp.web_exceptions import HTTPServerError
 from homeassistant.components.sensor import SensorDeviceClass
-from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.const import Platform, ATTR_DEVICE_CLASS, ATTR_UNIT_OF_MEASUREMENT
+from homeassistant.core import HomeAssistant, State
 from homeassistant.helpers import device_registry, entity_registry
-from homeassistant.helpers.entity_registry import RegistryEntry as EntityRegistryEntry
 from homeassistant.loader import Integration, async_get_custom_components
 from homeassistant.requirements import RequirementsNotFound, async_process_requirements
 from yarl import URL
@@ -40,17 +39,21 @@ def get_sensor_entities(
 ) -> Sequence[str]:
     """Get list of sensor entities matching device_class and valid_units."""
 
-    def include_sensors(entity: EntityRegistryEntry) -> bool:
-        return (
-            not entity.disabled
-            and entity.domain == Platform.SENSOR
-            and entity.platform not in EXCLUDED_PLATFORMS
-            and (entity.device_class or entity.original_device_class) == device_class
-            and entity.unit_of_measurement in valid_units
+    def include_sensors(state: State) -> bool:
+        if not (
+            state.domain == Platform.SENSOR
+            and state.attributes.get(ATTR_DEVICE_CLASS) == device_class
+            and state.attributes.get(ATTR_UNIT_OF_MEASUREMENT) in valid_units
+        ):
+            return False
+
+        return not (entity := ent_reg.async_get(state.entity_id)) or (
+            not entity.hidden and not entity.platform in EXCLUDED_PLATFORMS
         )
 
-    all_entities = entity_registry.async_get(hass).entities.values()
-    return [entity.entity_id for entity in filter(include_sensors, all_entities)]
+    ent_reg = entity_registry.async_get(hass)
+    all_states = hass.states.async_all()
+    return [state.entity_id for state in filter(include_sensors, all_states)]
 
 
 async def load_module(hass: HomeAssistant, name: str) -> ModuleType:
