@@ -24,7 +24,7 @@ from homeassistant.util.temperature import (
 )
 import voluptuous as vol
 
-from .comfort import Output
+from .comfort import State
 from .const import (
     CONF_COMFORT,
     CONF_DEVICE,
@@ -50,7 +50,7 @@ from .const import (
 )
 from .helpers import get_sensor_entities
 
-ALL_OUTPUT_TYPES = [str(x) for x in Output]  # type:ignore
+ALL_SENSOR_TYPES = [str(x) for x in State]  # type:ignore
 
 
 def build_provider_schema(hass: HomeAssistant, **kwargs: Any) -> vol.Schema:
@@ -148,7 +148,7 @@ def build_device_schema(**kwargs: Any) -> vol.Schema:
     name: str = kwargs.pop(CONF_NAME, None)
     enabled_sensors: Sequence[str] = kwargs.pop(CONF_ENABLED_SENSORS, [])
 
-    all_sensor_types = sorted(ALL_OUTPUT_TYPES)
+    all_sensor_types = sorted(ALL_SENSOR_TYPES)
     sensor_type_dict = {x: x.replace("_", " ").title() for x in all_sensor_types}
     return vol.Schema(
         {
@@ -199,7 +199,7 @@ COMFORT_SCHEMA = vol.Schema(
 DEVICE_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_NAME): vol.All(str, vol.Length(min=1)),
-        vol.Required(CONF_ENABLED_SENSORS): cv.multi_select(ALL_OUTPUT_TYPES),
+        vol.Required(CONF_ENABLED_SENSORS): cv.multi_select(ALL_SENSOR_TYPES),
     }
 )
 

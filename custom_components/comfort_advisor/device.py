@@ -141,9 +141,9 @@ class ComfortAdvisorDevice:
         """Return the extra device attributes."""
         return self._extra_state_attributes
 
-    def get_value(self, name: str, default: Any = None) -> Any:
+    def get_state(self, name: str, default: Any = None) -> Any:
         """TODO."""
-        return self._comfort.get_output(name, default)
+        return self._comfort.get_state(name, default)
 
     def add_entity(self, entity: Entity) -> CALLBACK_TYPE:
         """Add entity to receive callback when the calculated state is updated."""
@@ -218,7 +218,7 @@ class ComfortAdvisorDevice:
             self.device_info["name"],
             str(force_refresh),
         )
-        if self._comfort.update_outputs():
-            self._extra_state_attributes.update(self._comfort.attributes)
+        if self._comfort.refresh_state():
+            self._extra_state_attributes.update(self._comfort.extra_attributes)
             for entity in self._entities:
                 entity.async_schedule_update_ha_state(force_refresh)

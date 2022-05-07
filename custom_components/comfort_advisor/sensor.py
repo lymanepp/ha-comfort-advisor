@@ -17,7 +17,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import async_generate_entity_id
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .comfort import Output
+from .comfort import State
 from .const import CONF_DEVICE, CONF_ENABLED_SENSORS, DOMAIN
 from .device import ComfortAdvisorDevice
 
@@ -91,12 +91,9 @@ class ComfortAdvisorSensor(SensorEntity):  # type: ignore
 
     async def async_update(self) -> None:
         """Update the state of the sensor."""
-        _LOGGER.debug(
-            "async_update called for %s - state(%s)",
-            self.entity_id,
-            str(self._device.get_value(self.entity_description.key)),
-        )
-        if (value := self._device.get_value(self.entity_description.key)) is not None:
+        value = self._device.get_state(self.entity_description.key)
+        _LOGGER.debug("async_update called for %s - state(%s)", self.entity_id, str(value))
+        if value is not None:
             self._attr_native_value = value
             self._attr_extra_state_attributes = self._device.extra_state_attributes
 
@@ -104,27 +101,27 @@ class ComfortAdvisorSensor(SensorEntity):  # type: ignore
 class ComfortAdvisorDeviceClass(StrEnum):  # type: ignore
     """State class for thermal comfort sensors."""
 
-    CAN_OPEN_WINDOWS = "comfort_advisor__can_open_windows"
+    CAN_OPEN_WINDOWS = f"{DOMAIN}__{State.CAN_OPEN_WINDOWS}"
 
 
 SENSOR_DESCRIPTIONS = [
     SensorEntityDescription(
-        key=Output.CAN_OPEN_WINDOWS,
+        key=State.CAN_OPEN_WINDOWS,
         device_class=ComfortAdvisorDeviceClass.CAN_OPEN_WINDOWS,
         icon="mdi:window-closed",
     ),
     SensorEntityDescription(
-        key=Output.HIGH_SIMMER_INDEX,
+        key=State.HIGH_SIMMER_INDEX,
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
     ),
     SensorEntityDescription(
-        key=Output.LOW_SIMMER_INDEX,
+        key=State.LOW_SIMMER_INDEX,
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
     ),
     SensorEntityDescription(
-        key=Output.NEXT_CHANGE_TIME,
+        key=State.NEXT_CHANGE_TIME,
         device_class=SensorDeviceClass.TIMESTAMP,
     ),
 ]

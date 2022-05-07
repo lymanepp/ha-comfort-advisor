@@ -31,7 +31,7 @@ class Input(StrEnum):  # type: ignore
     OUTDOOR_HUMIDITY = "outdoor_humidity"
 
 
-class Output(StrEnum):  # type: ignore
+class State(StrEnum):  # type: ignore
     """TODO."""
 
     CAN_OPEN_WINDOWS = "can_open_windows"
@@ -65,14 +65,14 @@ class ComfortThingy:
 
         # state
         self._inputs: dict[str, Any] = {str(x): None for x in Input}  # type: ignore
-        self._outputs: dict[str, Any] = {str(x): None for x in Output}  # type: ignore
+        self._state: dict[str, Any] = {str(x): None for x in State}  # type: ignore
         self._have_changes: bool = False
-        self._attributes: dict[str, Any] = {}
+        self._extra_attributes: dict[str, Any] = {}
 
     @property
-    def attributes(self) -> Mapping[str, Any]:
+    def extra_attributes(self) -> Mapping[str, Any]:
         """TODO."""
-        return self._attributes
+        return self._extra_attributes
 
     def update_input(self, name: str, value: Any) -> None:
         """TODO."""
@@ -80,11 +80,11 @@ class ComfortThingy:
             self._inputs[name] = value
             self._have_changes = True
 
-    def get_output(self, name: str, default: Any = None) -> Any:
+    def get_state(self, name: str, default: Any = None) -> Any:
         """TODO."""
-        return self._outputs.get(name, default)
+        return self._state.get(name, default)
 
-    def update_outputs(self) -> bool:
+    def refresh_state(self) -> bool:
         """TODO."""
         if not self._have_changes:
             return False
@@ -106,8 +106,8 @@ class ComfortThingy:
             return False
 
         def calc(temp: float, humidity: float, pollen: int) -> tuple[bool, float, float]:
-            dew_point = compute_dew_point(temp, humidity, temp_unit)
-            simmer_index = compute_simmer_index(temp, humidity, temp_unit)
+            dew_point = compute_dew_point(temp, humidity, self._temp_unit)
+            simmer_index = compute_simmer_index(temp, humidity, self._temp_unit)
             is_comfortable = (
                 humidity <= self._humidity_max
                 and self._simmer_index_min <= simmer_index <= self._simmer_index_max
@@ -117,22 +117,22 @@ class ComfortThingy:
             return is_comfortable, dew_point, simmer_index
 
         realtime: WeatherData | None = self._inputs[Input.REALTIME]
-        forecast: Sequence[WeatherData] | None = self._inputs[Input.FORECAST]
 
-        temp_unit = self._temp_unit
         pollen = (realtime.pollen if realtime else None) or 0
 
         _, in_dewp, in_si = calc(indoor_temperature, indoor_humidity, 0)
         out_comfort, out_dewp, out_si = calc(outdoor_temperature, outdoor_humidity, pollen)
 
-        self._attributes = {
+        self._extra_attributes = {
             Attrib.INDOOR_DEW_POINT: in_dewp,
             Attrib.INDOOR_SIMMER_INDEX: in_si,
             Attrib.OUTDOOR_DEW_POINT: out_dewp,
             Attrib.OUTDOOR_SIMMER_INDEX: out_si,
         }
 
-        self._outputs[Output.CAN_OPEN_WINDOWS] = out_comfort
+        self._state[State.CAN_OPEN_WINDOWS] = out_comfort
+
+        forecast: Sequence[WeatherData] | None = self._inputs[Input.FORECAST]
 
         if forecast:
             start_time = utcnow()
@@ -149,9 +149,9 @@ class ComfortThingy:
                     low_si = min(low_si, si)
                     high_si = max(high_si, si)
 
-            self._outputs[Output.LOW_SIMMER_INDEX] = low_si
-            self._outputs[Output.HIGH_SIMMER_INDEX] = high_si
-            self._outputs[Output.NEXT_CHANGE_TIME] = next_change_time
+            self._state[State.LOW_SIMMER_INDEX] = low_si
+            self._state[State.HIGH_SIMMER_INDEX] = high_si
+            self._state[State.NEXT_CHANGE_TIME] = next_change_time
 
         # TODO: create blueprint that uses `next_change_time` if windows can be open "all night"?
         # TODO: blueprint checks `high_simmer_index` if it will be cool tomorrow and conserve heat

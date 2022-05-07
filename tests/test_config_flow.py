@@ -5,11 +5,18 @@ import pathlib
 from unittest.mock import MagicMock, patch
 
 from homeassistant import config_entries, data_entry_flow
+from homeassistant.const import CONF_NAME
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 import voluptuous as vol
 
-from custom_components.comfort_advisor.const import DOMAIN, ConfigValue
+from custom_components.comfort_advisor.const import (
+    CONF_INDOOR_HUMIDITY,
+    CONF_INDOOR_TEMPERATURE,
+    CONF_OUTDOOR_HUMIDITY,
+    CONF_OUTDOOR_TEMPERATURE,
+    DOMAIN,
+)
 
 from .const import ADVANCED_USER_INPUT, USER_INPUT
 from .test_sensor import DEFAULT_TEST_SENSORS
@@ -57,7 +64,7 @@ async def test_successful_config_flow(hass, start_ha):
 
     assert result["type"] == data_entry_flow.RESULT_TYPE_CREATE_ENTRY
 
-    assert result["title"] == ADVANCED_USER_INPUT[ConfigValue.NAME]
+    assert result["title"] == ADVANCED_USER_INPUT[CONF_NAME]
     assert result["data"] == ADVANCED_USER_INPUT
     assert result["result"]
 
@@ -117,10 +124,10 @@ async def test_config_flow_enabled():
 @pytest.mark.parametrize(
     "sensor",
     [
-        ConfigValue.INDOOR_TEMPERATURE,
-        ConfigValue.INDOOR_HUMIDITY,
-        ConfigValue.OUTDOOR_TEMPERATURE,
-        ConfigValue.OUTDOOR_HUMIDITY,
+        CONF_INDOOR_TEMPERATURE,
+        CONF_INDOOR_HUMIDITY,
+        CONF_OUTDOOR_TEMPERATURE,
+        CONF_OUTDOOR_HUMIDITY,
     ],
 )
 async def test_missed_sensors(hass, sensor, start_ha):
