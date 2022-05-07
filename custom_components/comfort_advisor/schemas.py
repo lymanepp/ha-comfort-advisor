@@ -1,17 +1,18 @@
 """Tests for config flows."""
 from __future__ import annotations
 
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.const import (
+    CONF_API_KEY,
+    CONF_LATITUDE,
+    CONF_LOCATION,
+    CONF_LONGITUDE,
     CONF_NAME,
+    CONF_TYPE,
     PERCENTAGE,
     TEMP_FAHRENHEIT,
-    CONF_API_KEY,
-    CONF_LOCATION,
-    CONF_LATITUDE,
-    CONF_LONGITUDE,
 )
 from homeassistant.core import HomeAssistant
 import homeassistant.helpers.config_validation as cv
@@ -23,8 +24,8 @@ from homeassistant.util.temperature import (
 )
 import voluptuous as vol
 
+from .comfort import Output
 from .const import (
-    ALL_SENSOR_TYPES,
     CONF_COMFORT,
     CONF_DEVICE,
     CONF_DEW_POINT_MAX,
@@ -37,7 +38,6 @@ from .const import (
     CONF_OUTDOOR_TEMPERATURE,
     CONF_POLLEN_MAX,
     CONF_PROVIDER,
-    CONF_PROVIDER_TYPE,
     CONF_SIMMER_INDEX_MAX,
     CONF_SIMMER_INDEX_MIN,
     DEFAULT_DEWPOINT_MAX,
@@ -50,29 +50,41 @@ from .const import (
 )
 from .helpers import get_sensor_entities
 
-
-def value_or_default(value: Any, default: Any) -> Any:
-    """TODO."""
-    return default if value is vol.UNDEFINED else value
+ALL_OUTPUT_TYPES = [str(x) for x in Output]  # type:ignore
 
 
-def build_provider_schema() -> vol.Schema:
+def build_provider_schema(hass: HomeAssistant, **kwargs: Any) -> vol.Schema:
     """Build provider schema."""
+    type_: str = kwargs.pop(CONF_TYPE, vol.UNDEFINED)
+    if type_ == vol.UNDEFINED:
+        return vol.Schema(
+            {vol.Required(CONF_TYPE): vol.In(PROVIDER_TYPES)},
+        )
+
+    if type_ == "fake":
+        return vol.Schema({})
+
+    default_location = {CONF_LATITUDE: hass.config.latitude, CONF_LONGITUDE: hass.config.longitude}
+
+    api_key: str = kwargs.pop(CONF_API_KEY, vol.UNDEFINED)
+    location: Mapping[str, float] = kwargs.pop(CONF_LOCATION, default_location)
+
     return vol.Schema(
-        {vol.Required(CONF_PROVIDER_TYPE): vol.In(PROVIDER_TYPES)},
-        extra=vol.ALLOW_EXTRA,
+        {
+            vol.Required(CONF_API_KEY, default=api_key): vol.All(str, vol.Length(min=1)),
+            vol.Required(CONF_LOCATION, default=location): selector(
+                {"location": {"radius": False}}
+            ),
+        }
     )
 
 
-def build_inputs_schema(
-    hass: HomeAssistant,
-    *,
-    indoor_temperature: float = vol.UNDEFINED,
-    indoor_humidity: float = vol.UNDEFINED,
-    outdoor_temperature: float = vol.UNDEFINED,
-    outdoor_humidity: float = vol.UNDEFINED,
-) -> vol.Schema:
+def build_inputs_schema(hass: HomeAssistant, **kwargs: Any) -> vol.Schema:
     """Build inputs schema."""
+    indoor_temperature: float = kwargs.pop(CONF_INDOOR_TEMPERATURE, None)
+    indoor_humidity: float = kwargs.pop(CONF_INDOOR_HUMIDITY, None)
+    outdoor_temperature: float = kwargs.pop(CONF_OUTDOOR_TEMPERATURE, None)
+    outdoor_humidity: float = kwargs.pop(CONF_OUTDOOR_HUMIDITY, None)
 
     temp_sensors = get_sensor_entities(hass, SensorDeviceClass.TEMPERATURE, VALID_TEMP_UNITS)
     humidity_sensors = get_sensor_entities(hass, SensorDeviceClass.HUMIDITY, [PERCENTAGE])
@@ -92,28 +104,25 @@ def build_inputs_schema(
     )
 
 
-def build_comfort_schema(
-    hass: HomeAssistant,
-    *,
-    simmer_index_min: float = vol.UNDEFINED,
-    simmer_index_max: float = vol.UNDEFINED,
-    dew_point_max: float = vol.UNDEFINED,
-    humidity_max: float = vol.UNDEFINED,
-    pollen_max: int = vol.UNDEFINED,
-) -> vol.Schema:
+def build_comfort_schema(hass: HomeAssistant, **kwargs: Any) -> vol.Schema:
     """Build comfort settings schema."""
     temp_unit = hass.config.units.temperature_unit
 
-    # TODO: round to nearest 0.5?
-    dew_point_max_default = round(convert_temp(DEFAULT_DEWPOINT_MAX, TEMP_FAHRENHEIT, temp_unit), 1)
-    simmer_index_max_default = round(
-        convert_temp(DEFAULT_SIMMER_INDEX_MAX, TEMP_FAHRENHEIT, temp_unit), 1
+    simmer_index_min: float = kwargs.pop(
+        CONF_SIMMER_INDEX_MIN,
+        round(convert_temp(DEFAULT_SIMMER_INDEX_MIN, TEMP_FAHRENHEIT, temp_unit), 1),
     )
-    simmer_index_min_default = round(
-        convert_temp(DEFAULT_SIMMER_INDEX_MIN, TEMP_FAHRENHEIT, temp_unit), 1
+    simmer_index_max: float = kwargs.pop(
+        CONF_SIMMER_INDEX_MAX,
+        round(convert_temp(DEFAULT_SIMMER_INDEX_MAX, TEMP_FAHRENHEIT, temp_unit), 1),
     )
-    temp_step = 0.5 if hass.config.units.is_metric else 1.0
+    dew_point_max: float = kwargs.pop(
+        CONF_DEW_POINT_MAX, round(convert_temp(DEFAULT_DEWPOINT_MAX, TEMP_FAHRENHEIT, temp_unit), 1)
+    )
+    humidity_max: float = kwargs.pop(CONF_HUMIDITY_MAX, DEFAULT_HUMIDITY_MAX)
+    pollen_max: int = kwargs.pop(CONF_POLLEN_MAX, DEFAULT_POLLEN_MAX)
 
+    temp_step = 0.5 if hass.config.units.is_metric else 1.0
     temperature_selector = selector(
         {"number": {"mode": "box", "unit_of_measurement": temp_unit, "step": temp_step}}
     )
@@ -123,49 +132,29 @@ def build_comfort_schema(
 
     return vol.Schema(
         {
-            vol.Required(
-                CONF_SIMMER_INDEX_MIN,
-                default=value_or_default(simmer_index_min, simmer_index_min_default),
-            ): temperature_selector,
-            vol.Required(
-                CONF_SIMMER_INDEX_MAX,
-                default=value_or_default(simmer_index_max, simmer_index_max_default),
-            ): temperature_selector,
-            vol.Required(
-                CONF_DEW_POINT_MAX,
-                default=value_or_default(dew_point_max, dew_point_max_default),
-            ): temperature_selector,
-            vol.Required(
-                CONF_HUMIDITY_MAX,
-                default=value_or_default(humidity_max, DEFAULT_HUMIDITY_MAX),
-            ): vol.All(humidity_selector),
-            vol.Required(
-                CONF_POLLEN_MAX,
-                default=value_or_default(pollen_max, DEFAULT_POLLEN_MAX),
-            ): vol.In(
+            vol.Required(CONF_SIMMER_INDEX_MIN, default=simmer_index_min): temperature_selector,
+            vol.Required(CONF_SIMMER_INDEX_MAX, default=simmer_index_max): temperature_selector,
+            vol.Required(CONF_DEW_POINT_MAX, default=dew_point_max): temperature_selector,
+            vol.Required(CONF_HUMIDITY_MAX, default=humidity_max): vol.All(humidity_selector),
+            vol.Required(CONF_POLLEN_MAX, default=pollen_max): vol.In(
                 {0: "none", 1: "very_low", 2: "low", 3: "medium", 4: "high", 5: "very_high"}  # TODO
             ),
         }
     )
 
 
-def build_device_schema(
-    *,
-    name: str = vol.UNDEFINED,
-    enabled_sensors: Sequence[str] = vol.UNDEFINED,
-) -> vol.Schema:
+def build_device_schema(**kwargs: Any) -> vol.Schema:
     """Build device settings schema."""
-    all_sensor_types = sorted(ALL_SENSOR_TYPES)
+    name: str = kwargs.pop(CONF_NAME, None)
+    enabled_sensors: Sequence[str] = kwargs.pop(CONF_ENABLED_SENSORS, [])
+
+    all_sensor_types = sorted(ALL_OUTPUT_TYPES)
     sensor_type_dict = {x: x.replace("_", " ").title() for x in all_sensor_types}
     return vol.Schema(
         {
+            vol.Required(CONF_NAME, default=name or DEFAULT_NAME): str,
             vol.Required(
-                CONF_NAME,
-                default=value_or_default(name, DEFAULT_NAME),
-            ): str,
-            vol.Required(
-                CONF_ENABLED_SENSORS,
-                default=value_or_default(enabled_sensors, all_sensor_types),
+                CONF_ENABLED_SENSORS, default=enabled_sensors or all_sensor_types
             ): cv.multi_select(sensor_type_dict),
         }
     )
@@ -189,17 +178,11 @@ INPUTS_SCHEMA = vol.Schema(
 )
 
 PROVIDER_SCHEMA = cv.key_value_schemas(
-    CONF_PROVIDER_TYPE,
+    CONF_TYPE,
     {
-        "fake": vol.Schema(
-            {vol.Required(CONF_PROVIDER_TYPE): "fake"},
-        ),
-        "nws": vol.Schema(
-            {vol.Required(CONF_PROVIDER_TYPE): "nws", **_API_KEY_AND_LOCATION},
-        ),
-        "tomorrowio": vol.Schema(
-            {vol.Required(CONF_PROVIDER_TYPE): "tomorrowio", **_API_KEY_AND_LOCATION},
-        ),
+        "fake": vol.Schema({vol.Required(CONF_TYPE): "fake"}),
+        "nws": vol.Schema({vol.Required(CONF_TYPE): "nws", **_API_KEY_AND_LOCATION}),
+        "tomorrowio": vol.Schema({vol.Required(CONF_TYPE): "tomorrowio", **_API_KEY_AND_LOCATION}),
     },
 )
 
@@ -216,7 +199,7 @@ COMFORT_SCHEMA = vol.Schema(
 DEVICE_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_NAME): vol.All(str, vol.Length(min=1)),
-        vol.Required(CONF_ENABLED_SENSORS): cv.multi_select(ALL_SENSOR_TYPES),
+        vol.Required(CONF_ENABLED_SENSORS): cv.multi_select(ALL_OUTPUT_TYPES),
     }
 )
 

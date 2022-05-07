@@ -10,8 +10,6 @@ from typing import NamedTuple, Sequence
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util.decorator import Registry
-import voluptuous as vol
-from voluptuous.humanize import humanize_error
 
 from .const import DOMAIN, SCAN_INTERVAL_FORECAST, SCAN_INTERVAL_REALTIME
 from .helpers import load_module
@@ -113,25 +111,17 @@ async def async_get_provider(hass: HomeAssistant, **kwargs: str) -> Provider:
     if (provider := providers.get(hashable_key)) is not None:
         return provider
 
-    type_ = kwargs.pop("provider_type")
+    type_ = kwargs.pop("type")
 
     try:
-        module = await load_module(hass, type_)
+        await load_module(hass, type_)
     except ImportError as exc:
         _LOGGER.error("Unable to load provider: %s, %s", type_, exc)
         raise ProviderError("import_error") from exc
 
-    schema: vol.Schema = module.build_schema(hass, **kwargs)
-
-    try:
-        schema(kwargs)
-    except vol.Invalid as exc:
-        _LOGGER.error(
-            "Invalid configuration for provider: %s",
-            humanize_error(kwargs, exc),
-        )
-        raise ProviderError("schema_error") from exc
-
+    # TODO: might need to move providers into their own folders with __init__.py only
+    #       containing `REQUIREMENTS` and human-readble name. Could then auto-detect
+    #       all supported providers.
     factory = PROVIDERS[type_]
     provider = factory(hass, **kwargs)
     assert isinstance(provider, Provider)

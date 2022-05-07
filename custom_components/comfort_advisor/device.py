@@ -5,7 +5,7 @@ import contextlib
 from datetime import datetime, timedelta
 import logging
 import math
-from typing import Any, Mapping, Sequence, TypedDict, cast
+from typing import Any, Mapping, cast
 
 from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.config_entries import ConfigEntry
@@ -23,9 +23,9 @@ from homeassistant.helpers.event import (
     async_track_time_interval,
 )
 from homeassistant.loader import async_get_custom_components
-from homeassistant.util.dt import utcnow
 from homeassistant.util.temperature import convert as convert_temp
 
+from .comfort import ComfortThingy, Input
 from .const import (
     CONF_COMFORT,
     CONF_DEVICE,
@@ -38,29 +38,13 @@ from .const import (
     DEFAULT_NAME,
     DEFAULT_POLL_INTERVAL,
     DOMAIN,
-    STATE_CAN_OPEN_WINDOWS,
 )
-from .formulas import compute_dew_point, compute_simmer_index
 from .helpers import get_entity_area
-from .provider import Provider, WeatherData
+from .provider import Provider
 
 _LOGGER = logging.getLogger(__name__)
 
-ATTR_INDOOR_DEW_POINT = "indoor_dew_point"
-ATTR_INDOOR_SIMMER_INDEX = "indoor_simmer_index"
-ATTR_OUTDOOR_DEW_POINT = "outdoor_dew_point"
-ATTR_OUTDOOR_SIMMER_INDEX = "outdoor_simmer_index"
-
 NO_YES = ["no", "yes"]
-
-
-class _CalculatedState(TypedDict, total=False):
-    """State calculated from input sensors and weather data."""
-
-    can_open_windows: str | None
-    low_simmer_index: float | None
-    high_simmer_index: float | None
-    next_change_time: datetime | None
 
 
 class ComfortAdvisorDevice:
@@ -76,6 +60,9 @@ class ComfortAdvisorDevice:
         self._config = config_entry.data | config_entry.options or {}
         self.hass = hass
         self.unique_id = config_entry.unique_id
+        self._comfort = ComfortThingy(
+            hass.config.units.temperature_unit, self._config[CONF_COMFORT]
+        )
 
         inputs_config = self._config[CONF_INPUTS]
         suggested_area = get_entity_area(
@@ -95,9 +82,6 @@ class ComfortAdvisorDevice:
         self._provider = provider
         self._temp_unit = self.hass.config.units.temperature_unit  # TODO: add to config entry?
         self._entities: list[Entity] = []
-        self._inputs: dict[str, Any] = {}
-        self._calculated = _CalculatedState()
-        self._have_changes = False
         self._first_time = True
 
         self._extra_state_attributes: dict[str, Any] = {ATTR_ATTRIBUTION: provider.attribution}
@@ -153,14 +137,13 @@ class ComfortAdvisorDevice:
         return cast(str, self.device_info["name"])
 
     @property
-    def calculated(self) -> _CalculatedState:
-        """Return the calculated state."""
-        return self._calculated
-
-    @property
     def extra_state_attributes(self) -> Mapping[str, Any]:
         """Return the extra device attributes."""
         return self._extra_state_attributes
+
+    def get_value(self, name: str, default: Any = None) -> Any:
+        """TODO."""
+        return self._comfort.get_output(name, default)
 
     def add_entity(self, entity: Entity) -> CALLBACK_TYPE:
         """Add entity to receive callback when the calculated state is updated."""
@@ -174,12 +157,12 @@ class ComfortAdvisorDevice:
         self.device_info["sw_version"] = custom_components[DOMAIN].version.string
 
     def _realtime_updated(self) -> None:
-        self._update_input_value("realtime", self._provider.realtime_service.data)
+        self._comfort.update_input(Input.REALTIME, self._provider.realtime_service.data)
         if self._first_time:
             self.hass.async_create_task(self._async_update())
 
     def _forecast_updated(self) -> None:
-        self._update_input_value("forecast", self._provider.forecast_service.data)
+        self._comfort.update_input(Input.FORECAST, self._provider.forecast_service.data)
         if self._first_time:
             self.hass.async_create_task(self._async_update())
 
@@ -211,7 +194,7 @@ class ComfortAdvisorDevice:
 
         # TODO: loop is temporary
         for input_key in self._entity_id_map[state.entity_id]:
-            self._update_input_value(input_key, value)
+            self._comfort.update_input(input_key, value)
 
         if self._first_time:
             self.hass.async_create_task(self._async_update())
@@ -225,14 +208,6 @@ class ComfortAdvisorDevice:
                 return value
         return None
 
-    def _update_input_value(self, input_key: str, value: Any) -> bool:
-        _LOGGER.debug("%s updated %s to %s", self.device_info["name"], input_key, str(value))
-        if self._inputs.get(input_key) != value:
-            self._inputs[input_key] = value
-            self._have_changes = True
-            return True
-        return False
-
     # `async_track_time_interval` adds a `now` arg that must be stripped
     async def _async_update_scheduled(self, now: datetime) -> None:
         await self._async_update()
@@ -243,90 +218,7 @@ class ComfortAdvisorDevice:
             self.device_info["name"],
             str(force_refresh),
         )
-        if self._have_changes or self._first_time:
-            # TODO: do this on task instead of in event loop?
-            if self._calculate_state(**(self._config[CONF_COMFORT]), **(self._inputs)):
-                self._first_time = False
-                for entity in self._entities:
-                    entity.async_schedule_update_ha_state(force_refresh)
-            self._have_changes = False
-
-    def _calculate_state(
-        self,
-        *,
-        # config values
-        dew_point_max: float,
-        humidity_max: float,
-        simmer_index_min: float,
-        simmer_index_max: float,
-        pollen_max: int,
-        # input values
-        indoor_temperature: float | None = None,
-        indoor_humidity: float | None = None,
-        outdoor_temperature: float | None = None,
-        outdoor_humidity: float | None = None,
-        realtime: WeatherData | None = None,
-        forecast: Sequence[WeatherData] | None = None,
-    ) -> bool:
-        _LOGGER.debug("_calculate_state called for %s", self.device_info["name"])
-        if (
-            indoor_temperature is None
-            or indoor_humidity is None
-            or outdoor_temperature is None
-            or outdoor_humidity is None
-        ):
-            return False
-
-        def calc(temp: float, humidity: float, pollen: int) -> tuple[bool, float, float]:
-            dew_point = compute_dew_point(temp, humidity, temp_unit)
-            simmer_index = compute_simmer_index(temp, humidity, temp_unit)
-            is_comfortable = (
-                humidity <= humidity_max
-                and simmer_index_min <= simmer_index <= simmer_index_max
-                and dew_point <= dew_point_max
-                and pollen <= pollen_max
-            )
-            return is_comfortable, dew_point, simmer_index
-
-        temp_unit = self._temp_unit
-        outdoor_pollen = (realtime.pollen if realtime else None) or 0
-
-        _, in_dewp, in_si = calc(indoor_temperature, indoor_humidity, 0)
-        out_comfort, out_dewp, out_si = calc(outdoor_temperature, outdoor_humidity, outdoor_pollen)
-
-        self._extra_state_attributes.update(
-            {
-                ATTR_INDOOR_DEW_POINT: in_dewp,
-                ATTR_INDOOR_SIMMER_INDEX: in_si,
-                ATTR_OUTDOOR_DEW_POINT: out_dewp,
-                ATTR_OUTDOOR_SIMMER_INDEX: out_si,
-            }
-        )
-
-        self._calculated[STATE_CAN_OPEN_WINDOWS] = NO_YES[out_comfort]
-
-        if forecast:
-            start_time = utcnow()
-            end_time = start_time + timedelta(days=1)
-
-            next_change_time: datetime | None = None
-            high_si = low_si = out_si
-
-            for interval in filter(lambda x: x.date_time >= start_time, forecast):
-                comfort, _, si = calc(interval.temp, interval.humidity, interval.pollen or 0)
-                if next_change_time is None and comfort != out_comfort:
-                    next_change_time = interval.date_time
-                if interval.date_time <= end_time:
-                    low_si = min(low_si, si)
-                    high_si = max(high_si, si)
-
-            self._calculated["low_simmer_index"] = low_si
-            self._calculated["high_simmer_index"] = high_si
-            self._calculated["next_change_time"] = next_change_time
-
-        # TODO: create blueprint that uses `next_change_time` if windows can be open "all night"?
-        # TODO: blueprint checks `high_simmer_index` if it will be cool tomorrow and conserve heat
-        # TODO: need to check when `si_list` will be higher than `in_si`
-        # TODO: create `comfort score` and create sensor for that?
-
-        return True
+        if self._comfort.update_outputs():
+            self._extra_state_attributes.update(self._comfort.attributes)
+            for entity in self._entities:
+                entity.async_schedule_update_ha_state(force_refresh)

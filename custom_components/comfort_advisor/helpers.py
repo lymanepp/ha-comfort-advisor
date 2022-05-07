@@ -10,7 +10,7 @@ from typing import Any, Callable, Coroutine, Iterable, Sequence, TypeVar, cast
 
 from aiohttp.web_exceptions import HTTPServerError
 from homeassistant.components.sensor import SensorDeviceClass
-from homeassistant.const import Platform, ATTR_DEVICE_CLASS, ATTR_UNIT_OF_MEASUREMENT
+from homeassistant.const import ATTR_DEVICE_CLASS, ATTR_UNIT_OF_MEASUREMENT, Platform
 from homeassistant.core import HomeAssistant, State
 from homeassistant.helpers import device_registry, entity_registry
 from homeassistant.loader import Integration, async_get_custom_components
@@ -48,7 +48,7 @@ def get_sensor_entities(
             return False
 
         return not (entity := ent_reg.async_get(state.entity_id)) or (
-            not entity.hidden and not entity.platform in EXCLUDED_PLATFORMS
+            not entity.hidden and entity.platform not in EXCLUDED_PLATFORMS
         )
 
     ent_reg = entity_registry.async_get(hass)

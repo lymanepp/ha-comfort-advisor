@@ -9,6 +9,7 @@ from homeassistant.config_entries import ConfigEntry, ConfigFlow, OptionsFlow
 from homeassistant.const import (
     ATTR_UNIT_OF_MEASUREMENT,
     CONF_NAME,
+    CONF_TYPE,
     PERCENTAGE,
     TEMP_FAHRENHEIT,
 )
@@ -32,7 +33,6 @@ from .const import (
     CONF_OUTDOOR_HUMIDITY,
     CONF_OUTDOOR_TEMPERATURE,
     CONF_PROVIDER,
-    CONF_PROVIDER_TYPE,
     DOMAIN,
     PROVIDER_TYPES,
 )
@@ -49,10 +49,9 @@ from .schemas import (
 ErrorsType = MutableMapping[str, str]
 
 
-async def _async_test_provider(
-    hass: HomeAssistant, errors: ErrorsType, /, provider_type: str, **kwargs: Mapping[str, Any]
-) -> bool:
-    provider_factory = PROVIDERS.get(provider_type)
+async def _async_test_provider(hass: HomeAssistant, errors: ErrorsType, /, **kwargs: Any) -> bool:
+    type_: str = kwargs.pop(CONF_TYPE)
+    provider_factory = PROVIDERS.get(type_)
     provider = provider_factory(hass, **kwargs)
     try:
         await provider.fetch_realtime()
@@ -112,6 +111,7 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
 
         self._config: dict[str, Any] = {}
         self._provider_module: ModuleType | None = None
+        self._provider_schema: vol.Schema | None = None
 
     async def async_step_user(self, user_input: ConfigType | None = None) -> FlowResult:
         """Select temperature and humidity sensors."""
@@ -144,13 +144,15 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
         user_input = user_input or {}
 
         if len(PROVIDER_TYPES) == 1:
-            user_input = {CONF_PROVIDER_TYPE: list(PROVIDER_TYPES.keys())[0]}
+            user_input = {CONF_TYPE: list(PROVIDER_TYPES.keys())[0]}
 
         if user_input:
             self._config[CONF_PROVIDER] = user_input
             return await self.async_step_provider()
 
-        return self.async_show_form(step_id="choose", data_schema=build_provider_schema())
+        return self.async_show_form(
+            step_id="choose", data_schema=build_provider_schema(self.hass, **user_input)
+        )
 
     async def async_step_provider(self, user_input: ConfigType | None = None) -> FlowResult:
         """Enter provider configuration."""
@@ -159,40 +161,40 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
 
         provider_data = self._config[CONF_PROVIDER]
 
-        if user_input:
-            test_config = {**provider_data, **user_input}
-            if await _async_test_provider(self.hass, errors, **test_config):
-                self._config[CONF_PROVIDER] = test_config
-                return await self.async_step_comfort()
-
         if self._provider_module is None:
-            provider_type = provider_data[CONF_PROVIDER_TYPE]
+            type_ = provider_data[CONF_TYPE]
             try:
-                self._provider_module = await load_module(self.hass, provider_type)
+                self._provider_module = await load_module(self.hass, type_)
             except (ImportError, RequirementsNotFound) as exc:
                 issue_url = await create_issue_tracker_url(
-                    self.hass, exc, title=f"Error loading '{provider_type}' provider"
+                    self.hass, exc, title=f"Error loading '{type_}' provider"
                 )
+                placeholders = {
+                    "provider": type_,
+                    "message": getattr(exc, "msg"),
+                    "issue_url": issue_url,
+                }
                 return self.async_abort(
-                    reason="load_provider",
-                    description_placeholders={
-                        "provider": provider_type,
-                        "message": getattr(exc, "msg"),
-                        "issue_url": issue_url,
-                    },
+                    reason="load_provider", description_placeholders=placeholders
                 )
 
-        schema: vol.Schema = self._provider_module.build_schema(self.hass, **user_input)
-        if not schema.schema:
-            return await self.async_step_comfort()
+        config = {**provider_data, **user_input}
+
+        if not self._provider_schema:
+            self._provider_schema = build_provider_schema(self.hass, **config)
+
+        if user_input or not self._provider_schema.schema:
+            if await _async_test_provider(self.hass, errors, **config):
+                self._config[CONF_PROVIDER] = config
+                return await self.async_step_comfort()
+
+        placeholders = {"provider_desc": getattr(self._provider_module, "DESCRIPTION", None)}
 
         return self.async_show_form(
             step_id="provider",
             errors=errors,
-            data_schema=schema,
-            description_placeholders={
-                "provider_desc": getattr(self._provider_module, "DESCRIPTION", None)
-            },
+            data_schema=self._provider_schema,
+            description_placeholders=placeholders,
         )
 
     async def async_step_comfort(self, user_input: ConfigType | None = None) -> FlowResult:

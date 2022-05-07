@@ -17,15 +17,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import async_generate_entity_id
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import (
-    CONF_DEVICE,
-    CONF_ENABLED_SENSORS,
-    DOMAIN,
-    STATE_CAN_OPEN_WINDOWS,
-    STATE_HIGH_SIMMER_INDEX,
-    STATE_LOW_SIMMER_INDEX,
-    STATE_NEXT_CHANGE_TIME,
-)
+from .comfort import Output
+from .const import CONF_DEVICE, CONF_ENABLED_SENSORS, DOMAIN
 from .device import ComfortAdvisorDevice
 
 _LOGGER = logging.getLogger(__name__)
@@ -101,9 +94,9 @@ class ComfortAdvisorSensor(SensorEntity):  # type: ignore
         _LOGGER.debug(
             "async_update called for %s - state(%s)",
             self.entity_id,
-            str(self._device.calculated.get(self.entity_description.key)),
+            str(self._device.get_value(self.entity_description.key)),
         )
-        if (value := self._device.calculated.get(self.entity_description.key)) is not None:
+        if (value := self._device.get_value(self.entity_description.key)) is not None:
             self._attr_native_value = value
             self._attr_extra_state_attributes = self._device.extra_state_attributes
 
@@ -116,22 +109,22 @@ class ComfortAdvisorDeviceClass(StrEnum):  # type: ignore
 
 SENSOR_DESCRIPTIONS = [
     SensorEntityDescription(
-        key=STATE_CAN_OPEN_WINDOWS,
+        key=Output.CAN_OPEN_WINDOWS,
         device_class=ComfortAdvisorDeviceClass.CAN_OPEN_WINDOWS,
         icon="mdi:window-closed",
     ),
     SensorEntityDescription(
-        key=STATE_HIGH_SIMMER_INDEX,
+        key=Output.HIGH_SIMMER_INDEX,
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
     ),
     SensorEntityDescription(
-        key=STATE_LOW_SIMMER_INDEX,
+        key=Output.LOW_SIMMER_INDEX,
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
     ),
     SensorEntityDescription(
-        key=STATE_NEXT_CHANGE_TIME,
+        key=Output.NEXT_CHANGE_TIME,
         device_class=SensorDeviceClass.TIMESTAMP,
     ),
 ]
