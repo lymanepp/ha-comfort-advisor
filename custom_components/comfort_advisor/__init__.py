@@ -13,7 +13,7 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 import voluptuous as vol
 
-from .const import CONF_PROVIDER, DOMAIN
+from .const import DOMAIN
 from .device import ComfortAdvisorDevice
 from .provider import async_get_provider
 from .schemas import DATA_SCHEMA
@@ -38,7 +38,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
         _LOGGER.error("Invalid configuration: %s", exc)
         return False
 
-    if not (provider := await async_get_provider(hass, **config[CONF_PROVIDER])):
+    if not (provider := await async_get_provider(hass, config)):
         return False
 
     device = ComfortAdvisorDevice(hass, config_entry, provider)
@@ -60,4 +60,5 @@ async def async_update_options(hass: HomeAssistant, config_entry: ConfigEntry) -
 async def async_unload_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
     """Remove entry via user interface."""
     hass.data[DOMAIN].pop(config_entry.entry_id)
+    # TODO: cleanup provider if last subscriber
     return await hass.config_entries.async_unload_platforms(config_entry, PLATFORMS)  # type: ignore

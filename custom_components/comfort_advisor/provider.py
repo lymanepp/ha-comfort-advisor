@@ -5,13 +5,14 @@ from abc import ABCMeta, abstractmethod
 from datetime import datetime
 import json
 import logging
-from typing import NamedTuple, Sequence
+from typing import Any, Mapping, NamedTuple, Sequence
 
+from homeassistant.const import CONF_TYPE
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util.decorator import Registry
 
-from .const import DOMAIN, SCAN_INTERVAL_FORECAST, SCAN_INTERVAL_REALTIME
+from .const import CONF_PROVIDER, DOMAIN, SCAN_INTERVAL_FORECAST, SCAN_INTERVAL_REALTIME
 from .helpers import load_module
 
 _LOGGER = logging.getLogger(__name__)
@@ -43,7 +44,7 @@ class Provider(metaclass=ABCMeta):
     """Abstract weather provider."""
 
     def __init__(self, hass: HomeAssistant) -> None:
-        """TODO."""
+        """Initialize."""
         self.hass = hass
 
         self.realtime_service = DataUpdateCoordinator[WeatherData](
@@ -102,16 +103,17 @@ class Provider(metaclass=ABCMeta):
         raise NotImplementedError
 
 
-async def async_get_provider(hass: HomeAssistant, **kwargs: str) -> Provider:
+async def async_get_provider(hass: HomeAssistant, config: Mapping[str, Any]) -> Provider:
     """Initialize a weather provider from a config."""
 
     providers: dict[str, Provider] = hass.data[DOMAIN].setdefault("providers", {})
-    hashable_key = json.dumps(kwargs, sort_keys=True)
+    provider_config = config[CONF_PROVIDER]
+    hashable_key = json.dumps(provider_config, sort_keys=True)
 
     if (provider := providers.get(hashable_key)) is not None:
         return provider
 
-    type_ = kwargs.pop("type")
+    type_ = provider_config[CONF_TYPE]
 
     try:
         await load_module(hass, type_)
@@ -123,7 +125,7 @@ async def async_get_provider(hass: HomeAssistant, **kwargs: str) -> Provider:
     #       containing `REQUIREMENTS` and human-readble name. Could then auto-detect
     #       all supported providers.
     factory = PROVIDERS[type_]
-    provider = factory(hass, **kwargs)
+    provider = factory(hass, provider_config)
     assert isinstance(provider, Provider)
 
     providers[hashable_key] = provider

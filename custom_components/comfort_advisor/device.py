@@ -18,20 +18,14 @@ from homeassistant.const import (
 from homeassistant.core import CALLBACK_TYPE, Event, HomeAssistant, State
 from homeassistant.helpers.device_registry import DeviceEntryType
 from homeassistant.helpers.entity import DeviceInfo, Entity
-from homeassistant.helpers.event import (
-    async_track_state_change_event,
-    async_track_time_interval,
-)
+from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
 from homeassistant.loader import async_get_custom_components
 from homeassistant.util.temperature import convert as convert_temp
 
-from .comfort import ComfortThingy, Input
+from .comfort import ComfortCalculator, Input
 from .const import (
-    CONF_COMFORT,
-    CONF_DEVICE,
     CONF_INDOOR_HUMIDITY,
     CONF_INDOOR_TEMPERATURE,
-    CONF_INPUTS,
     CONF_OUTDOOR_HUMIDITY,
     CONF_OUTDOOR_TEMPERATURE,
     DEFAULT_MANUFACTURER,
@@ -43,8 +37,6 @@ from .helpers import get_entity_area
 from .provider import Provider
 
 _LOGGER = logging.getLogger(__name__)
-
-NO_YES = ["no", "yes"]
 
 
 class ComfortAdvisorDevice:
@@ -60,43 +52,38 @@ class ComfortAdvisorDevice:
         self._config = config_entry.data | config_entry.options or {}
         self.hass = hass
         self.unique_id = config_entry.unique_id
-        self._comfort = ComfortThingy(
-            hass.config.units.temperature_unit, self._config[CONF_COMFORT]
-        )
+        self._comfort = ComfortCalculator(hass.config.units.temperature_unit, self._config)
 
-        inputs_config = self._config[CONF_INPUTS]
         suggested_area = get_entity_area(
-            hass, inputs_config[CONF_INDOOR_TEMPERATURE]
-        ) or get_entity_area(hass, inputs_config[CONF_INDOOR_HUMIDITY])
+            hass, self._config[CONF_INDOOR_TEMPERATURE]
+        ) or get_entity_area(hass, self._config[CONF_INDOOR_HUMIDITY])
 
         self.device_info = DeviceInfo(
             entry_type=DeviceEntryType.SERVICE,
             identifiers={(DOMAIN, self.unique_id)},
             manufacturer=DEFAULT_MANUFACTURER,
             model=DEFAULT_NAME,
-            name=self._config[CONF_DEVICE][CONF_NAME],
+            name=self._config[CONF_NAME],
             hw_version=provider.version,
             suggested_area=suggested_area,
         )
 
         self._provider = provider
-        self._temp_unit = self.hass.config.units.temperature_unit  # TODO: add to config entry?
+        self._temp_unit = self.hass.config.units.temperature_unit
         self._entities: list[Entity] = []
         self._first_time = True
 
         self._extra_state_attributes: dict[str, Any] = {ATTR_ATTRIBUTION: provider.attribution}
 
-        self._entity_id_map: dict[str, list[str]] = {}
+        self._entity_id_map: dict[str, str] = {}
         for input_key in [
             CONF_INDOOR_TEMPERATURE,
             CONF_INDOOR_HUMIDITY,
             CONF_OUTDOOR_TEMPERATURE,
             CONF_OUTDOOR_HUMIDITY,
         ]:
-            entity_id = inputs_config[input_key]
-            # creating a list allows a sensor to be used multiple times
-            # TODO: prevent that in config_flow when done testing
-            self._entity_id_map.setdefault(entity_id, []).append(input_key)
+            entity_id = self._config[input_key]
+            self._entity_id_map[entity_id] = input_key
 
     async def async_setup_entry(self, config_entry: ConfigEntry) -> bool:
         """Set up device."""
@@ -116,9 +103,7 @@ class ComfortAdvisorDevice:
 
         for entity_id in self._entity_id_map:
             if (state := self.hass.states.get(entity_id)) is not None:
-                self._update_with_state(state)
-
-        await self._async_update()
+                self._update_from_state(state)
 
         config_entry.async_on_unload(
             async_track_time_interval(
@@ -142,7 +127,7 @@ class ComfortAdvisorDevice:
         return self._extra_state_attributes
 
     def get_state(self, name: str, default: Any = None) -> Any:
-        """TODO."""
+        """Retrieve calculated comfort state."""
         return self._comfort.get_state(name, default)
 
     def add_entity(self, entity: Entity) -> CALLBACK_TYPE:
@@ -174,9 +159,9 @@ class ComfortAdvisorDevice:
             state.entity_id if state else None,
             state.state if state else None,
         )
-        self._update_with_state(state)
+        self._update_from_state(state)
 
-    def _update_with_state(self, state: State) -> bool:
+    def _update_from_state(self, state: State) -> bool:
         _LOGGER.debug(
             "_update_with_state called for %s - entity(%s) - state(%s)",
             self.device_info["name"],
@@ -192,9 +177,8 @@ class ComfortAdvisorDevice:
             if unit and unit != self._temp_unit:
                 value = convert_temp(value, unit, self._temp_unit)
 
-        # TODO: loop is temporary
-        for input_key in self._entity_id_map[state.entity_id]:
-            self._comfort.update_input(input_key, value)
+        input_key = self._entity_id_map[state.entity_id]
+        self._comfort.update_input(input_key, value)
 
         if self._first_time:
             self.hass.async_create_task(self._async_update())
@@ -219,6 +203,7 @@ class ComfortAdvisorDevice:
             str(force_refresh),
         )
         if self._comfort.refresh_state():
+            self._first_time = False
             self._extra_state_attributes.update(self._comfort.extra_attributes)
             for entity in self._entities:
                 entity.async_schedule_update_ha_state(force_refresh)

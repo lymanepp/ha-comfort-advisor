@@ -24,7 +24,7 @@ def build_schema(hass: HomeAssistant) -> vol.Schema:
 class FakeProvider(Provider):
     """TODO."""
 
-    def __init__(self, hass: HomeAssistant) -> None:
+    def __init__(self, hass: HomeAssistant, config: Mapping[str, Any]) -> None:
         """TODO."""
         super().__init__(hass)
         self._units = hass.config.units

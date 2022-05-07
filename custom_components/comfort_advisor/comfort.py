@@ -5,7 +5,9 @@ import logging
 from typing import Any, Mapping, Sequence
 
 from homeassistant.backports.enum import StrEnum
+from homeassistant.const import CONF_TEMPERATURE_UNIT
 from homeassistant.util.dt import utcnow
+from homeassistant.util.temperature import convert as convert_temp
 
 from .const import (
     CONF_DEW_POINT_MAX,
@@ -21,7 +23,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class Input(StrEnum):  # type: ignore
-    """TODO."""
+    """ComfortCalculator inputs."""
 
     REALTIME = "realtime"
     FORECAST = "forecast"
@@ -32,36 +34,42 @@ class Input(StrEnum):  # type: ignore
 
 
 class State(StrEnum):  # type: ignore
-    """TODO."""
+    """ComfortCalculator states."""
 
     CAN_OPEN_WINDOWS = "can_open_windows"
     LOW_SIMMER_INDEX = "low_simmer_index"
     HIGH_SIMMER_INDEX = "high_simmer_index"
-    NEXT_CHANGE_TIME = "next_change_time"
+    NEXT_CHANGE = "next_change"
 
 
-class Attrib(StrEnum):  # type:ignore
-    """TODO."""
-
-    INDOOR_DEW_POINT = "indoor_dew_point"
-    INDOOR_SIMMER_INDEX = "indoor_simmer_index"
-    OUTDOOR_DEW_POINT = "outdoor_dew_point"
-    OUTDOOR_SIMMER_INDEX = "outdoor_simmer_index"
+ATTR_INDOOR_DEW_POINT = "indoor_dew_point"
+ATTR_INDOOR_SIMMER_INDEX = "indoor_simmer_index"
+ATTR_OUTDOOR_DEW_POINT = "outdoor_dew_point"
+ATTR_OUTDOOR_SIMMER_INDEX = "outdoor_simmer_index"
+ATTR_POLLEN = "pollen"
 
 
-class ComfortThingy:
-    """TODO."""
+class ComfortCalculator:
+    """Calculate comfort states."""
 
-    def __init__(self, temp_unit: str, config: Mapping[str, Any]) -> None:
-        """TODO."""
-        self._temp_unit = temp_unit
+    def __init__(self, hass_temp_unit: str, config: Mapping[str, Any]) -> None:
+        """Initialize."""
 
-        # configuration
-        self._dew_point_max = config[CONF_DEW_POINT_MAX]
+        # The temperature unit is stored with configuration just in case the unit
+        # system is changed later. Convert units to the current unit system.
+        config_temp_unit = config[CONF_TEMPERATURE_UNIT]
+        self._dew_point_max = convert_temp(
+            config[CONF_DEW_POINT_MAX], config_temp_unit, hass_temp_unit
+        )
+        self._simmer_index_min = convert_temp(
+            config[CONF_SIMMER_INDEX_MIN], config_temp_unit, hass_temp_unit
+        )
+        self._simmer_index_max = convert_temp(
+            config[CONF_SIMMER_INDEX_MAX], config_temp_unit, hass_temp_unit
+        )
         self._humidity_max = config[CONF_HUMIDITY_MAX]
-        self._simmer_index_min = config[CONF_SIMMER_INDEX_MIN]
-        self._simmer_index_max = config[CONF_SIMMER_INDEX_MAX]
         self._pollen_max = config[CONF_POLLEN_MAX]
+        self._temp_unit = hass_temp_unit
 
         # state
         self._inputs: dict[str, Any] = {str(x): None for x in Input}  # type: ignore
@@ -71,21 +79,21 @@ class ComfortThingy:
 
     @property
     def extra_attributes(self) -> Mapping[str, Any]:
-        """TODO."""
+        """Return extra attributes."""
         return self._extra_attributes
 
     def update_input(self, name: str, value: Any) -> None:
-        """TODO."""
+        """Update an input value."""
         if self._inputs[name] != value:
             self._inputs[name] = value
             self._have_changes = True
 
     def get_state(self, name: str, default: Any = None) -> Any:
-        """TODO."""
+        """Retrieve a calculated state."""
         return self._state.get(name, default)
 
     def refresh_state(self) -> bool:
-        """TODO."""
+        """Refresh the calculated state. Does nothing if no inputs have been updated."""
         if not self._have_changes:
             return False
         self._have_changes = False
@@ -96,12 +104,16 @@ class ComfortThingy:
         indoor_humidity: float | None = self._inputs[Input.INDOOR_HUMIDITY]
         outdoor_temperature: float | None = self._inputs[Input.OUTDOOR_TEMPERATURE]
         outdoor_humidity: float | None = self._inputs[Input.OUTDOOR_HUMIDITY]
+        realtime: WeatherData | None = self._inputs[Input.REALTIME]
+        forecast: Sequence[WeatherData] | None = self._inputs[Input.FORECAST]
 
         if (
             indoor_temperature is None
             or indoor_humidity is None
             or outdoor_temperature is None
             or outdoor_humidity is None
+            or realtime is None
+            or forecast is None
         ):
             return False
 
@@ -116,42 +128,41 @@ class ComfortThingy:
             )
             return is_comfortable, dew_point, simmer_index
 
-        realtime: WeatherData | None = self._inputs[Input.REALTIME]
-
-        pollen = (realtime.pollen if realtime else None) or 0
+        pollen = realtime.pollen or 0
 
         _, in_dewp, in_si = calc(indoor_temperature, indoor_humidity, 0)
         out_comfort, out_dewp, out_si = calc(outdoor_temperature, outdoor_humidity, pollen)
 
-        self._extra_attributes = {
-            Attrib.INDOOR_DEW_POINT: in_dewp,
-            Attrib.INDOOR_SIMMER_INDEX: in_si,
-            Attrib.OUTDOOR_DEW_POINT: out_dewp,
-            Attrib.OUTDOOR_SIMMER_INDEX: out_si,
-        }
+        start_time = utcnow()
+        end_time = start_time + timedelta(days=1)
+
+        next_change: datetime | None = None
+        next_24_hour_si = []
+
+        for interval in filter(lambda x: x.date_time >= start_time, forecast):
+            comfort, _, si = calc(interval.temp, interval.humidity, interval.pollen or 0)
+            if next_change is None and comfort != out_comfort:
+                next_change = interval.date_time
+            if interval.date_time <= end_time:
+                next_24_hour_si.append(si)
+
+        low_si = min(next_24_hour_si)
+        high_si = max(next_24_hour_si)
 
         self._state[State.CAN_OPEN_WINDOWS] = out_comfort
+        self._state[State.LOW_SIMMER_INDEX] = low_si
+        self._state[State.HIGH_SIMMER_INDEX] = high_si
+        self._state[State.NEXT_CHANGE] = next_change
 
-        forecast: Sequence[WeatherData] | None = self._inputs[Input.FORECAST]
+        self._extra_attributes = {
+            ATTR_INDOOR_DEW_POINT: in_dewp,
+            ATTR_INDOOR_SIMMER_INDEX: in_si,
+            ATTR_OUTDOOR_DEW_POINT: out_dewp,
+            ATTR_OUTDOOR_SIMMER_INDEX: out_si,
+        }
 
-        if forecast:
-            start_time = utcnow()
-            end_time = start_time + timedelta(days=1)
-
-            next_change_time: datetime | None = None
-            high_si = low_si = out_si
-
-            for interval in filter(lambda x: x.date_time >= start_time, forecast):
-                comfort, _, si = calc(interval.temp, interval.humidity, interval.pollen or 0)
-                if next_change_time is None and comfort != out_comfort:
-                    next_change_time = interval.date_time
-                if interval.date_time <= end_time:
-                    low_si = min(low_si, si)
-                    high_si = max(high_si, si)
-
-            self._state[State.LOW_SIMMER_INDEX] = low_si
-            self._state[State.HIGH_SIMMER_INDEX] = high_si
-            self._state[State.NEXT_CHANGE_TIME] = next_change_time
+        if realtime.pollen is not None:
+            self._extra_attributes[ATTR_POLLEN] = pollen
 
         # TODO: create blueprint that uses `next_change_time` if windows can be open "all night"?
         # TODO: blueprint checks `high_simmer_index` if it will be cool tomorrow and conserve heat

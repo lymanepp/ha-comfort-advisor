@@ -1,14 +1,16 @@
-"""TODO."""
+"""Tomorrow.io data provider."""
 from __future__ import annotations
 
 import logging
 import sys
 from typing import Any, Callable, Coroutine, Final, Mapping, Sequence, TypeVar, cast
 
+from homeassistant.const import CONF_API_KEY, CONF_LOCATION
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.util.dt import parse_datetime, utcnow
-from pytomorrowio import TomorrowioV4, __version__ as PYTOMORROWIO_VERSION
+from pytomorrowio import TomorrowioV4
+from pytomorrowio import __version__ as PYTOMORROWIO_VERSION
 from pytomorrowio.exceptions import (
     CantConnectException,
     InvalidAPIKeyException,
@@ -59,26 +61,19 @@ def _async_exception_handler(
 class TomorrowioWeatherProvider(Provider):
     """Tomorrow.io weather provider."""
 
-    def __init__(
-        self,
-        hass: HomeAssistant,
-        /,
-        api_key: str,
-        location: Mapping[str, float],
-    ) -> None:
+    def __init__(self, hass: HomeAssistant, config: Mapping[str, Any]) -> None:
         """Initialize provider."""
         super().__init__(hass)
-        latitude = float(location["latitude"])
-        longitude = float(location["longitude"])
 
+        location = config[CONF_LOCATION]
         unit_system = "metric" if hass.config.units.is_metric else "imperial"
-        session = async_get_clientsession(hass)
+
         self._api = TomorrowioV4(
-            apikey=api_key,
-            latitude=latitude,
-            longitude=longitude,
+            apikey=config[CONF_API_KEY],
+            latitude=location["latitude"],
+            longitude=location["longitude"],
             unit_system=unit_system,
-            session=session,
+            session=async_get_clientsession(hass),
         )
 
     @property

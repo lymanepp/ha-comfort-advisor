@@ -2,23 +2,22 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Mapping
 
 from homeassistant.backports.enum import StrEnum
 from homeassistant.components.sensor import (
-    DOMAIN as SENSOR_DOMAIN,
     SensorDeviceClass,
     SensorEntity,
     SensorEntityDescription,
     SensorStateClass,
 )
+from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import async_generate_entity_id
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .comfort import State
-from .const import CONF_DEVICE, CONF_ENABLED_SENSORS, DOMAIN
+from .const import CONF_ENABLED_SENSORS, DOMAIN
 from .device import ComfortAdvisorDevice
 
 _LOGGER = logging.getLogger(__name__)
@@ -30,12 +29,12 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up entity configured via user interface."""
-    config: Mapping[str, Any] = config_entry.data | config_entry.options or {}
+    config = config_entry.data | config_entry.options or {}
     device: ComfortAdvisorDevice = hass.data[DOMAIN][config_entry.entry_id]
 
     _LOGGER.debug("async_setup_entry: %s", config_entry.title)
 
-    enabled_sensors = config[CONF_DEVICE][CONF_ENABLED_SENSORS]
+    enabled_sensors = config[CONF_ENABLED_SENSORS]
 
     sensors = [
         ComfortAdvisorSensor(
@@ -65,10 +64,9 @@ class ComfortAdvisorSensor(SensorEntity):  # type: ignore
         """Initialize the sensor."""
         self._device = device
 
-        # TODO: translation support?
-        friendly_name = entity_description.key.replace("_", " ").title()
+        sensor_name = entity_description.key.replace("_", " ").title()
 
-        self._attr_name = f"{device.name} {friendly_name}"
+        self._attr_name = f"{device.name} {sensor_name}"
         self._attr_device_info = device.device_info
         self.entity_description = entity_description
         self.entity_id = async_generate_entity_id(
@@ -85,9 +83,8 @@ class ComfortAdvisorSensor(SensorEntity):  # type: ignore
 
     async def async_added_to_hass(self) -> None:
         """Run when entity about to be added to hass."""
-
-        # TODO: subscribe to `self.entity_description.key`
         self.async_on_remove(self._device.add_entity(self))
+        self.async_schedule_update_ha_state(force_refresh=True)
 
     async def async_update(self) -> None:
         """Update the state of the sensor."""
@@ -121,7 +118,7 @@ SENSOR_DESCRIPTIONS = [
         state_class=SensorStateClass.MEASUREMENT,
     ),
     SensorEntityDescription(
-        key=State.NEXT_CHANGE_TIME,
+        key=State.NEXT_CHANGE,
         device_class=SensorDeviceClass.TIMESTAMP,
     ),
 ]

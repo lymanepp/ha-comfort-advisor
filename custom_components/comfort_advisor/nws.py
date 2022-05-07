@@ -6,13 +6,21 @@ import sys
 from typing import Any, Callable, Coroutine, Final, Mapping, Sequence, TypeVar, cast
 
 from aiohttp import ClientError
-from homeassistant.const import SPEED_KILOMETERS_PER_HOUR, TEMP_CELSIUS
+from homeassistant.const import (
+    CONF_API_KEY,
+    CONF_LATITUDE,
+    CONF_LOCATION,
+    CONF_LONGITUDE,
+    SPEED_KILOMETERS_PER_HOUR,
+    TEMP_CELSIUS,
+)
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.util.dt import parse_datetime, utcnow
 from homeassistant.util.speed import convert as convert_speed
 from homeassistant.util.temperature import convert as convert_temp
-from pynws import SimpleNWS, version as PYNWS_VERSION
+from pynws import SimpleNWS
+from pynws import version as PYNWS_VERSION
 from pynws.const import Detail
 
 from .provider import PROVIDERS, Provider, ProviderError, WeatherData
@@ -54,20 +62,17 @@ def _async_exception_handler(
 class NwsWeatherProvider(Provider):
     """National Weather Service weather provider."""
 
-    def __init__(
-        self,
-        hass: HomeAssistant,
-        /,
-        api_key: str,
-        location: Mapping[str, float],
-    ) -> None:
+    def __init__(self, hass: HomeAssistant, config: Mapping[str, Any]) -> None:
         """Initialize provider."""
         super().__init__(hass)
         self._temp_unit = hass.config.units.temperature_unit
         self._speed_unit = hass.config.units.wind_speed_unit
-
+        location = config[CONF_LOCATION]
         self._api = SimpleNWS(
-            location["latitude"], location["longitude"], api_key, async_get_clientsession(hass)
+            location[CONF_LATITUDE],
+            location[CONF_LONGITUDE],
+            config[CONF_API_KEY],
+            async_get_clientsession(hass),
         )
 
     @property

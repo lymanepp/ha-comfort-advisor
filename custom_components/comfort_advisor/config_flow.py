@@ -9,6 +9,7 @@ from homeassistant.config_entries import ConfigEntry, ConfigFlow, OptionsFlow
 from homeassistant.const import (
     ATTR_UNIT_OF_MEASUREMENT,
     CONF_NAME,
+    CONF_TEMPERATURE_UNIT,
     CONF_TYPE,
     PERCENTAGE,
     TEMP_FAHRENHEIT,
@@ -18,18 +19,13 @@ from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import entity_registry
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.requirements import RequirementsNotFound
-from homeassistant.util.temperature import (
-    VALID_UNITS as TEMPERATURE_UNITS,
-    convert as convert_temp,
-)
+from homeassistant.util.temperature import VALID_UNITS as TEMPERATURE_UNITS
+from homeassistant.util.temperature import convert as convert_temp
 import voluptuous as vol
 
 from .const import (
-    CONF_COMFORT,
-    CONF_DEVICE,
     CONF_INDOOR_HUMIDITY,
     CONF_INDOOR_TEMPERATURE,
-    CONF_INPUTS,
     CONF_OUTDOOR_HUMIDITY,
     CONF_OUTDOOR_TEMPERATURE,
     CONF_PROVIDER,
@@ -49,10 +45,12 @@ from .schemas import (
 ErrorsType = MutableMapping[str, str]
 
 
-async def _async_test_provider(hass: HomeAssistant, errors: ErrorsType, /, **kwargs: Any) -> bool:
-    type_: str = kwargs.pop(CONF_TYPE)
+async def _async_test_provider(
+    hass: HomeAssistant, errors: ErrorsType, provider_config: Mapping[str, Any]
+) -> bool:
+    type_: str = provider_config[CONF_TYPE]
     provider_factory = PROVIDERS.get(type_)
-    provider = provider_factory(hass, **kwargs)
+    provider = provider_factory(hass, provider_config)
     try:
         await provider.fetch_realtime()
         return True
@@ -130,13 +128,13 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
                 self._abort_if_unique_id_configured()
 
                 if _async_test_inputs(self.hass, errors, **user_input):
-                    self._config[CONF_INPUTS] = user_input
+                    self._config.update(user_input)
                     return await self.async_step_choose()
 
         return self.async_show_form(
             step_id="user",
             errors=errors,
-            data_schema=build_inputs_schema(self.hass, **user_input),
+            data_schema=build_inputs_schema(self.hass, user_input),
         )
 
     async def async_step_choose(self, user_input: ConfigType | None = None) -> FlowResult:
@@ -151,18 +149,17 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
             return await self.async_step_provider()
 
         return self.async_show_form(
-            step_id="choose", data_schema=build_provider_schema(self.hass, **user_input)
+            step_id="choose", data_schema=build_provider_schema(self.hass, user_input)
         )
 
     async def async_step_provider(self, user_input: ConfigType | None = None) -> FlowResult:
         """Enter provider configuration."""
         user_input = user_input or {}
         errors: ErrorsType = {}
-
-        provider_data = self._config[CONF_PROVIDER]
+        provider_config = self._config[CONF_PROVIDER]
 
         if self._provider_module is None:
-            type_ = provider_data[CONF_TYPE]
+            type_ = provider_config[CONF_TYPE]
             try:
                 self._provider_module = await load_module(self.hass, type_)
             except (ImportError, RequirementsNotFound) as exc:
@@ -178,14 +175,14 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
                     reason="load_provider", description_placeholders=placeholders
                 )
 
-        config = {**provider_data, **user_input}
+        provider_config = {**provider_config, **user_input}
 
         if not self._provider_schema:
-            self._provider_schema = build_provider_schema(self.hass, **config)
+            self._provider_schema = build_provider_schema(self.hass, provider_config)
 
         if user_input or not self._provider_schema.schema:
-            if await _async_test_provider(self.hass, errors, **config):
-                self._config[CONF_PROVIDER] = config
+            if await _async_test_provider(self.hass, errors, provider_config):
+                self._config[CONF_PROVIDER] = provider_config
                 return await self.async_step_comfort()
 
         placeholders = {"provider_desc": getattr(self._provider_module, "DESCRIPTION", None)}
@@ -202,16 +199,17 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
         user_input = user_input or {}
         errors: ErrorsType = {}
 
-        if user_input:
-            self._config[CONF_COMFORT] = user_input
-            return await self.async_step_device()
-
         temp_unit = self.hass.config.units.temperature_unit
+
+        if user_input:
+            self._config.update(user_input)
+            self._config[CONF_TEMPERATURE_UNIT] = temp_unit
+            return await self.async_step_device()
 
         return self.async_show_form(
             step_id="comfort",
             errors=errors,
-            data_schema=build_comfort_schema(self.hass, **user_input),
+            data_schema=build_comfort_schema(self.hass, user_input),
             description_placeholders=_build_comfort_placeholders(temp_unit),
         )
 
@@ -221,14 +219,14 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
         errors: ErrorsType = {}
 
         if user_input:
-            self._config[CONF_DEVICE] = user_input
+            self._config.update(user_input)
             config = DATA_SCHEMA(self._config)
             return self.async_create_entry(title=user_input[CONF_NAME], data=config)
 
         return self.async_show_form(
             step_id="device",
             errors=errors,
-            data_schema=build_device_schema(**user_input),
+            data_schema=build_device_schema(user_input),
         )
 
     @staticmethod
@@ -252,7 +250,7 @@ class ComfortAdvisorOptionsFlow(OptionsFlow):  # type: ignore
         errors: ErrorsType = {}
 
         if user_input:
-            self._config[CONF_COMFORT] = user_input
+            self._config.update(user_input)
             return await self.async_step_device()
 
         temp_unit = self.hass.config.units.temperature_unit
@@ -260,7 +258,7 @@ class ComfortAdvisorOptionsFlow(OptionsFlow):  # type: ignore
         return self.async_show_form(
             step_id="init",
             errors=errors,
-            data_schema=build_comfort_schema(self.hass, **self._original[CONF_COMFORT]),
+            data_schema=build_comfort_schema(self.hass, self._original),
             description_placeholders=_build_comfort_placeholders(temp_unit),
         )
 
@@ -270,11 +268,11 @@ class ComfortAdvisorOptionsFlow(OptionsFlow):  # type: ignore
         errors: ErrorsType = {}
 
         if user_input:
-            self._config[CONF_DEVICE] = user_input
+            self._config.update(user_input)
             return self.async_create_entry(title=user_input[CONF_NAME], data=self._config)
 
         return self.async_show_form(
             step_id="device",
             errors=errors,
-            data_schema=build_device_schema(**self._original[CONF_DEVICE]),
+            data_schema=build_device_schema(self._original),
         )
