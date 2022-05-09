@@ -10,7 +10,6 @@ from homeassistant.const import (
     ATTR_UNIT_OF_MEASUREMENT,
     CONF_NAME,
     CONF_TEMPERATURE_UNIT,
-    CONF_TYPE,
     PERCENTAGE,
     TEMP_FAHRENHEIT,
 )
@@ -28,6 +27,7 @@ from .const import (
     CONF_INDOOR_TEMPERATURE,
     CONF_OUTDOOR_HUMIDITY,
     CONF_OUTDOOR_TEMPERATURE,
+    CONF_PROVIDER,
     CONF_WEATHER,
     DOMAIN,
     PROVIDER_TYPES,
@@ -48,8 +48,8 @@ ErrorsType = MutableMapping[str, str]
 async def _async_test_weather(
     hass: HomeAssistant, errors: ErrorsType, provider_config: Mapping[str, Any]
 ) -> bool:
-    type_: str = provider_config[CONF_TYPE]
-    provider_factory = PROVIDERS.get(type_)
+    provider_type: str = provider_config[CONF_PROVIDER]
+    provider_factory = PROVIDERS.get(provider_type)
     provider = provider_factory(hass, provider_config)
     try:
         await provider.fetch_realtime()
@@ -142,7 +142,7 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
         user_input = user_input or {}
 
         if len(PROVIDER_TYPES) == 1:
-            user_input = {CONF_TYPE: list(PROVIDER_TYPES.keys())[0]}
+            user_input = {CONF_PROVIDER: list(PROVIDER_TYPES.keys())[0]}
 
         if user_input:
             self._config[CONF_WEATHER] = user_input
@@ -159,15 +159,15 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
         weather_config = self._config[CONF_WEATHER]
 
         if self._weather_module is None:
-            type_ = weather_config[CONF_TYPE]
+            provider_type = weather_config[CONF_PROVIDER]
             try:
-                self._weather_module = await load_module(self.hass, type_)
+                self._weather_module = await load_module(self.hass, provider_type)
             except (ImportError, RequirementsNotFound) as exc:
                 issue_url = await create_issue_tracker_url(
-                    self.hass, exc, title=f"Error loading '{type_}' provider"
+                    self.hass, exc, title=f"Error loading '{provider_type}' provider"
                 )
                 placeholders = {
-                    "provider": type_,
+                    "provider": provider_type,
                     "message": getattr(exc, "msg"),
                     "issue_url": issue_url,
                 }

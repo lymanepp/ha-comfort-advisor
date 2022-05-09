@@ -11,7 +11,6 @@ from homeassistant.const import (
     CONF_LONGITUDE,
     CONF_NAME,
     CONF_TEMPERATURE_UNIT,
-    CONF_TYPE,
     PERCENTAGE,
     TEMP_FAHRENHEIT,
 )
@@ -32,6 +31,7 @@ from .const import (
     CONF_INDOOR_TEMPERATURE,
     CONF_OUTDOOR_HUMIDITY,
     CONF_OUTDOOR_TEMPERATURE,
+    CONF_PROVIDER,
     CONF_POLLEN_MAX,
     CONF_SIMMER_INDEX_MAX,
     CONF_SIMMER_INDEX_MIN,
@@ -51,14 +51,14 @@ ALL_SENSOR_TYPES = [str(x) for x in State]  # type:ignore
 
 def build_weather_schema(hass: HomeAssistant, weather_config: Mapping[str, Any]) -> vol.Schema:
     """Build provider schema."""
-    type_: str = weather_config.get(CONF_TYPE, vol.UNDEFINED)
+    provider_type: str = weather_config.get(CONF_PROVIDER, vol.UNDEFINED)
 
-    if type_ == vol.UNDEFINED:
+    if provider_type == vol.UNDEFINED:
         return vol.Schema(
-            {vol.Required(CONF_TYPE): vol.In(PROVIDER_TYPES)},
+            {vol.Required(CONF_PROVIDER): vol.In(PROVIDER_TYPES)},
         )
 
-    if type_ == "fake":
+    if provider_type == "fake":
         return vol.Schema({})
 
     default_location = {CONF_LATITUDE: hass.config.latitude, CONF_LONGITUDE: hass.config.longitude}
@@ -166,11 +166,13 @@ _API_KEY_AND_LOCATION = {
 }
 
 _WEATHER_SCHEMA = cv.key_value_schemas(
-    CONF_TYPE,
+    CONF_PROVIDER,
     {
-        "fake": vol.Schema({vol.Required(CONF_TYPE): "fake"}),
-        "nws": vol.Schema({vol.Required(CONF_TYPE): "nws", **_API_KEY_AND_LOCATION}),
-        "tomorrowio": vol.Schema({vol.Required(CONF_TYPE): "tomorrowio", **_API_KEY_AND_LOCATION}),
+        "fake": vol.Schema({vol.Required(CONF_PROVIDER): "fake"}),
+        "nws": vol.Schema({vol.Required(CONF_PROVIDER): "nws", **_API_KEY_AND_LOCATION}),
+        "tomorrowio": vol.Schema(
+            {vol.Required(CONF_PROVIDER): "tomorrowio", **_API_KEY_AND_LOCATION}
+        ),
     },
 )
 

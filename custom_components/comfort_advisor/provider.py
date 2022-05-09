@@ -7,12 +7,17 @@ import json
 import logging
 from typing import Any, Mapping, NamedTuple, Sequence
 
-from homeassistant.const import CONF_TYPE
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util.decorator import Registry
 
-from .const import CONF_WEATHER, DOMAIN, SCAN_INTERVAL_FORECAST, SCAN_INTERVAL_REALTIME
+from .const import (
+    CONF_PROVIDER,
+    CONF_WEATHER,
+    DOMAIN,
+    SCAN_INTERVAL_FORECAST,
+    SCAN_INTERVAL_REALTIME,
+)
 from .helpers import load_module
 
 _LOGGER = logging.getLogger(__name__)
@@ -113,18 +118,18 @@ async def async_get_provider(hass: HomeAssistant, config: Mapping[str, Any]) -> 
     if (provider := providers.get(hashable_key)) is not None:
         return provider
 
-    type_ = provider_config[CONF_TYPE]
+    provider_type = provider_config[CONF_PROVIDER]
 
     try:
-        await load_module(hass, type_)
+        await load_module(hass, provider_type)
     except ImportError as exc:
-        _LOGGER.error("Unable to load provider: %s, %s", type_, exc)
+        _LOGGER.error("Unable to load provider: %s, %s", provider_type, exc)
         raise ProviderError("import_error") from exc
 
     # TODO: might need to move providers into their own folders with __init__.py only
     #       containing `REQUIREMENTS` and human-readble name. Could then auto-detect
     #       all supported providers.
-    factory = PROVIDERS[type_]
+    factory = PROVIDERS[provider_type]
     provider = factory(hass, provider_config)
     assert isinstance(provider, Provider)
 
