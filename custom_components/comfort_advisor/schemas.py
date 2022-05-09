@@ -33,9 +33,9 @@ from .const import (
     CONF_OUTDOOR_HUMIDITY,
     CONF_OUTDOOR_TEMPERATURE,
     CONF_POLLEN_MAX,
-    CONF_PROVIDER,
     CONF_SIMMER_INDEX_MAX,
     CONF_SIMMER_INDEX_MIN,
+    CONF_WEATHER,
     DEFAULT_DEWPOINT_MAX,
     DEFAULT_HUMIDITY_MAX,
     DEFAULT_NAME,
@@ -49,9 +49,9 @@ from .helpers import get_sensor_entities
 ALL_SENSOR_TYPES = [str(x) for x in State]  # type:ignore
 
 
-def build_provider_schema(hass: HomeAssistant, provider_config: Mapping[str, Any]) -> vol.Schema:
+def build_weather_schema(hass: HomeAssistant, weather_config: Mapping[str, Any]) -> vol.Schema:
     """Build provider schema."""
-    type_: str = provider_config.get(CONF_TYPE, vol.UNDEFINED)
+    type_: str = weather_config.get(CONF_TYPE, vol.UNDEFINED)
 
     if type_ == vol.UNDEFINED:
         return vol.Schema(
@@ -63,8 +63,8 @@ def build_provider_schema(hass: HomeAssistant, provider_config: Mapping[str, Any
 
     default_location = {CONF_LATITUDE: hass.config.latitude, CONF_LONGITUDE: hass.config.longitude}
 
-    api_key: str = provider_config.get(CONF_API_KEY, vol.UNDEFINED)
-    location: Mapping[str, float] = provider_config.get(CONF_LOCATION, default_location)
+    api_key: str = weather_config.get(CONF_API_KEY, vol.UNDEFINED)
+    location: Mapping[str, float] = weather_config.get(CONF_LOCATION, default_location)
 
     return vol.Schema(
         {
@@ -165,7 +165,7 @@ _API_KEY_AND_LOCATION = {
     },
 }
 
-_PROVIDER_SCHEMA = cv.key_value_schemas(
+_WEATHER_SCHEMA = cv.key_value_schemas(
     CONF_TYPE,
     {
         "fake": vol.Schema({vol.Required(CONF_TYPE): "fake"}),
@@ -180,7 +180,7 @@ DATA_SCHEMA = vol.Schema(
         vol.Required(CONF_INDOOR_HUMIDITY): cv.entity_id,
         vol.Required(CONF_OUTDOOR_TEMPERATURE): cv.entity_id,
         vol.Required(CONF_OUTDOOR_HUMIDITY): cv.entity_id,
-        vol.Required(CONF_PROVIDER): _PROVIDER_SCHEMA,
+        vol.Required(CONF_WEATHER): _WEATHER_SCHEMA,
         vol.Required(CONF_SIMMER_INDEX_MIN): vol.Coerce(float),
         vol.Required(CONF_SIMMER_INDEX_MAX): vol.Coerce(float),
         vol.Required(CONF_DEW_POINT_MAX): vol.Coerce(float),

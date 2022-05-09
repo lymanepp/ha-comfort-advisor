@@ -11,7 +11,7 @@ CONF_OUTDOOR_TEMPERATURE: Final = "outdoor_temperature"
 CONF_DEW_POINT_MAX: Final = "dew_point_max"
 CONF_HUMIDITY_MAX: Final = "humidity_max"
 CONF_POLLEN_MAX: Final = "pollen_max"
-CONF_PROVIDER: Final = "provider"
+CONF_WEATHER: Final = "weather"
 CONF_SIMMER_INDEX_MAX: Final = "simmer_index_max"
 CONF_SIMMER_INDEX_MIN: Final = "simmer_index_min"
 CONF_ENABLED_SENSORS: Final = "enabled_sensors"
@@ -28,7 +28,7 @@ DEFAULT_HUMIDITY_MAX: Final = 95
 DEFAULT_POLLEN_MAX: Final = 2
 DEFAULT_SIMMER_INDEX_MAX: Final = 85
 DEFAULT_SIMMER_INDEX_MIN: Final = 70
-DEFAULT_POLL_INTERVAL: Final = 60
+DEFAULT_POLL_INTERVAL: Final = 30
 
 # can't be dynamic because providers are loaded on first use
 PROVIDER_TYPES: Final[Mapping[str, str]] = {

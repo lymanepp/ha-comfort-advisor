@@ -26,8 +26,6 @@ from .comfort import ComfortCalculator, Input
 from .const import (
     CONF_INDOOR_HUMIDITY,
     CONF_INDOOR_TEMPERATURE,
-    CONF_OUTDOOR_HUMIDITY,
-    CONF_OUTDOOR_TEMPERATURE,
     DEFAULT_MANUFACTURER,
     DEFAULT_NAME,
     DEFAULT_POLL_INTERVAL,
@@ -77,10 +75,10 @@ class ComfortAdvisorDevice:
 
         self._entity_id_map: dict[str, str] = {}
         for input_key in [
-            CONF_INDOOR_TEMPERATURE,
-            CONF_INDOOR_HUMIDITY,
-            CONF_OUTDOOR_TEMPERATURE,
-            CONF_OUTDOOR_HUMIDITY,
+            Input.INDOOR_TEMPERATURE,
+            Input.INDOOR_HUMIDITY,
+            Input.OUTDOOR_TEMPERATURE,
+            Input.OUTDOOR_HUMIDITY,
         ]:
             entity_id = self._config[input_key]
             self._entity_id_map[entity_id] = input_key
@@ -103,7 +101,7 @@ class ComfortAdvisorDevice:
 
         for entity_id in self._entity_id_map:
             if (state := self.hass.states.get(entity_id)) is not None:
-                self._update_from_state(state)
+                self._update_input_from_state(state)
 
         config_entry.async_on_unload(
             async_track_time_interval(
@@ -159,9 +157,9 @@ class ComfortAdvisorDevice:
             state.entity_id if state else None,
             state.state if state else None,
         )
-        self._update_from_state(state)
+        self._update_input_from_state(state)
 
-    def _update_from_state(self, state: State) -> bool:
+    def _update_input_from_state(self, state: State) -> bool:
         _LOGGER.debug(
             "_update_with_state called for %s - entity(%s) - state(%s)",
             self.device_info["name"],

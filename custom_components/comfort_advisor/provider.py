@@ -12,7 +12,7 @@ from homeassistant.core import CALLBACK_TYPE, HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util.decorator import Registry
 
-from .const import CONF_PROVIDER, DOMAIN, SCAN_INTERVAL_FORECAST, SCAN_INTERVAL_REALTIME
+from .const import CONF_WEATHER, DOMAIN, SCAN_INTERVAL_FORECAST, SCAN_INTERVAL_REALTIME
 from .helpers import load_module
 
 _LOGGER = logging.getLogger(__name__)
@@ -107,7 +107,7 @@ async def async_get_provider(hass: HomeAssistant, config: Mapping[str, Any]) -> 
     """Initialize a weather provider from a config."""
 
     providers: dict[str, Provider] = hass.data[DOMAIN].setdefault("providers", {})
-    provider_config = config[CONF_PROVIDER]
+    provider_config = config[CONF_WEATHER]
     hashable_key = json.dumps(provider_config, sort_keys=True)
 
     if (provider := providers.get(hashable_key)) is not None:

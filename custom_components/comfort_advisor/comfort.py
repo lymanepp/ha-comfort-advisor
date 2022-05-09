@@ -74,7 +74,6 @@ class ComfortCalculator:
         # state
         self._inputs: dict[str, Any] = {str(x): None for x in Input}  # type: ignore
         self._state: dict[str, Any] = {str(x): None for x in State}  # type: ignore
-        self._have_changes: bool = False
         self._extra_attributes: dict[str, Any] = {}
 
     @property
@@ -82,38 +81,36 @@ class ComfortCalculator:
         """Return extra attributes."""
         return self._extra_attributes
 
-    def update_input(self, name: str, value: Any) -> None:
+    def update_input(self, key: str, value: Any) -> bool:
         """Update an input value."""
-        if self._inputs[name] != value:
-            self._inputs[name] = value
-            self._have_changes = True
+        _LOGGER.debug("update_input called with %s=%s", key, str(value))
+        if self._inputs[key] == value:
+            return False
+        self._inputs[key] = value
+        return self.refresh_state()
 
     def get_state(self, name: str, default: Any = None) -> Any:
         """Retrieve a calculated state."""
         return self._state.get(name, default)
 
     def refresh_state(self) -> bool:
-        """Refresh the calculated state. Does nothing if no inputs have been updated."""
-        if not self._have_changes:
-            return False
-        self._have_changes = False
+        """Refresh the calculated state."""
+        _LOGGER.debug("_calculate_state called")
 
-        _LOGGER.debug("_calculate_state called for %s", "TODO")
-
-        indoor_temperature: float | None = self._inputs[Input.INDOOR_TEMPERATURE]
-        indoor_humidity: float | None = self._inputs[Input.INDOOR_HUMIDITY]
-        outdoor_temperature: float | None = self._inputs[Input.OUTDOOR_TEMPERATURE]
-        outdoor_humidity: float | None = self._inputs[Input.OUTDOOR_HUMIDITY]
-        realtime: WeatherData | None = self._inputs[Input.REALTIME]
-        forecast: Sequence[WeatherData] | None = self._inputs[Input.FORECAST]
+        realtime: WeatherData = self._inputs[Input.REALTIME]
+        forecast: Sequence[WeatherData] = self._inputs[Input.FORECAST]
+        indoor_temperature: float = self._inputs[Input.INDOOR_TEMPERATURE]
+        indoor_humidity: float = self._inputs[Input.INDOOR_HUMIDITY]
+        outdoor_temperature: float = self._inputs[Input.OUTDOOR_TEMPERATURE]
+        outdoor_humidity: float = self._inputs[Input.OUTDOOR_HUMIDITY]
 
         if (
-            indoor_temperature is None
+            # NWS realtime data is unreliable, so continue without it
+            forecast is None
+            or indoor_temperature is None
             or indoor_humidity is None
             or outdoor_temperature is None
             or outdoor_humidity is None
-            or realtime is None
-            or forecast is None
         ):
             return False
 
@@ -128,7 +125,7 @@ class ComfortCalculator:
             )
             return is_comfortable, dew_point, simmer_index
 
-        pollen = realtime.pollen or 0
+        pollen = realtime.pollen or 0 if realtime else 0
 
         _, in_dewp, in_si = calc(indoor_temperature, indoor_humidity, 0)
         out_comfort, out_dewp, out_si = calc(outdoor_temperature, outdoor_humidity, pollen)
@@ -161,8 +158,10 @@ class ComfortCalculator:
             ATTR_OUTDOOR_SIMMER_INDEX: out_si,
         }
 
-        if realtime.pollen is not None:
-            self._extra_attributes[ATTR_POLLEN] = pollen
+        if realtime and realtime.pollen is not None:
+            self._extra_attributes[ATTR_POLLEN] = realtime.pollen
+
+        return True
 
         # TODO: create blueprint that uses `next_change_time` if windows can be open "all night"?
         # TODO: blueprint checks `high_simmer_index` if it will be cool tomorrow and conserve heat
@@ -170,5 +169,3 @@ class ComfortCalculator:
         # TODO: create `comfort score` and create sensor for that?
         # TODO: allow 'open' if inside SSI above ??? and outside SSI below simmer_index_min
         # TODO: check if temperature forecast is rising or falling currently
-
-        return True
