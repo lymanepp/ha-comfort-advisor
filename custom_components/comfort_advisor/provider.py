@@ -70,7 +70,9 @@ def async_retry(
             try:
                 return await wrapped(*args, **kwargs)
             except ProviderException as exc:
-                _LOGGER.debug("%r from weather provider: %d retries remaining", exc, retries)
+                _LOGGER.exception(
+                    "%r from weather provider: %d retries remaining", exc, retries, exc_info=exc
+                )
                 if not exc.can_retry or retries <= 0:
                     raise
                 retries -= 1
