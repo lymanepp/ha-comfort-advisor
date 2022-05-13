@@ -87,13 +87,13 @@ class TomorrowioWeatherProvider(Provider):
         return cast(str, PYTOMORROWIO_VERSION)
 
     @staticmethod
-    def _to_weather_data(startTime: str, **kwargs: Any) -> WeatherData:
+    def _to_weather_data(startTime: str, values: Mapping[str, Any]) -> WeatherData:
         return WeatherData(
             date_time=parse_datetime(startTime),
-            temp=kwargs.pop("temperature"),
-            humidity=kwargs.pop("humidity"),
-            wind_speed=kwargs.pop("windSpeed"),
-            pollen=max(kwargs.pop("treeIndex"), kwargs.pop("weedIndex"), kwargs.pop("grassIndex")),
+            temp=float(values["temperature"]),
+            humidity=float(values["humidity"]),
+            wind_speed=float(values["windSpeed"]),
+            pollen=max(values["treeIndex"], values["weedIndex"], values["grassIndex"]),
         )
 
     @_async_exception_handler
@@ -101,13 +101,13 @@ class TomorrowioWeatherProvider(Provider):
         """Retrieve realtime weather from pytomorrowio."""
         realtime = await self._api.realtime(_FIELDS)
         start_time = utcnow().replace(microsecond=0).isoformat()
-        return self._to_weather_data(start_time, **realtime)
+        return self._to_weather_data(start_time, realtime)
 
     @_async_exception_handler
     async def fetch_forecast(self) -> Sequence[WeatherData] | None:
         """Retrieve weather forecast from pytomorrowio."""
         hourly_forecast = await self._api.forecast_hourly(_FIELDS, start_time=utcnow())
         return [
-            self._to_weather_data(interval["startTime"], **interval["values"])
-            for interval in hourly_forecast
+            self._to_weather_data(period["startTime"], period["values"])
+            for period in hourly_forecast
         ]

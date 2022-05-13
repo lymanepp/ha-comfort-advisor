@@ -33,7 +33,6 @@ DEFAULT_POLL_INTERVAL: Final = 30
 
 # can't be dynamic because providers are loaded on first use
 PROVIDER_TYPES: Final[Mapping[str, str]] = {
-    "fake": "Fake!",
     "nws": "National Weather Service",
     "tomorrowio": "Tomorrow.io",
 }

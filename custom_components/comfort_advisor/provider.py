@@ -2,10 +2,11 @@
 from __future__ import annotations
 
 from abc import ABCMeta, abstractmethod
+from dataclasses import dataclass
 from datetime import datetime
 import json
 import logging
-from typing import Any, Mapping, NamedTuple, Sequence
+from typing import Any, Mapping, Sequence
 
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -25,7 +26,8 @@ _LOGGER = logging.getLogger(__name__)
 PROVIDERS: Registry[str, type[Provider]] = Registry()
 
 
-class WeatherData(NamedTuple):
+@dataclass
+class WeatherData:
     """Data format returned by weather provider."""
 
     date_time: datetime

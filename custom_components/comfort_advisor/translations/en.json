@@ -14,7 +14,7 @@
       "choose": {
         "title": "Choose a weather provider"
       },
-      "provider": {
+      "weather": {
         "title": "Configure weather provider",
         "data": {
           "api_key": "API key",

@@ -85,15 +85,17 @@ def _async_test_inputs(
 
 def _create_unique_id(hass: HomeAssistant, inputs_config: ConfigType) -> str:
     ent_reg = entity_registry.async_get(hass)
-    values = [
-        ent_reg.async_get(inputs_config[key]).unique_id
-        for key in (
-            CONF_INDOOR_TEMPERATURE,
-            CONF_INDOOR_HUMIDITY,
-            CONF_OUTDOOR_TEMPERATURE,
-            CONF_OUTDOOR_HUMIDITY,
-        )
-    ]
+    values: list[str] = []
+    for key in (
+        CONF_INDOOR_TEMPERATURE,
+        CONF_INDOOR_HUMIDITY,
+        CONF_OUTDOOR_TEMPERATURE,
+        CONF_OUTDOOR_HUMIDITY,
+    ):
+        entity_id: str = inputs_config[key]
+        entity = ent_reg.async_get(entity_id)
+        values.append(entity.unique_id if entity else entity_id)
+
     return md5(str(values).encode("utf8")).hexdigest()
 
 

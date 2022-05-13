@@ -121,9 +121,13 @@ def get_entity_area(hass: HomeAssistant, entity_id: str) -> str | None:
     """Get the area of an entity (if one is assigned)."""
     ent_reg = entity_registry.async_get(hass)
     entity = ent_reg.async_get(entity_id)
-    if entity.area_id:
-        return cast(str, entity.area_id)
+    if entity:
+        if entity.area_id:
+            return cast(str, entity.area_id)
 
-    dev_reg = device_registry.async_get(hass)
-    device = dev_reg.async_get(entity.device_id)
-    return cast(str, device.area_id)
+        dev_reg = device_registry.async_get(hass)
+        device = dev_reg.async_get(entity.device_id)
+        if device and device.area_id:
+            return cast(str, device.area_id)
+
+    return None

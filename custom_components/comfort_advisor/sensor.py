@@ -90,9 +90,8 @@ class ComfortAdvisorSensor(SensorEntity):  # type: ignore
         """Update the state of the sensor."""
         value = self._device.get_state(self.entity_description.key)
         _LOGGER.debug("async_update called for %s - state(%s)", self.entity_id, str(value))
-        if value is not None:
-            self._attr_native_value = value
-            self._attr_extra_state_attributes = self._device.extra_state_attributes
+        self._attr_native_value = value
+        self._attr_extra_state_attributes = self._device.extra_state_attributes
 
 
 class ComfortAdvisorDeviceClass(StrEnum):  # type: ignore
@@ -108,6 +107,14 @@ SENSOR_DESCRIPTIONS = [
         icon="mdi:window-closed",
     ),
     SensorEntityDescription(
+        key=State.OPEN_WINDOWS_AT,
+        device_class=SensorDeviceClass.TIMESTAMP,
+    ),
+    SensorEntityDescription(
+        key=State.CLOSE_WINDOWS_AT,
+        device_class=SensorDeviceClass.TIMESTAMP,
+    ),
+    SensorEntityDescription(
         key=State.HIGH_SIMMER_INDEX,
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
@@ -116,9 +123,5 @@ SENSOR_DESCRIPTIONS = [
         key=State.LOW_SIMMER_INDEX,
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
-    ),
-    SensorEntityDescription(
-        key=State.NEXT_CHANGE,
-        device_class=SensorDeviceClass.TIMESTAMP,
     ),
 ]

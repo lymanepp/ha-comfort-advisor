@@ -58,9 +58,6 @@ def build_weather_schema(hass: HomeAssistant, weather_config: Mapping[str, Any])
             {vol.Required(CONF_PROVIDER): vol.In(PROVIDER_TYPES)},
         )
 
-    if provider_type == "fake":
-        return vol.Schema({})
-
     default_location = {CONF_LATITUDE: hass.config.latitude, CONF_LONGITUDE: hass.config.longitude}
 
     api_key: str = weather_config.get(CONF_API_KEY, vol.UNDEFINED)
@@ -168,7 +165,6 @@ _API_KEY_AND_LOCATION = {
 _WEATHER_SCHEMA = cv.key_value_schemas(
     CONF_PROVIDER,
     {
-        "fake": vol.Schema({vol.Required(CONF_PROVIDER): "fake"}),
         "nws": vol.Schema({vol.Required(CONF_PROVIDER): "nws", **_API_KEY_AND_LOCATION}),
         "tomorrowio": vol.Schema(
             {vol.Required(CONF_PROVIDER): "tomorrowio", **_API_KEY_AND_LOCATION}

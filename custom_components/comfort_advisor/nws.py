@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 import sys
-from typing import Any, Callable, Coroutine, Final, Mapping, Sequence, TypeVar, cast
+from typing import Any, Callable, Coroutine, Final, Mapping, Sequence, SupportsFloat, TypeVar, cast
 
 from aiohttp import ClientError
 from homeassistant.const import (
@@ -85,21 +85,24 @@ class NwsWeatherProvider(Provider):
         """Return dependency version."""
         return cast(str, PYNWS_VERSION)
 
-    def _to_weather_data(self, **kwargs: Any) -> WeatherData | None:
-        start_time: str = kwargs.pop(Detail.START_TIME)
-        temperature: float | None = kwargs.pop(Detail.TEMPERATURE, None)
-        humidity: float | None = kwargs.pop(Detail.RELATIVE_HUMIDITY, None)
-        wind_speed: float | None = kwargs.pop(Detail.WIND_SPEED, None)
-        if temperature is None or humidity is None or wind_speed is None:
-            return None
+    def _to_weather_data(self, values: Mapping[str, Any]) -> WeatherData:
+        temp = values.get(Detail.TEMPERATURE)
+        humidity = values.get(Detail.RELATIVE_HUMIDITY)
+        wind_speed = values.get(Detail.WIND_SPEED)
 
-        return WeatherData(
-            date_time=parse_datetime(start_time),
-            temp=convert_temp(temperature, TEMP_CELSIUS, self._temp_unit),
-            humidity=humidity,
-            wind_speed=convert_speed(wind_speed, SPEED_KILOMETERS_PER_HOUR, self._speed_unit),
-            pollen=None,
-        )
+        if not (  # NWS observation data is unreliable
+            isinstance(temp, SupportsFloat)
+            and isinstance(humidity, SupportsFloat)
+            and isinstance(wind_speed, SupportsFloat)
+        ):
+            return None  # type: ignore
+
+        start_time = parse_datetime(values[Detail.START_TIME])
+        temp = convert_temp(float(temp), TEMP_CELSIUS, self._temp_unit)
+        humidity = float(humidity)
+        wind_speed = convert_speed(float(wind_speed), SPEED_KILOMETERS_PER_HOUR, self._speed_unit)
+
+        return WeatherData(start_time, temp, humidity, wind_speed, pollen=None)
 
     @_async_exception_handler
     async def fetch_realtime(self) -> WeatherData | None:
@@ -107,8 +110,9 @@ class NwsWeatherProvider(Provider):
         if not self._api.station:
             await self._api.set_station()
         await self._api.update_observation(limit=1)
-        obs = self._api.observation
-        return self._to_weather_data(startTime=utcnow().replace(microsecond=0).isoformat(), **obs)
+        observation = self._api.observation
+        observation[Detail.START_TIME] = utcnow().replace(microsecond=0).isoformat()
+        return self._to_weather_data(observation)
 
     @_async_exception_handler
     async def fetch_forecast(self) -> Sequence[WeatherData] | None:
@@ -118,9 +122,4 @@ class NwsWeatherProvider(Provider):
         await self._api.update_detailed_forecast()
         forecast = self._api.detailed_forecast
         hourly_forecast = forecast.get_details_by_hour(start_time=utcnow(), hours=168)
-        results = []
-        for interval in hourly_forecast:
-            result = self._to_weather_data(**interval)
-            assert result is not None
-            results.append(result)
-        return results
+        return [self._to_weather_data(period) for period in hourly_forecast]

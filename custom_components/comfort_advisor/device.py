@@ -100,7 +100,7 @@ class ComfortAdvisorDevice:
         )
 
         for entity_id in self._entity_id_map:
-            if (state := self.hass.states.get(entity_id)) is not None:
+            if state := self.hass.states.get(entity_id):
                 self._update_input_from_state(state)
 
         config_entry.async_on_unload(
@@ -141,13 +141,11 @@ class ComfortAdvisorDevice:
 
     def _realtime_updated(self) -> None:
         self._comfort.update_input(Input.REALTIME, self._provider.realtime_service.data)
-        if self._first_time:
-            self.hass.async_create_task(self._async_update())
+        self._update_if_first_time()
 
     def _forecast_updated(self) -> None:
         self._comfort.update_input(Input.FORECAST, self._provider.forecast_service.data)
-        if self._first_time:
-            self.hass.async_create_task(self._async_update())
+        self._update_if_first_time()
 
     async def _input_event_handler(self, event: Event) -> None:
         state: State = event.data.get("new_state")
@@ -177,9 +175,7 @@ class ComfortAdvisorDevice:
 
         input_key = self._entity_id_map[state.entity_id]
         self._comfort.update_input(input_key, value)
-
-        if self._first_time:
-            self.hass.async_create_task(self._async_update())
+        self._update_if_first_time()
         return True
 
     @staticmethod
@@ -193,6 +189,10 @@ class ComfortAdvisorDevice:
     # `async_track_time_interval` adds a `now` arg that must be stripped
     async def _async_update_scheduled(self, now: datetime) -> None:
         await self._async_update()
+
+    def _update_if_first_time(self) -> None:
+        if self._first_time:
+            self.hass.async_create_task(self._async_update())
 
     async def _async_update(self, force_refresh: bool = True) -> None:
         _LOGGER.debug(
