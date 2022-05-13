@@ -1,14 +1,11 @@
 """Helper functions."""
 from __future__ import annotations
 
-import asyncio
 import importlib
 import logging
-import sys
 from types import ModuleType
-from typing import Any, Callable, Coroutine, Iterable, Sequence, TypeVar, cast
+from typing import Iterable, Sequence, cast
 
-from aiohttp.web_exceptions import HTTPServerError
 from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.const import ATTR_DEVICE_CLASS, ATTR_UNIT_OF_MEASUREMENT, Platform
 from homeassistant.core import HomeAssistant, State
@@ -19,15 +16,7 @@ from yarl import URL
 
 from .const import DOMAIN
 
-if sys.version_info >= (3, 10):
-    from typing import ParamSpec
-else:
-    from typing_extensions import ParamSpec
-
 _LOGGER = logging.getLogger(__name__)
-
-_ParamT = ParamSpec("_ParamT")
-_ResultT = TypeVar("_ResultT")
 
 EXCLUDED_PLATFORMS = (DOMAIN, "thermal_comfort")
 
@@ -93,28 +82,6 @@ async def create_issue_tracker_url(hass: HomeAssistant, exc: Exception, *, title
         body += f"\n**Message:** {msg}"
     url = url.with_query({"title": title, "body": body})
     return str(url)
-
-
-def async_retry(
-    wrapped: Callable[_ParamT, Coroutine[Any, Any, _ResultT]]
-) -> Callable[_ParamT, Coroutine[Any, Any, _ResultT]]:
-    """`HTTPServerError` retry handler."""
-
-    async def wrapper(*args: _ParamT.args, **kwargs: _ParamT.kwargs) -> _ResultT:
-        retries = 5
-        while True:
-            try:
-                return await wrapped(*args, **kwargs)
-            except HTTPServerError:
-                retries -= 1
-                if retries == 0:
-                    raise
-            except Exception as exc:
-                _LOGGER.exception("%s from pynws", type(exc), exc_info=exc)
-                raise
-            await asyncio.sleep(1)
-
-    return wrapper
 
 
 def get_entity_area(hass: HomeAssistant, entity_id: str) -> str | None:

@@ -1,6 +1,7 @@
 """Tomorrow.io data provider."""
 from __future__ import annotations
 
+from functools import wraps
 import logging
 import sys
 from typing import Any, Callable, Coroutine, Final, Mapping, Sequence, TypeVar, cast
@@ -17,7 +18,7 @@ from pytomorrowio.exceptions import (
     RateLimitedException,
 )
 
-from .provider import PROVIDERS, Provider, ProviderError, WeatherData
+from .provider import PROVIDERS, Provider, ProviderException, WeatherData, async_retry
 
 if sys.version_info >= (3, 10):
     from typing import ParamSpec
@@ -32,27 +33,28 @@ DESCRIPTION: Final = "To get an API key, sign up at [Tomorrow.io](https://app.to
 
 _FIELDS = ["temperature", "humidity", "windSpeed", "treeIndex", "weedIndex", "grassIndex"]
 
-_ParamT = ParamSpec("_ParamT")
-_ResultT = TypeVar("_ResultT")
+_P = ParamSpec("_P")
+_T = TypeVar("_T")
 
 
-def _async_exception_handler(
-    wrapped: Callable[_ParamT, Coroutine[Any, Any, _ResultT]]
-) -> Callable[_ParamT, Coroutine[Any, Any, _ResultT]]:
+def async_handle_exceptions(
+    wrapped: Callable[_P, Coroutine[Any, Any, _T]]
+) -> Callable[_P, Coroutine[Any, Any, _T]]:
     """`pytomorrowio` exception handler."""
 
-    async def wrapper(*args: _ParamT.args, **kwargs: _ParamT.kwargs) -> _ResultT:
+    @wraps(wrapped)
+    async def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _T:
         try:
             return await wrapped(*args, **kwargs)
         except InvalidAPIKeyException as exc:
-            raise ProviderError("invalid_api_key") from exc
+            raise ProviderException("invalid_api_key") from exc
         except RateLimitedException as exc:
-            raise ProviderError("rate_limited") from exc
+            raise ProviderException("rate_limited") from exc
         except CantConnectException as exc:
-            raise ProviderError("cannot_connect") from exc
+            raise ProviderException("cannot_connect", can_retry=True) from exc
         except Exception as exc:  # pylint: disable=broad-except
-            _LOGGER.exception("%s from pytomorrowio", type(exc), exc_info=exc)
-            raise ProviderError("unknown") from exc
+            _LOGGER.exception("%r from pytomorrowio", exc, exc_info=exc)
+            raise ProviderException("unknown", can_retry=True) from exc
 
     return wrapper
 
@@ -96,14 +98,16 @@ class TomorrowioWeatherProvider(Provider):
             pollen=max(values["treeIndex"], values["weedIndex"], values["grassIndex"]),
         )
 
-    @_async_exception_handler
+    @async_retry
+    @async_handle_exceptions
     async def fetch_realtime(self) -> WeatherData | None:
         """Retrieve realtime weather from pytomorrowio."""
         realtime = await self._api.realtime(_FIELDS)
         start_time = utcnow().replace(microsecond=0).isoformat()
         return self._to_weather_data(start_time, realtime)
 
-    @_async_exception_handler
+    @async_retry
+    @async_handle_exceptions
     async def fetch_forecast(self) -> Sequence[WeatherData] | None:
         """Retrieve weather forecast from pytomorrowio."""
         hourly_forecast = await self._api.forecast_hourly(_FIELDS, start_time=utcnow())

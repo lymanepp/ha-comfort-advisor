@@ -33,7 +33,7 @@ from .const import (
     PROVIDER_TYPES,
 )
 from .helpers import create_issue_tracker_url, load_module
-from .provider import PROVIDERS, ProviderError
+from .provider import PROVIDERS, ProviderException
 from .schemas import (
     DATA_SCHEMA,
     build_comfort_schema,
@@ -54,7 +54,7 @@ async def _async_test_weather(
     try:
         await provider.fetch_realtime()
         return True
-    except ProviderError as exc:
+    except ProviderException as exc:
         errors["base"] = exc.error_key
         return False
 

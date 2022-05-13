@@ -2,11 +2,14 @@
 from __future__ import annotations
 
 from abc import ABCMeta, abstractmethod
+import asyncio
 from dataclasses import dataclass
 from datetime import datetime
+from functools import wraps
 import json
 import logging
-from typing import Any, Mapping, Sequence
+import sys
+from typing import Any, Callable, Coroutine, Mapping, Sequence, TypeVar
 
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -20,6 +23,14 @@ from .const import (
     SCAN_INTERVAL_REALTIME,
 )
 from .helpers import load_module
+
+if sys.version_info >= (3, 10):
+    from typing import ParamSpec
+else:
+    from typing_extensions import ParamSpec
+
+_P = ParamSpec("_P")
+_T = TypeVar("_T")
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -37,14 +48,35 @@ class WeatherData:
     pollen: int | None
 
 
-class ProviderError(UpdateFailed):  # type:ignore
+class ProviderException(UpdateFailed):  # type:ignore
     """Weather provider error."""
 
-    def __init__(self, error_key: str, extra_info: str | None = None) -> None:
+    def __init__(self, error_key: str, can_retry: bool = False) -> None:
         """Initialize weather provider error."""
         super().__init__()
         self.error_key = error_key
-        self.extra_info = extra_info
+        self.can_retry = can_retry
+
+
+def async_retry(
+    wrapped: Callable[_P, Coroutine[Any, Any, _T]]
+) -> Callable[_P, Coroutine[Any, Any, _T]]:
+    """`ProviderError` retry handler."""
+
+    @wraps(wrapped)
+    async def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _T:
+        retries = 5
+        while True:
+            try:
+                return await wrapped(*args, **kwargs)
+            except ProviderException as exc:
+                _LOGGER.debug("%r from weather provider: %d retries remaining", exc, retries)
+                if not exc.can_retry or retries <= 0:
+                    raise
+                retries -= 1
+            await asyncio.sleep(1)
+
+    return wrapper
 
 
 class Provider(metaclass=ABCMeta):
@@ -126,7 +158,7 @@ async def async_get_provider(hass: HomeAssistant, config: Mapping[str, Any]) -> 
         await load_module(hass, provider_type)
     except ImportError as exc:
         _LOGGER.error("Unable to load provider: %s, %s", provider_type, exc)
-        raise ProviderError("import_error") from exc
+        raise ProviderException("import_error") from exc
 
     # TODO: might need to move providers into their own folders with __init__.py only
     #       containing `REQUIREMENTS` and human-readble name. Could then auto-detect

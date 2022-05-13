@@ -1,9 +1,9 @@
 """TODO."""
 from __future__ import annotations
 
-from itertools import dropwhile
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from itertools import dropwhile
 import logging
 from typing import Any, Iterable, Mapping, Sequence
 
@@ -56,6 +56,7 @@ class ComfortData(WeatherData):
 
     @classmethod
     def from_weather_data(cls, other: WeatherData, temp_unit: str) -> ComfortData:
+        """Create `ComfortData` from `WeatherData`."""
         return cls(
             date_time=other.date_time,
             temp=other.temp,

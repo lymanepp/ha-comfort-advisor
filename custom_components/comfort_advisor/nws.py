@@ -1,6 +1,7 @@
 """This is a work in progress until HA bumps pynws to 1.4.1+."""
 from __future__ import annotations
 
+from functools import wraps
 import logging
 import sys
 from typing import Any, Callable, Coroutine, Final, Mapping, Sequence, SupportsFloat, TypeVar, cast
@@ -23,7 +24,7 @@ from pynws import SimpleNWS
 from pynws import version as PYNWS_VERSION
 from pynws.const import Detail
 
-from .provider import PROVIDERS, Provider, ProviderError, WeatherData
+from .provider import PROVIDERS, Provider, ProviderException, WeatherData, async_retry
 
 if sys.version_info >= (3, 10):
     from typing import ParamSpec
@@ -36,24 +37,25 @@ _LOGGER = logging.getLogger(__name__)
 REQUIREMENTS: Final = ["pynws>=1.4.1"]
 DESCRIPTION: Final = "For now, an API Key can be anything. It is recommended to use a valid email address.\n\nThe National Weather Service does not provide pollen data."
 
-_ParamT = ParamSpec("_ParamT")
-_ResultT = TypeVar("_ResultT")
+_P = ParamSpec("_P")
+_T = TypeVar("_T")
 
 
-def _async_exception_handler(
-    wrapped: Callable[_ParamT, Coroutine[Any, Any, _ResultT]]
-) -> Callable[_ParamT, Coroutine[Any, Any, _ResultT]]:
+def async_handle_exceptions(
+    wrapped: Callable[_P, Coroutine[Any, Any, _T]]
+) -> Callable[_P, Coroutine[Any, Any, _T]]:
     """`pynws` exception handler."""
 
-    async def wrapper(*args: _ParamT.args, **kwargs: _ParamT.kwargs) -> _ResultT:
+    @wraps(wrapped)
+    async def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _T:
         try:
             return await wrapped(*args, **kwargs)
         except ClientError as exc:
-            _LOGGER.exception("%s from pynws", type(exc), exc_info=exc)
-            raise ProviderError("cannot_connect") from exc
+            _LOGGER.exception("%r from pynws", exc, exc_info=exc)
+            raise ProviderException("cannot_connect", can_retry=True) from exc
         except Exception as exc:  # pylint: disable=broad-except
-            _LOGGER.exception("%s from pynws", type(exc), exc_info=exc)
-            raise ProviderError("unknown") from exc
+            _LOGGER.exception("%r from pynws", exc, exc_info=exc)
+            raise ProviderException("unknown", can_retry=True) from exc
 
     return wrapper
 
@@ -104,7 +106,8 @@ class NwsWeatherProvider(Provider):
 
         return WeatherData(start_time, temp, humidity, wind_speed, pollen=None)
 
-    @_async_exception_handler
+    @async_retry
+    @async_handle_exceptions
     async def fetch_realtime(self) -> WeatherData | None:
         """Retrieve realtime weather from pynws."""
         if not self._api.station:
@@ -114,7 +117,8 @@ class NwsWeatherProvider(Provider):
         observation[Detail.START_TIME] = utcnow().replace(microsecond=0).isoformat()
         return self._to_weather_data(observation)
 
-    @_async_exception_handler
+    @async_retry
+    @async_handle_exceptions
     async def fetch_forecast(self) -> Sequence[WeatherData] | None:
         """Retrieve weather forecast from pynws."""
         if not self._api.station:
