@@ -13,9 +13,9 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 import voluptuous as vol
 
-from .const import DOMAIN
+from .const import CONF_WEATHER, DOMAIN
 from .device import ComfortAdvisorDevice
-from .provider import async_get_provider
+from .provider import async_create_weather_provider
 from .schemas import DATA_SCHEMA
 
 _LOGGER = logging.getLogger(__name__)
@@ -38,7 +38,8 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
         _LOGGER.error("Invalid configuration: %s", exc)
         return False
 
-    if not (provider := await async_get_provider(hass, config)):
+    # TODO: move into ComfortAdvisorDevice.__init__
+    if not (provider := await async_create_weather_provider(hass, config[CONF_WEATHER])):
         return False
 
     device = ComfortAdvisorDevice(hass, config_entry, provider)

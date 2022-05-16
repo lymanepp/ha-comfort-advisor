@@ -4,7 +4,7 @@ from __future__ import annotations
 from functools import wraps
 import logging
 import sys
-from typing import Any, Callable, Coroutine, Final, Mapping, Sequence, TypeVar, cast
+from typing import Any, Callable, Coroutine, Mapping, Sequence, TypeVar, cast
 
 from homeassistant.const import CONF_API_KEY, CONF_LOCATION
 from homeassistant.core import HomeAssistant
@@ -16,6 +16,7 @@ from pytomorrowio.exceptions import (
     CantConnectException,
     InvalidAPIKeyException,
     RateLimitedException,
+    TomorrowioException,
 )
 
 from .provider import PROVIDERS, Provider, ProviderException, WeatherData, async_retry
@@ -27,9 +28,6 @@ else:
 
 
 _LOGGER = logging.getLogger(__name__)
-
-REQUIREMENTS: Final = ["pytomorrowio>=0.3.1"]
-DESCRIPTION: Final = "To get an API key, sign up at [Tomorrow.io](https://app.tomorrow.io/signup)."
 
 _FIELDS = ["temperature", "humidity", "windSpeed", "treeIndex", "weedIndex", "grassIndex"]
 
@@ -52,9 +50,8 @@ def async_handle_exceptions(
             raise ProviderException("rate_limited") from exc
         except CantConnectException as exc:
             raise ProviderException("cannot_connect", can_retry=True) from exc
-        except Exception as exc:  # pylint: disable=broad-except
-            _LOGGER.exception("%r from pytomorrowio", exc, exc_info=exc)
-            raise ProviderException("unknown", can_retry=True) from exc
+        except TomorrowioException as exc:
+            raise ProviderException("api_error", can_retry=True) from exc
 
     return wrapper
 

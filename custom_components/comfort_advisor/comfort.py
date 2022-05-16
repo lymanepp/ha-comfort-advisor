@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from itertools import dropwhile
+from itertools import dropwhile, takewhile
 import logging
 from typing import Any, Iterable, Mapping, Sequence
 
@@ -94,6 +94,7 @@ class ComfortCalculator:
         self._simmer_index_max = convert_temp(
             config[CONF_SIMMER_INDEX_MAX], config_temp_unit, hass_temp_unit
         )
+
         self._humidity_max: float = config[CONF_HUMIDITY_MAX]
         self._pollen_max: int = config[CONF_POLLEN_MAX]
         self._temp_unit = hass_temp_unit
@@ -128,10 +129,6 @@ class ComfortCalculator:
 
     def refresh_state(self) -> bool:
         """Refresh the calculated state."""
-        _LOGGER.debug(
-            "refresh_state called. Inputs=%s", {k: v is not None for k, v in self._inputs.items()}
-        )
-
         if not self._have_changes:
             return False
         self._have_changes = False
@@ -145,6 +142,19 @@ class ComfortCalculator:
         in_humidity: float = self._inputs[Input.INDOOR_HUMIDITY]
         out_temp: float = self._inputs[Input.OUTDOOR_TEMPERATURE]
         out_humidity: float = self._inputs[Input.OUTDOOR_HUMIDITY]
+
+        in_dewp = compute_dew_point(in_temp, in_humidity, self._temp_unit)
+        in_si = compute_simmer_index(in_temp, in_humidity, self._temp_unit)
+        out_dewp = compute_dew_point(out_temp, out_humidity, self._temp_unit)
+        out_si = compute_simmer_index(out_temp, out_humidity, self._temp_unit)
+
+        start_time = utcnow()
+        future_data = list(dropwhile(lambda x: x.date_time <= start_time, forecast))
+        end_time = start_time + timedelta(days=1)
+        next_24 = list(takewhile(lambda x: x.date_time <= end_time, future_data))
+
+        low_simmer_index = min(x.simmer_index for x in next_24) if next_24 else None
+        high_simmer_index = max(x.simmer_index for x in next_24) if next_24 else None
 
         def is_comfortable(
             humidity: float, dew_point: float, simmer_index: float, pollen: int
@@ -162,22 +172,7 @@ class ComfortCalculator:
                 and pollen <= self._pollen_max
             )
 
-        in_dewp = compute_dew_point(in_temp, in_humidity, self._temp_unit)
-        in_si = compute_simmer_index(in_temp, in_humidity, self._temp_unit)
-
-        out_dewp = compute_dew_point(out_temp, out_humidity, self._temp_unit)
-        out_si = compute_simmer_index(out_temp, out_humidity, self._temp_unit)
-        out_pollen = realtime.pollen or 0 if realtime else 0
-        comfortable_now = is_comfortable(out_humidity, out_dewp, out_si, out_pollen)
-
-        start_time = utcnow()
-        end_time = start_time + timedelta(days=1)
-
-        future_data = list(filter(lambda x: x.date_time >= start_time, forecast))
-
-        next_24 = list(filter(lambda x: x.date_time <= end_time, future_data))
-        low_simmer_index = min(x.simmer_index for x in next_24) if next_24 else None
-        high_simmer_index = max(x.simmer_index for x in next_24) if next_24 else None
+        comfortable_now = is_comfortable(out_humidity, out_dewp, out_si, realtime.pollen or 0)
 
         for period in next_24:
             period.comfortable = is_comfortable(
@@ -193,13 +188,6 @@ class ComfortCalculator:
             uncomfortable_now = not comfortable_now
             if change := list(dropwhile(lambda x: x.comfortable == uncomfortable_now, change)):
                 second_time = change[0].date_time
-
-        _LOGGER.debug(
-            "comfortable_now=%s, first_time=%s, second_time=%s",
-            comfortable_now,
-            first_time,
-            second_time,
-        )
 
         self._state[State.CAN_OPEN_WINDOWS] = comfortable_now
         self._state[State.LOW_SIMMER_INDEX] = low_simmer_index

@@ -1,6 +1,6 @@
 """General comfort_advisor constants."""
 from datetime import timedelta
-from typing import Final, Mapping
+from typing import Final
 
 DOMAIN: Final = "comfort_advisor"
 
@@ -30,9 +30,3 @@ DEFAULT_POLLEN_MAX: Final = 2
 DEFAULT_SIMMER_INDEX_MAX: Final = 85
 DEFAULT_SIMMER_INDEX_MIN: Final = 70
 DEFAULT_POLL_INTERVAL: Final = 30
-
-# can't be dynamic because providers are loaded on first use
-PROVIDER_TYPES: Final[Mapping[str, str]] = {
-    "nws": "National Weather Service",
-    "tomorrowio": "Tomorrow.io",
-}

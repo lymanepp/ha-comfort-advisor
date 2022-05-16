@@ -4,9 +4,9 @@ from __future__ import annotations
 from functools import wraps
 import logging
 import sys
-from typing import Any, Callable, Coroutine, Final, Mapping, Sequence, SupportsFloat, TypeVar, cast
+from typing import Any, Callable, Coroutine, Mapping, Sequence, SupportsFloat, TypeVar, cast
 
-from aiohttp import ClientError
+from aiohttp import ClientError, ClientResponseError
 from homeassistant.const import (
     CONF_API_KEY,
     CONF_LATITUDE,
@@ -34,9 +34,6 @@ else:
 
 _LOGGER = logging.getLogger(__name__)
 
-REQUIREMENTS: Final = ["pynws>=1.4.1"]
-DESCRIPTION: Final = "For now, an API Key can be anything. It is recommended to use a valid email address.\n\nThe National Weather Service does not provide pollen data."
-
 _P = ParamSpec("_P")
 _T = TypeVar("_T")
 
@@ -50,12 +47,10 @@ def async_handle_exceptions(
     async def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _T:
         try:
             return await wrapped(*args, **kwargs)
+        except ClientResponseError as exc:
+            raise ProviderException("api_error", can_retry=exc.status >= 500) from exc
         except ClientError as exc:
-            _LOGGER.exception("%r from pynws", exc, exc_info=exc)
             raise ProviderException("cannot_connect", can_retry=True) from exc
-        except Exception as exc:  # pylint: disable=broad-except
-            _LOGGER.exception("%r from pynws", exc, exc_info=exc)
-            raise ProviderException("unknown", can_retry=True) from exc
 
     return wrapper
 
@@ -97,7 +92,7 @@ class NwsWeatherProvider(Provider):
             and isinstance(humidity, SupportsFloat)
             and isinstance(wind_speed, SupportsFloat)
         ):
-            return None  # type: ignore
+            raise ProviderException("api_error")
 
         start_time = parse_datetime(values[Detail.START_TIME])
         temp = convert_temp(float(temp), TEMP_CELSIUS, self._temp_unit)

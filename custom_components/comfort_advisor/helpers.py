@@ -1,9 +1,6 @@
 """Helper functions."""
 from __future__ import annotations
 
-import importlib
-import logging
-from types import ModuleType
 from typing import Iterable, Sequence, cast
 
 from homeassistant.components.sensor import SensorDeviceClass
@@ -11,12 +8,9 @@ from homeassistant.const import ATTR_DEVICE_CLASS, ATTR_UNIT_OF_MEASUREMENT, Pla
 from homeassistant.core import HomeAssistant, State
 from homeassistant.helpers import device_registry, entity_registry
 from homeassistant.loader import Integration, async_get_custom_components
-from homeassistant.requirements import RequirementsNotFound, async_process_requirements
 from yarl import URL
 
 from .const import DOMAIN
-
-_LOGGER = logging.getLogger(__name__)
 
 EXCLUDED_PLATFORMS = (DOMAIN, "thermal_comfort")
 
@@ -43,33 +37,6 @@ def get_sensor_entities(
     ent_reg = entity_registry.async_get(hass)
     all_states = hass.states.async_all()
     return [state.entity_id for state in filter(include_sensors, all_states)]
-
-
-async def load_module(hass: HomeAssistant, name: str) -> ModuleType:
-    """Load a Python module."""
-
-    try:
-        module = importlib.import_module(f"{__package__}.{name}")
-    except ImportError as exc:
-        _LOGGER.error("Unable to load module %s: %s", name, exc)
-        raise
-
-    if hass.config.skip_pip or not hasattr(module, "REQUIREMENTS"):
-        return module
-
-    processed = hass.data.setdefault(DOMAIN, {}).setdefault("reqs_processed", set())
-    if name in processed:
-        return module
-
-    reqs = module.REQUIREMENTS
-    try:
-        await async_process_requirements(hass, f"module {name}", reqs)
-    except RequirementsNotFound as exc:
-        _LOGGER.error("Unable to satisfy requirements %s: %s", name, exc)
-        raise
-
-    processed.add(name)
-    return module
 
 
 async def create_issue_tracker_url(hass: HomeAssistant, exc: Exception, *, title: str) -> str:

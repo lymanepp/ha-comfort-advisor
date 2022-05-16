@@ -42,9 +42,9 @@ from .const import (
     DEFAULT_POLLEN_MAX,
     DEFAULT_SIMMER_INDEX_MAX,
     DEFAULT_SIMMER_INDEX_MIN,
-    PROVIDER_TYPES,
 )
 from .helpers import get_sensor_entities
+from .provider import PROVIDER_META
 
 ALL_SENSOR_TYPES = [str(x) for x in State]  # type:ignore
 
@@ -54,8 +54,9 @@ def build_weather_schema(hass: HomeAssistant, weather_config: Mapping[str, Any])
     provider_type: str = weather_config.get(CONF_PROVIDER, vol.UNDEFINED)
 
     if provider_type == vol.UNDEFINED:
+        provider_types = {k: v["NAME"] for k, v in PROVIDER_META.items()}
         return vol.Schema(
-            {vol.Required(CONF_PROVIDER): vol.In(PROVIDER_TYPES)},
+            {vol.Required(CONF_PROVIDER): vol.In(provider_types)},
         )
 
     default_location = {CONF_LATITUDE: hass.config.latitude, CONF_LONGITUDE: hass.config.longitude}

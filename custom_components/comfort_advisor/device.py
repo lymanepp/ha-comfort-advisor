@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import contextlib
 from datetime import datetime, timedelta
-import logging
 import math
 from typing import Any, Mapping, cast
 
@@ -33,8 +32,6 @@ from .const import (
 )
 from .helpers import get_entity_area
 from .provider import Provider
-
-_LOGGER = logging.getLogger(__name__)
 
 
 class ComfortAdvisorDevice:
@@ -149,21 +146,9 @@ class ComfortAdvisorDevice:
 
     async def _input_event_handler(self, event: Event) -> None:
         state: State = event.data.get("new_state")
-        _LOGGER.debug(
-            "_event_handler called for %s - entity(%s) - state(%s)",
-            self.device_info["name"],
-            state.entity_id if state else None,
-            state.state if state else None,
-        )
         self._update_input_from_state(state)
 
     def _update_input_from_state(self, state: State) -> bool:
-        _LOGGER.debug(
-            "_update_with_state called for %s - entity(%s) - state(%s)",
-            self.device_info["name"],
-            state.entity_id if state else None,
-            state.state if state else None,
-        )
         if not (value := self._get_state_value(state)):
             return False
 
@@ -195,11 +180,6 @@ class ComfortAdvisorDevice:
             self.hass.async_create_task(self._async_update())
 
     async def _async_update(self, force_refresh: bool = True) -> None:
-        _LOGGER.debug(
-            "_async_update called for %s force_refresh=%s",
-            self.device_info["name"],
-            str(force_refresh),
-        )
         if self._comfort.refresh_state():
             self._first_time = False
             self._extra_state_attributes.update(self._comfort.extra_attributes)
