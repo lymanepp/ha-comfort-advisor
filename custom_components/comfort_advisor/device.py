@@ -137,20 +137,22 @@ class ComfortAdvisorDevice:
         self.device_info["sw_version"] = custom_components[DOMAIN].version.string
 
     def _realtime_updated(self) -> None:
-        self._comfort.update_input(Input.REALTIME, self._provider.realtime_service.data)
-        self._update_if_first_time()
+        if self._provider.realtime_service.data:
+            self._comfort.update_input(Input.REALTIME, self._provider.realtime_service.data)
+            self._update_if_first_time()
 
     def _forecast_updated(self) -> None:
-        self._comfort.update_input(Input.FORECAST, self._provider.forecast_service.data)
-        self._update_if_first_time()
+        if self._provider.forecast_service.data:
+            self._comfort.update_input(Input.FORECAST, self._provider.forecast_service.data)
+            self._update_if_first_time()
 
     async def _input_event_handler(self, event: Event) -> None:
         state: State = event.data.get("new_state")
         self._update_input_from_state(state)
 
-    def _update_input_from_state(self, state: State) -> bool:
-        if not (value := self._get_state_value(state)):
-            return False
+    def _update_input_from_state(self, state: State) -> None:
+        if (value := self._get_state_value(state)) is None:
+            return
 
         device_class: str = state.attributes.get(ATTR_DEVICE_CLASS)
         if device_class == SensorDeviceClass.TEMPERATURE:
@@ -161,7 +163,6 @@ class ComfortAdvisorDevice:
         input_key = self._entity_id_map[state.entity_id]
         self._comfort.update_input(input_key, value)
         self._update_if_first_time()
-        return True
 
     @staticmethod
     def _get_state_value(state: State) -> float | None:
