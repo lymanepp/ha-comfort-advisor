@@ -1,6 +1,6 @@
 {
   "name": "Comfort Advisor",
-  "home-assistant": "2022.4.0",
+  "homeassistant": "2022.5.0",
   "render_readme": true,
   "filename": "comfort_advisor.zip"
 }
