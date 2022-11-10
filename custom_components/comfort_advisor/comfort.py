@@ -10,7 +10,7 @@ from typing import Any, Iterable, Mapping, Sequence
 from homeassistant.backports.enum import StrEnum
 from homeassistant.const import CONF_TEMPERATURE_UNIT
 from homeassistant.util.dt import utcnow
-from homeassistant.util.temperature import convert as convert_temp
+from homeassistant.util.unit_conversion import TemperatureConverter as TC
 
 from .const import (
     CONF_DEW_POINT_MAX,
@@ -85,13 +85,13 @@ class ComfortCalculator:
         # The temperature unit is stored with configuration just in case the unit
         # system is changed later. Convert units to the current unit system.
         config_temp_unit = config[CONF_TEMPERATURE_UNIT]
-        self._dew_point_max = convert_temp(
+        self._dew_point_max = TC.convert(
             config[CONF_DEW_POINT_MAX], config_temp_unit, hass_temp_unit
         )
-        self._simmer_index_min = convert_temp(
+        self._simmer_index_min = TC.convert(
             config[CONF_SIMMER_INDEX_MIN], config_temp_unit, hass_temp_unit
         )
-        self._simmer_index_max = convert_temp(
+        self._simmer_index_max = TC.convert(
             config[CONF_SIMMER_INDEX_MAX], config_temp_unit, hass_temp_unit
         )
 

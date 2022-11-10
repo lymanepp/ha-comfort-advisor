@@ -10,6 +10,7 @@ from homeassistant.const import CONF_API_KEY, CONF_LOCATION
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.util.dt import parse_datetime, utcnow
+from homeassistant.util.unit_system import METRIC_SYSTEM
 from pytomorrowio import TomorrowioV4
 from pytomorrowio import __version__ as PYTOMORROWIO_VERSION
 from pytomorrowio.exceptions import (
@@ -65,7 +66,7 @@ class TomorrowioWeatherProvider(Provider):
         super().__init__(hass)
 
         location = config[CONF_LOCATION]
-        unit_system = "metric" if hass.config.units.is_metric else "imperial"
+        unit_system = "metric" if hass.config.units is METRIC_SYSTEM else "imperial"
 
         self._api = TomorrowioV4(
             apikey=config[CONF_API_KEY],

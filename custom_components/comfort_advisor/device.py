@@ -19,7 +19,7 @@ from homeassistant.helpers.device_registry import DeviceEntryType
 from homeassistant.helpers.entity import DeviceInfo, Entity
 from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
 from homeassistant.loader import async_get_custom_components
-from homeassistant.util.temperature import convert as convert_temp
+from homeassistant.util.unit_conversion import TemperatureConverter as TC
 
 from .comfort import ComfortCalculator, Input
 from .const import (
@@ -158,7 +158,7 @@ class ComfortAdvisorDevice:
         if device_class == SensorDeviceClass.TEMPERATURE:
             unit: str = state.attributes.get(ATTR_UNIT_OF_MEASUREMENT)
             if unit and unit != self._temp_unit:
-                value = convert_temp(value, unit, self._temp_unit)
+                value = TC.convert(value, unit, self._temp_unit)
 
         input_key = self._entity_id_map[state.entity_id]
         self._comfort.update_input(input_key, value)

@@ -19,7 +19,8 @@ import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.entityfilter import CONF_INCLUDE_ENTITIES
 from homeassistant.helpers.selector import selector
 from homeassistant.util.temperature import VALID_UNITS as VALID_TEMP_UNITS
-from homeassistant.util.temperature import convert as convert_temp
+from homeassistant.util.unit_conversion import TemperatureConverter as TC
+from homeassistant.util.unit_system import METRIC_SYSTEM
 import voluptuous as vol
 
 from .comfort import State
@@ -105,19 +106,19 @@ def build_comfort_schema(hass: HomeAssistant, config: Mapping[str, Any]) -> vol.
 
     simmer_index_min: float = config.get(
         CONF_SIMMER_INDEX_MIN,
-        round(convert_temp(DEFAULT_SIMMER_INDEX_MIN, TEMP_FAHRENHEIT, temp_unit), 1),
+        round(TC.convert(DEFAULT_SIMMER_INDEX_MIN, TEMP_FAHRENHEIT, temp_unit), 1),
     )
     simmer_index_max: float = config.get(
         CONF_SIMMER_INDEX_MAX,
-        round(convert_temp(DEFAULT_SIMMER_INDEX_MAX, TEMP_FAHRENHEIT, temp_unit), 1),
+        round(TC.convert(DEFAULT_SIMMER_INDEX_MAX, TEMP_FAHRENHEIT, temp_unit), 1),
     )
     dew_point_max: float = config.get(
-        CONF_DEW_POINT_MAX, round(convert_temp(DEFAULT_DEWPOINT_MAX, TEMP_FAHRENHEIT, temp_unit), 1)
+        CONF_DEW_POINT_MAX, round(TC.convert(DEFAULT_DEWPOINT_MAX, TEMP_FAHRENHEIT, temp_unit), 1)
     )
     humidity_max: float = config.get(CONF_HUMIDITY_MAX, DEFAULT_HUMIDITY_MAX)
     pollen_max: int = config.get(CONF_POLLEN_MAX, DEFAULT_POLLEN_MAX)
 
-    temp_step = 0.5 if hass.config.units.is_metric else 1.0
+    temp_step = 0.5 if hass.config.units is METRIC_SYSTEM else 1.0
     temperature_selector = selector(
         {"number": {"mode": "box", "unit_of_measurement": temp_unit, "step": temp_step}}
     )

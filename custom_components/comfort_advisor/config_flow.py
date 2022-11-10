@@ -18,7 +18,7 @@ from homeassistant.helpers import entity_registry
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.requirements import RequirementsNotFound
 from homeassistant.util.temperature import VALID_UNITS as TEMPERATURE_UNITS
-from homeassistant.util.temperature import convert as convert_temp
+from homeassistant.util.unit_conversion import TemperatureConverter as TC
 import voluptuous as vol
 
 from .const import (
@@ -98,7 +98,7 @@ def _create_unique_id(hass: HomeAssistant, inputs_config: ConfigType) -> str:
 
 
 def _build_comfort_placeholders(temp_unit: str) -> Mapping[str, Any]:
-    return {str(x): round(convert_temp(x, TEMP_FAHRENHEIT, temp_unit), 1) for x in (70, 77, 83, 91)}
+    return {str(x): round(TC.convert(x, TEMP_FAHRENHEIT, temp_unit), 1) for x in (70, 77, 83, 91)}
 
 
 class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore

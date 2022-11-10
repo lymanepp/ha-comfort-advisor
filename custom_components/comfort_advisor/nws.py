@@ -19,7 +19,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.util.dt import parse_datetime, utcnow
 from homeassistant.util.speed import convert as convert_speed
-from homeassistant.util.temperature import convert as convert_temp
+from homeassistant.util.unit_conversion import TemperatureConverter as TC
 from pynws import SimpleNWS
 from pynws import version as PYNWS_VERSION
 from pynws.const import Detail
@@ -95,7 +95,7 @@ class NwsWeatherProvider(Provider):
             raise ProviderException("api_error")
 
         start_time = parse_datetime(values[Detail.START_TIME])
-        temp = convert_temp(float(temp), TEMP_CELSIUS, self._temp_unit)
+        temp = TC.convert(float(temp), TEMP_CELSIUS, self._temp_unit)
         humidity = float(humidity)
         wind_speed = convert_speed(float(wind_speed), SPEED_KILOMETERS_PER_HOUR, self._speed_unit)
 
