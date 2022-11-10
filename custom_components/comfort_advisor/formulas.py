@@ -6,8 +6,7 @@ import math
 from typing import cast
 
 from homeassistant.const import TEMP_CELSIUS, TEMP_FAHRENHEIT, TEMP_KELVIN
-from homeassistant.util.temperature import convert as convert_temp
-
+from homeassistant.util.unit_conversion import TemperatureConverter as TC
 
 class FrostRisk(IntEnum):
     """Risk of frost formation."""
@@ -26,11 +25,11 @@ def compute_dew_point(temp: float, rh: float, temp_unit: str) -> float:
 
     https://pon.fr/dzvents-alerte-givre-et-calcul-humidite-absolue
     """
-    T = convert_temp(temp, temp_unit, TEMP_CELSIUS)
+    T = TC.convert(temp, temp_unit, TEMP_CELSIUS)
     b, c = 17.67, 243.5
     gamma = math.log(rh / 100) + b * T / (c + T)
     Td = c * gamma / (b - gamma)
-    return cast(float, round(convert_temp(Td, TEMP_CELSIUS, temp_unit), 2))
+    return cast(float, round(TC.convert(Td, TEMP_CELSIUS, temp_unit), 2))
 
 
 def compute_heat_index(temp: float, rh: float, temp_unit: str) -> float:
@@ -38,7 +37,7 @@ def compute_heat_index(temp: float, rh: float, temp_unit: str) -> float:
 
     http://www.wpc.ncep.noaa.gov/html/heatindex_equation.shtml
     """
-    T = convert_temp(temp, temp_unit, TEMP_FAHRENHEIT)
+    T = TC.convert(temp, temp_unit, TEMP_FAHRENHEIT)
     HI = 0.5 * (T + 61.0 + ((T - 68.0) * 1.2) + (rh * 0.094))
     if ((T + HI) / 2) >= 80:
         HI = (
@@ -57,7 +56,7 @@ def compute_heat_index(temp: float, rh: float, temp_unit: str) -> float:
         elif rh > 85 and 80 <= T <= 87:
             HI += ((rh - 85) * 0.1) * ((87 - T) * 0.2)
 
-    return cast(float, round(convert_temp(HI, TEMP_FAHRENHEIT, temp_unit), 2))
+    return cast(float, round(TC.convert(HI, TEMP_FAHRENHEIT, temp_unit), 2))
 
 
 def compute_absolute_humidity(temp: float, rh: float, temp_unit: str) -> float:
@@ -65,7 +64,7 @@ def compute_absolute_humidity(temp: float, rh: float, temp_unit: str) -> float:
 
     https://carnotcycle.wordpress.com/2012/08/04/how-to-convert-relative-humidity-to-absolute-humidity
     """
-    Tc = convert_temp(temp, temp_unit, TEMP_CELSIUS)
+    Tc = TC.convert(temp, temp_unit, TEMP_CELSIUS)
     abs_humidity = (6.112 * math.exp((17.67 * Tc) / (243.5 + Tc)) * rh * 2.1674) / (Tc + 273.15)
     return round(abs_humidity, 2)  # type: ignore
 
@@ -76,12 +75,12 @@ def compute_frost_point(temp: float, rh: float, temp_unit: str) -> float:
     https://pon.fr/dzvents-alerte-givre-et-calcul-humidite-absolue
     """
     dp = compute_dew_point(temp, rh, temp_unit)
-    T = convert_temp(temp, temp_unit, TEMP_KELVIN)
-    Td = convert_temp(dp, temp_unit, TEMP_KELVIN)
+    T = TC.convert(temp, temp_unit, TEMP_KELVIN)
+    Td = TC.convert(dp, temp_unit, TEMP_KELVIN)
 
     frostpoint = (Td + (2671.02 / ((2954.61 / T) + 2.193665 * math.log(T) - 13.3448)) - T) - 273.15
 
-    return cast(float, round(convert_temp(frostpoint, TEMP_CELSIUS, temp_unit), 2))
+    return cast(float, round(TC.convert(frostpoint, TEMP_CELSIUS, temp_unit), 2))
 
 
 def compute_frost_risk(temp: float, rh: float, temp_unit: str) -> FrostRisk:
@@ -89,8 +88,8 @@ def compute_frost_risk(temp: float, rh: float, temp_unit: str) -> FrostRisk:
     abshum = compute_absolute_humidity(temp, rh, temp_unit)
     frostpoint = compute_frost_point(temp, rh, temp_unit)
 
-    temp_c = convert_temp(temp, temp_unit, TEMP_CELSIUS)
-    frostpoint_c = convert_temp(frostpoint, temp_unit, TEMP_CELSIUS)
+    temp_c = TC.convert(temp, temp_unit, TEMP_CELSIUS)
+    frostpoint_c = TC.convert(frostpoint, temp_unit, TEMP_CELSIUS)
 
     abs_humidity_threshold = 2.8
     if temp_c <= 1 and frostpoint_c <= 0:
@@ -108,6 +107,6 @@ def compute_simmer_index(temp: float, rh: float, temp_unit: str) -> float:
 
     https://www.vcalc.com/wiki/rklarsen/Summer+Simmer+Index
     """
-    Tf = convert_temp(temp, temp_unit, TEMP_FAHRENHEIT)
+    Tf = TC.convert(temp, temp_unit, TEMP_FAHRENHEIT)
     ssi = 1.98 * (Tf - (0.55 - (0.0055 * rh)) * (Tf - 58)) - 56.83
-    return cast(float, round(convert_temp(ssi, TEMP_FAHRENHEIT, temp_unit), 2))
+    return cast(float, round(TC.convert(ssi, TEMP_FAHRENHEIT, temp_unit), 2))
