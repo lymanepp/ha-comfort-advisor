@@ -189,7 +189,7 @@ class ComfortCalculator:
             if change := list(dropwhile(lambda x: x.comfortable == uncomfortable_now, change)):
                 second_time = change[0].date_time
 
-        self._state[State.CAN_OPEN_WINDOWS] = comfortable_now
+        self._state[State.CAN_OPEN_WINDOWS] = ["off", "on"][comfortable_now] 
         self._state[State.LOW_SIMMER_INDEX] = low_simmer_index
         self._state[State.HIGH_SIMMER_INDEX] = high_simmer_index
         self._state[State.OPEN_WINDOWS_AT] = second_time if comfortable_now else first_time
