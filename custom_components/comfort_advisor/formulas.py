@@ -116,45 +116,31 @@ def compute_simmer_index(temp: float, rh: float, temp_unit: str) -> float:
 def compute_moist_air_enthalpy(temp: float, rh: float, temp_unit: str) -> float:
     """Calculate moist air enthalpy (kJ/kg) from temperature and humidity."""
 
-    temp_c = TC.convert(temp, temp_unit, UnitOfTemperature.CELSIUS)
+    tc = TC.convert(temp, temp_unit, UnitOfTemperature.CELSIUS)
+    tk = TC.convert(tc, UnitOfTemperature.CELSIUS, UnitOfTemperature.KELVIN)
 
-    c_to_k = 273.15
-
-    # calculate vapour pressure
-    temp_k = temp_c + c_to_k
-
-    if temp_c < 0:
-        pascals = math.exp(
-            -5674.5359 / temp_k
+    # calculate saturation vapour pressure for temperature
+    if tc < 0:
+        vp_saturation = math.exp(
+            -5674.5359 / tk
             + 6.3925247
-            + temp_k
-            * (
-                -0.9677843e-2
-                + temp_k * (0.62215701e-6 + temp_k * (0.20747825e-8 + -0.9484024e-12 * temp_k))
-            )
-            + 4.1635019 * math.log(temp_k)
+            + tk
+            * (-0.9677843e-2 + tk * (0.62215701e-6 + tk * (0.20747825e-8 + -0.9484024e-12 * tk)))
+            + 4.1635019 * math.log(tk)
         )
     else:
-        pascals = math.exp(
-            -5800.2206 / temp_k
+        vp_saturation = math.exp(
+            -5800.2206 / tk
             + 1.3914993
-            + temp_k * (-0.048640239 + temp_k * (0.41764768e-4 + temp_k * -0.14452093e-7))
-            + 6.5459673 * math.log(temp_k)
+            + tk * (-0.048640239 + tk * (0.41764768e-4 + tk * -0.14452093e-7))
+            + 6.5459673 * math.log(tk)
         )
 
-    patm = 101325
-    h_fg = 2501000
-    cp_vapour = 1805.0
-    cp_air = 1004
+    vp = rh / 100 * vp_saturation
+    hum_ratio = 0.62198 * vp / (101325 - vp)
 
-    # calculate humidity ratio
-    p_saturation = pascals
-    p_vap = rh / 100 * p_saturation
-    hr = 0.62198 * p_vap / (patm - p_vap)
+    enthalpy_dry_air = 1004 * tc
+    enthalpy_sat_vap = 2501000 + 1805 * tc
+    enthalpy = enthalpy_dry_air + hum_ratio * enthalpy_sat_vap
 
-    # calculate enthalpy
-    h_dry_air = cp_air * temp_c
-    h_sat_vap = h_fg + cp_vapour * temp_c
-    h = h_dry_air + hr * h_sat_vap
-
-    return cast(float, round(h / 1000, 2))
+    return cast(float, round(enthalpy / 1000, 2))
