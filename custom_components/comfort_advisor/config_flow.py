@@ -31,12 +31,7 @@ from .const import (
     DOMAIN,
 )
 from .helpers import create_issue_tracker_url
-from .provider import (
-    PROVIDER_META,
-    Provider,
-    ProviderException,
-    async_create_weather_provider,
-)
+from .provider import PROVIDER_META, Provider, ProviderException, async_create_weather_provider
 from .schemas import (
     DATA_SCHEMA,
     build_comfort_schema,

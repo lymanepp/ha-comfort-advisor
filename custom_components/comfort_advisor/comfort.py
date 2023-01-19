@@ -19,7 +19,7 @@ from .const import (
     CONF_SIMMER_INDEX_MAX,
     CONF_SIMMER_INDEX_MIN,
 )
-from .formulas import compute_dew_point, compute_simmer_index
+from .formulas import compute_dew_point, compute_moist_air_enthalpy, compute_simmer_index
 from .provider import WeatherData
 
 _LOGGER = logging.getLogger(__name__)
@@ -69,11 +69,11 @@ class ComfortData(WeatherData):
         )
 
 
-ATTR_INDOOR_DEW_POINT = "indoor_dew_point"
-ATTR_INDOOR_SIMMER_INDEX = "indoor_simmer_index"
-ATTR_OUTDOOR_DEW_POINT = "outdoor_dew_point"
-ATTR_OUTDOOR_SIMMER_INDEX = "outdoor_simmer_index"
-ATTR_POLLEN = "pollen"
+# ATTR_INDOOR_DEW_POINT = "indoor_dew_point"
+# ATTR_INDOOR_SIMMER_INDEX = "indoor_simmer_index"
+# ATTR_OUTDOOR_DEW_POINT = "outdoor_dew_point"
+# ATTR_OUTDOOR_SIMMER_INDEX = "outdoor_simmer_index"
+# ATTR_POLLEN = "pollen"
 
 
 class ComfortCalculator:
@@ -117,7 +117,7 @@ class ComfortCalculator:
             return
 
         if key == Input.FORECAST and isinstance(value, Iterable):
-            # augment forecast with dew_point and simmer_index
+            # augment forecast with psychrometrics
             value = [ComfortData.from_weather_data(x, self._temp_unit) for x in value if x]
 
         self._inputs[key] = value
@@ -143,10 +143,12 @@ class ComfortCalculator:
         out_temp: float = self._inputs[Input.OUTDOOR_TEMPERATURE]
         out_humidity: float = self._inputs[Input.OUTDOOR_HUMIDITY]
 
-        in_dewp = compute_dew_point(in_temp, in_humidity, self._temp_unit)
-        in_si = compute_simmer_index(in_temp, in_humidity, self._temp_unit)
+        # in_dewp = compute_dew_point(in_temp, in_humidity, self._temp_unit)
+        # in_ssi = compute_simmer_index(in_temp, in_humidity, self._temp_unit)
+        in_enthalpy = compute_moist_air_enthalpy(in_temp, in_humidity, self._temp_unit)
         out_dewp = compute_dew_point(out_temp, out_humidity, self._temp_unit)
-        out_si = compute_simmer_index(out_temp, out_humidity, self._temp_unit)
+        out_ssi = compute_simmer_index(out_temp, out_humidity, self._temp_unit)
+        out_enthalpy = compute_moist_air_enthalpy(out_temp, out_humidity, self._temp_unit)
 
         start_time = utcnow()
         future_data = list(dropwhile(lambda x: x.date_time <= start_time, forecast))
@@ -172,7 +174,10 @@ class ComfortCalculator:
                 and pollen <= self._pollen_max
             )
 
-        comfortable_now = is_comfortable(out_humidity, out_dewp, out_si, realtime.pollen or 0)
+        comfortable_now = (
+            is_comfortable(out_humidity, out_dewp, out_ssi, realtime.pollen or 0)
+            and out_enthalpy <= in_enthalpy
+        )
 
         for period in next_24:
             period.comfortable = is_comfortable(
@@ -189,26 +194,26 @@ class ComfortCalculator:
             if change := list(dropwhile(lambda x: x.comfortable == uncomfortable_now, change)):
                 second_time = change[0].date_time
 
-        self._state[State.CAN_OPEN_WINDOWS] = ["off", "on"][comfortable_now] 
+        self._state[State.CAN_OPEN_WINDOWS] = ["off", "on"][comfortable_now]
         self._state[State.LOW_SIMMER_INDEX] = low_simmer_index
         self._state[State.HIGH_SIMMER_INDEX] = high_simmer_index
         self._state[State.OPEN_WINDOWS_AT] = second_time if comfortable_now else first_time
         self._state[State.CLOSE_WINDOWS_AT] = first_time if comfortable_now else second_time
 
-        self._extra_attributes = {
-            ATTR_INDOOR_DEW_POINT: in_dewp,
-            ATTR_INDOOR_SIMMER_INDEX: in_si,
-            ATTR_OUTDOOR_DEW_POINT: out_dewp,
-            ATTR_OUTDOOR_SIMMER_INDEX: out_si,
-        }
+        # self._extra_attributes = {
+        #    ATTR_INDOOR_DEW_POINT: in_dewp,
+        #    ATTR_INDOOR_SIMMER_INDEX: in_ssi,
+        #    ATTR_OUTDOOR_DEW_POINT: out_dewp,
+        #    ATTR_OUTDOOR_SIMMER_INDEX: out_si,
+        # }
 
-        if realtime and realtime.pollen is not None:
-            self._extra_attributes[ATTR_POLLEN] = realtime.pollen
+        # if realtime and realtime.pollen is not None:
+        #    self._extra_attributes[ATTR_POLLEN] = realtime.pollen
 
         return True
 
         # TODO: create blueprint that uses `next_change_time` if windows can be open "all night"?
         # TODO: blueprint checks `high_simmer_index` if it will be cool tomorrow and conserve heat
-        # TODO: need to check when `si_list` will be higher than `in_si`
+        # TODO: need to check when `si_list` will be higher than `in_ssi`
         # TODO: create `comfort score` and create sensor for that?
         # TODO: check if temperature forecast is rising or falling currently
