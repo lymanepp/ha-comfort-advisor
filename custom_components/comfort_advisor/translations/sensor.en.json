@@ -1,8 +1,0 @@
-{
-    "state": {
-        "comfort_advisor__can_open_windows": {
-            "False": "No",
-            "True": "Yes"
-        }
-    }
-}
