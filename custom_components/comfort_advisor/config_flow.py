@@ -43,7 +43,7 @@ from .schemas import (
 ErrorsType = MutableMapping[str, str]
 
 
-def _async_test_inputs(
+def _validate_inputs(
     hass: HomeAssistant,
     errors: ErrorsType,
     /,
@@ -52,7 +52,7 @@ def _async_test_inputs(
     outdoor_temperature: str,
     outdoor_humidity: str,
 ) -> bool:
-    def check_sensor_units(entity_ids: Iterable[str], valid_units: Iterable[str]) -> bool:
+    def validate_sensor_units(entity_ids: Iterable[str], valid_units: Iterable[str]) -> bool:
         for entity_id in entity_ids:
             state: State = hass.states.get(entity_id)
             unit = state.attributes.get(ATTR_UNIT_OF_MEASUREMENT)
@@ -62,9 +62,9 @@ def _async_test_inputs(
                 return False
         return True
 
-    return check_sensor_units(
+    return validate_sensor_units(
         [indoor_temperature, outdoor_temperature], TEMPERATURE_UNITS
-    ) and check_sensor_units([indoor_humidity, outdoor_humidity], [PERCENTAGE])
+    ) and validate_sensor_units([indoor_humidity, outdoor_humidity], [PERCENTAGE])
 
 
 async def _async_test_weather(provider: Provider, errors: ErrorsType) -> bool:
@@ -122,9 +122,9 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
                 await self.async_set_unique_id(unique_id)
                 self._abort_if_unique_id_configured()
 
-                if _async_test_inputs(self.hass, errors, **user_input):
+                if _validate_inputs(self.hass, errors, **user_input):
                     self._config.update(user_input)
-                    return await self.async_step_choose()
+                    return await self.async_step_provider()
 
         return self.async_show_form(
             step_id="user",
@@ -132,7 +132,7 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
             data_schema=build_inputs_schema(self.hass, user_input),
         )
 
-    async def async_step_choose(self, user_input: ConfigType | None = None) -> FlowResult:
+    async def async_step_provider(self, user_input: ConfigType | None = None) -> FlowResult:
         """Handle a flow initialized by the user. Choose a weather provider."""
         user_input = user_input or {}
 
