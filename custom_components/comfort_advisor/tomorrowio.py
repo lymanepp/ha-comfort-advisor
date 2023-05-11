@@ -2,9 +2,7 @@
 from __future__ import annotations
 
 from functools import wraps
-import logging
-import sys
-from typing import Any, Callable, Coroutine, Mapping, Sequence, TypeVar, cast
+from typing import Any, Callable, Coroutine, Mapping, ParamSpec, Sequence, TypeVar, cast
 
 from homeassistant.const import CONF_API_KEY, CONF_LOCATION
 from homeassistant.core import HomeAssistant
@@ -21,14 +19,6 @@ from pytomorrowio.exceptions import (
 )
 
 from .provider import PROVIDERS, Provider, ProviderException, WeatherData, async_retry
-
-if sys.version_info >= (3, 10):
-    from typing import ParamSpec
-else:
-    from typing_extensions import ParamSpec
-
-
-_LOGGER = logging.getLogger(__name__)
 
 _FIELDS = ["temperature", "humidity", "windSpeed", "treeIndex", "weedIndex", "grassIndex"]
 

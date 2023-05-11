@@ -5,7 +5,6 @@ https://github.com/lymanepp/ha-comfort-advisor
 """
 from __future__ import annotations
 
-import logging
 from typing import Final
 
 from homeassistant.config_entries import ConfigEntry
@@ -13,12 +12,10 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 import voluptuous as vol
 
-from .const import CONF_WEATHER, DOMAIN
+from .const import CONF_WEATHER, DOMAIN, LOGGER
 from .device import ComfortAdvisorDevice
 from .provider import async_create_weather_provider
 from .schemas import DATA_SCHEMA
-
-_LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: Final = [Platform.SENSOR]
 
@@ -35,7 +32,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
     try:
         config = DATA_SCHEMA(config)
     except vol.Invalid as exc:
-        _LOGGER.error("Invalid configuration: %s", exc)
+        LOGGER.error("Invalid configuration: %s", exc)
         return False
 
     # TODO: move into ComfortAdvisorDevice.__init__
@@ -47,7 +44,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
         return False
     hass.data[DOMAIN][config_entry.entry_id] = device
 
-    hass.config_entries.async_setup_platforms(config_entry, PLATFORMS)
+    hass.config_entries.async_forward_entry_setups(config_entry, PLATFORMS)
 
     config_entry.async_on_unload(config_entry.add_update_listener(async_update_options))
     return True

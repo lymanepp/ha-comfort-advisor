@@ -1,6 +1,9 @@
 """General comfort_advisor constants."""
 from datetime import timedelta
+from logging import Logger, getLogger
 from typing import Final
+
+LOGGER: Logger = getLogger(__package__)
 
 DOMAIN: Final = "comfort_advisor"
 

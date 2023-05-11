@@ -4,7 +4,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from itertools import dropwhile, takewhile
-import logging
 from typing import Any, Iterable, Mapping, Sequence
 
 from homeassistant.backports.enum import StrEnum
@@ -18,11 +17,10 @@ from .const import (
     CONF_POLLEN_MAX,
     CONF_SIMMER_INDEX_MAX,
     CONF_SIMMER_INDEX_MIN,
+    LOGGER,
 )
 from .formulas import compute_dew_point, compute_moist_air_enthalpy, compute_simmer_index
 from .provider import WeatherData
-
-_LOGGER = logging.getLogger(__name__)
 
 
 class Input(StrEnum):  # type: ignore
@@ -112,7 +110,7 @@ class ComfortCalculator:
 
     def update_input(self, key: str, value: Any) -> None:
         """Update an input value."""
-        _LOGGER.debug("update_input called with %s=%s", key, str(value))
+        LOGGER.debug("update_input called with %s=%s", key, str(value))
         if value is None or self._inputs[key] == value:
             return
 

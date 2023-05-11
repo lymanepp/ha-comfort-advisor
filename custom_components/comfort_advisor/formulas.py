@@ -85,7 +85,9 @@ def compute_frost_point(temp: float, rh: float, temp_unit: str) -> float:
     Tk = TC.convert(temp, temp_unit, UnitOfTemperature.KELVIN)
     Td = TC.convert(dp, temp_unit, UnitOfTemperature.KELVIN)
 
-    frostpoint = (Td + (2671.02 / ((2954.61 / Tk) + 2.193665 * math.log(Tk) - 13.3448)) - Tk) - 273.15
+    frostpoint = (
+        Td + (2671.02 / ((2954.61 / Tk) + 2.193665 * math.log(Tk) - 13.3448)) - Tk
+    ) - 273.15
 
     return cast(float, round(TC.convert(frostpoint, UnitOfTemperature.CELSIUS, temp_unit), 2))
 

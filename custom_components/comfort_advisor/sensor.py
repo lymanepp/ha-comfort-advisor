@@ -1,8 +1,6 @@
 """Sensor platform for comfort_advisor."""
 from __future__ import annotations
 
-import logging
-
 from homeassistant.backports.enum import StrEnum
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -17,10 +15,8 @@ from homeassistant.helpers.entity import async_generate_entity_id
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .comfort import State
-from .const import CONF_ENABLED_SENSORS, DOMAIN
+from .const import CONF_ENABLED_SENSORS, DOMAIN, LOGGER
 from .device import ComfortAdvisorDevice
-
-_LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(
@@ -32,7 +28,7 @@ async def async_setup_entry(
     config = config_entry.data | config_entry.options or {}
     device: ComfortAdvisorDevice = hass.data[DOMAIN][config_entry.entry_id]
 
-    _LOGGER.debug("async_setup_entry: %s", config_entry.title)
+    LOGGER.debug("async_setup_entry: %s", config_entry.title)
 
     enabled_sensors = config[CONF_ENABLED_SENSORS]
 
@@ -89,7 +85,7 @@ class ComfortAdvisorSensor(SensorEntity):  # type: ignore
     async def async_update(self) -> None:
         """Update the state of the sensor."""
         value = self._device.get_state(self.entity_description.key)
-        _LOGGER.debug("async_update called for %s - state(%s)", self.entity_id, str(value))
+        LOGGER.debug("async_update called for %s - state(%s)", self.entity_id, str(value))
         self._attr_native_value = value
         self._attr_extra_state_attributes = self._device.extra_state_attributes
 

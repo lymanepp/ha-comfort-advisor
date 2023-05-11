@@ -8,26 +8,17 @@ from datetime import datetime
 from functools import wraps
 import importlib
 import json
-import logging
-import sys
-from typing import Any, Callable, Coroutine, Mapping, Sequence, TypeVar
+from typing import Any, Callable, Coroutine, Mapping, ParamSpec, Sequence, TypeVar
 
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.requirements import RequirementsNotFound, async_process_requirements
 from homeassistant.util.decorator import Registry
 
-from .const import CONF_PROVIDER, DOMAIN, SCAN_INTERVAL_FORECAST, SCAN_INTERVAL_REALTIME
-
-if sys.version_info >= (3, 10):
-    from typing import ParamSpec
-else:
-    from typing_extensions import ParamSpec
+from .const import CONF_PROVIDER, DOMAIN, LOGGER, SCAN_INTERVAL_FORECAST, SCAN_INTERVAL_REALTIME
 
 _P = ParamSpec("_P")
 _T = TypeVar("_T")
-
-_LOGGER = logging.getLogger(__name__)
 
 PROVIDERS: Registry[str, type[Provider]] = Registry()
 
@@ -79,9 +70,9 @@ def async_retry(
                 return await wrapped(*args, **kwargs)
             except ProviderException as exc:
                 if not exc.can_retry or retries == 0:
-                    _LOGGER.exception("%r from weather provider", exc, exc_info=exc)
+                    LOGGER.exception("%r from weather provider", exc, exc_info=exc)
                     raise
-                _LOGGER.debug("%r from weather provider: %d retries remaining", exc, retries)
+                LOGGER.debug("%r from weather provider: %d retries remaining", exc, retries)
                 retries -= 1
             await asyncio.sleep(1)
 
@@ -97,14 +88,14 @@ class Provider(metaclass=ABCMeta):
 
         self.realtime_service = DataUpdateCoordinator[WeatherData](
             hass,
-            _LOGGER,
+            LOGGER,
             name=f"{DOMAIN}_realtime",
             update_interval=SCAN_INTERVAL_REALTIME,
             update_method=self.fetch_realtime,
         )
         self.forecast_service = DataUpdateCoordinator[list[WeatherData]](
             hass,
-            _LOGGER,
+            LOGGER,
             name=f"{DOMAIN}_forecast",
             update_interval=SCAN_INTERVAL_FORECAST,
             update_method=self.fetch_forecast,
@@ -172,14 +163,14 @@ async def async_create_weather_provider(
     try:
         await async_process_requirements(hass, f"module {provider_type}", requirements)
     except RequirementsNotFound as exc:
-        _LOGGER.exception("Unable to satisfy requirements for %s", provider_type, exc_info=exc)
+        LOGGER.exception("Unable to satisfy requirements for %s", provider_type, exc_info=exc)
         raise
 
     try:
         # importing the provider will register type factory in `PROVIDERS`
         importlib.import_module(f"{__package__}.{provider_type}")
     except ImportError as exc:
-        _LOGGER.exception("Unable to load module %s", provider_type, exc_info=exc)
+        LOGGER.exception("Unable to load module %s", provider_type, exc_info=exc)
         raise
 
     factory = PROVIDERS.get(provider_type)

@@ -2,9 +2,17 @@
 from __future__ import annotations
 
 from functools import wraps
-import logging
-import sys
-from typing import Any, Callable, Coroutine, Mapping, Sequence, SupportsFloat, TypeVar, cast
+from typing import (
+    Any,
+    Callable,
+    Coroutine,
+    Mapping,
+    ParamSpec,
+    Sequence,
+    SupportsFloat,
+    TypeVar,
+    cast,
+)
 
 from aiohttp import ClientError, ClientResponseError
 from homeassistant.const import (
@@ -18,21 +26,13 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.util.dt import parse_datetime, utcnow
-from homeassistant.util.speed import convert as convert_speed
+from homeassistant.util.unit_conversion import SpeedConverter as SC
 from homeassistant.util.unit_conversion import TemperatureConverter as TC
 from pynws import SimpleNWS
 from pynws import version as PYNWS_VERSION
 from pynws.const import Detail
 
 from .provider import PROVIDERS, Provider, ProviderException, WeatherData, async_retry
-
-if sys.version_info >= (3, 10):
-    from typing import ParamSpec
-else:
-    from typing_extensions import ParamSpec
-
-
-_LOGGER = logging.getLogger(__name__)
 
 _P = ParamSpec("_P")
 _T = TypeVar("_T")
@@ -97,7 +97,7 @@ class NwsWeatherProvider(Provider):
         start_time = parse_datetime(values[Detail.START_TIME])
         temp = TC.convert(float(temp), TEMP_CELSIUS, self._temp_unit)
         humidity = float(humidity)
-        wind_speed = convert_speed(float(wind_speed), SPEED_KILOMETERS_PER_HOUR, self._speed_unit)
+        wind_speed = SC.convert(float(wind_speed), SPEED_KILOMETERS_PER_HOUR, self._speed_unit)
 
         return WeatherData(start_time, temp, humidity, wind_speed, pollen=None)
 
