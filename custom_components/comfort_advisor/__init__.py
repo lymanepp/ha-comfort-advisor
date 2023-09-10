@@ -8,13 +8,12 @@ from __future__ import annotations
 from typing import Final
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.const import EVENT_HOMEASSISTANT_STARTED, Platform
+from homeassistant.core import CoreState, Event, HomeAssistant
 import voluptuous as vol
 
-from .const import CONF_WEATHER, DOMAIN, LOGGER
+from .const import _LOGGER, CONF_WEATHER, DOMAIN
 from .device import ComfortAdvisorDevice
-from .provider import async_create_weather_provider
 from .schemas import DATA_SCHEMA
 
 PLATFORMS: Final = [Platform.SENSOR]
@@ -32,17 +31,21 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
     try:
         config = DATA_SCHEMA(config)
     except vol.Invalid as exc:
-        LOGGER.error("Invalid configuration: %s", exc)
+        _LOGGER.error("Invalid configuration: %s", exc)
         return False
 
-    # TODO: move into ComfortAdvisorDevice.__init__
-    if not (provider := await async_create_weather_provider(hass, config[CONF_WEATHER])):
-        return False
-
-    device = ComfortAdvisorDevice(hass, config_entry, provider)
-    if not await device.async_setup_entry(config_entry):
-        return False
+    device = ComfortAdvisorDevice(hass, config_entry)
     hass.data[DOMAIN][config_entry.entry_id] = device
+
+    # wait until HA is started to ensure that the entities we reference have been created
+
+    async def on_started(_: Event | None = None):
+        await device.async_setup_entry(config_entry)
+
+    if hass.state == CoreState.running:
+        await on_started()
+    else:
+        hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, on_started)
 
     await hass.config_entries.async_forward_entry_setups(config_entry, PLATFORMS)
 
@@ -58,5 +61,4 @@ async def async_update_options(hass: HomeAssistant, config_entry: ConfigEntry) -
 async def async_unload_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
     """Remove entry via user interface."""
     hass.data[DOMAIN].pop(config_entry.entry_id)
-    # TODO: cleanup provider if last subscriber
     return await hass.config_entries.async_unload_platforms(config_entry, PLATFORMS)  # type: ignore

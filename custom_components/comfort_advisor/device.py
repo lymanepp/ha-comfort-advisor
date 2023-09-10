@@ -4,34 +4,31 @@ from __future__ import annotations
 import contextlib
 from datetime import datetime, timedelta
 import math
-from typing import Any, Mapping, cast
+from typing import Any, cast
 
 from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import (
-    ATTR_ATTRIBUTION,
-    ATTR_DEVICE_CLASS,
-    ATTR_UNIT_OF_MEASUREMENT,
-    CONF_NAME,
-)
-from homeassistant.core import CALLBACK_TYPE, Event, HomeAssistant, State
+from homeassistant.const import ATTR_DEVICE_CLASS, ATTR_UNIT_OF_MEASUREMENT, CONF_NAME
+from homeassistant.core import CALLBACK_TYPE, Event, HomeAssistant, State, callback
 from homeassistant.helpers.device_registry import DeviceEntryType
 from homeassistant.helpers.entity import DeviceInfo, Entity
 from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
 from homeassistant.loader import async_get_custom_components
+from homeassistant.util.json import JsonValueType
 from homeassistant.util.unit_conversion import TemperatureConverter as TC
 
 from .comfort import ComfortCalculator, Input
 from .const import (
+    _LOGGER,
     CONF_INDOOR_HUMIDITY,
     CONF_INDOOR_TEMPERATURE,
+    CONF_WEATHER,
     DEFAULT_MANUFACTURER,
     DEFAULT_NAME,
     DEFAULT_POLL_INTERVAL,
     DOMAIN,
 )
-from .helpers import get_entity_area
-from .provider import Provider
+from .helpers import async_subscribe_forecast, get_entity_area
 
 
 class ComfortAdvisorDevice:
@@ -41,7 +38,6 @@ class ComfortAdvisorDevice:
         self,
         hass: HomeAssistant,
         config_entry: ConfigEntry,
-        provider: Provider,
     ) -> None:
         """Initialize the device."""
         self._config = config_entry.data | config_entry.options or {}
@@ -53,50 +49,58 @@ class ComfortAdvisorDevice:
             hass, self._config[CONF_INDOOR_TEMPERATURE]
         ) or get_entity_area(hass, self._config[CONF_INDOOR_HUMIDITY])
 
+        assert self.unique_id
+
         self.device_info = DeviceInfo(
             entry_type=DeviceEntryType.SERVICE,
             identifiers={(DOMAIN, self.unique_id)},
             manufacturer=DEFAULT_MANUFACTURER,
             model=DEFAULT_NAME,
             name=self._config[CONF_NAME],
-            hw_version=provider.version,
             suggested_area=suggested_area,
         )
 
-        self._provider = provider
         self._temp_unit = self.hass.config.units.temperature_unit
         self._entities: list[Entity] = []
         self._first_time = True
 
-        self._extra_state_attributes: dict[str, Any] = {ATTR_ATTRIBUTION: provider.attribution}
-
-        self._entity_id_map: dict[str, str] = {}
-        for input_key in [
-            Input.INDOOR_TEMPERATURE,
-            Input.INDOOR_HUMIDITY,
-            Input.OUTDOOR_TEMPERATURE,
-            Input.OUTDOOR_HUMIDITY,
-        ]:
-            entity_id = self._config[input_key]
-            self._entity_id_map[entity_id] = input_key
+        self._entity_id_to_input: dict[str, Input] = {
+            self._config[input]: input
+            for input in [
+                Input.INDOOR_TEMPERATURE,
+                Input.INDOOR_HUMIDITY,
+                Input.OUTDOOR_TEMPERATURE,
+                Input.OUTDOOR_HUMIDITY,
+            ]
+        }
 
     async def async_setup_entry(self, config_entry: ConfigEntry) -> bool:
         """Set up device."""
         assert config_entry.unique_id
 
-        config_entry.async_on_unload(
-            self._provider.async_add_realtime_listener(self._realtime_updated)
+        @callback
+        def forecast_listener(forecast: list[JsonValueType] | None) -> None:
+            if forecast:
+                self._comfort.update_input(Input.FORECAST, forecast)
+                self._update_if_first_time()
+
+        weather_entity_id = self._config[CONF_WEATHER]
+        unsubscribe = await async_subscribe_forecast(
+            self.hass, weather_entity_id, "hourly", forecast_listener
         )
-        config_entry.async_on_unload(
-            self._provider.async_add_forecast_listener(self._forecast_updated)
-        )
+        if unsubscribe is None:
+            _LOGGER.warning("Weather entity not found: %s", weather_entity_id)
+            return False
+
+        config_entry.async_on_unload(unsubscribe)
+
         config_entry.async_on_unload(
             async_track_state_change_event(
-                self.hass, self._entity_id_map.keys(), self._input_event_handler
+                self.hass, self._entity_id_to_input.keys(), self._input_event_handler
             )
         )
 
-        for entity_id in self._entity_id_map:
+        for entity_id in self._entity_id_to_input:
             if state := self.hass.states.get(entity_id):
                 self._update_input_from_state(state)
 
@@ -114,16 +118,11 @@ class ComfortAdvisorDevice:
     @property
     def name(self) -> str:
         """Return the name."""
-        return cast(str, self.device_info["name"])
+        return cast(str, self.device_info.get("name"))
 
-    @property
-    def extra_state_attributes(self) -> Mapping[str, Any]:
-        """Return the extra device attributes."""
-        return self._extra_state_attributes
-
-    def get_state(self, name: str, default: Any = None) -> Any:
+    def get_calculated(self, name: str, default: Any = None) -> Any:
         """Retrieve calculated comfort state."""
-        return self._comfort.get_state(name, default)
+        return self._comfort.get_calculated(name, default)
 
     def add_entity(self, entity: Entity) -> CALLBACK_TYPE:
         """Add entity to receive callback when the calculated state is updated."""
@@ -134,33 +133,26 @@ class ComfortAdvisorDevice:
 
     async def _set_sw_version(self) -> None:
         custom_components = await async_get_custom_components(self.hass)
-        self.device_info["sw_version"] = custom_components[DOMAIN].version.string
-
-    def _realtime_updated(self) -> None:
-        if self._provider.realtime_service.data:
-            self._comfort.update_input(Input.REALTIME, self._provider.realtime_service.data)
-            self._update_if_first_time()
-
-    def _forecast_updated(self) -> None:
-        if self._provider.forecast_service.data:
-            self._comfort.update_input(Input.FORECAST, self._provider.forecast_service.data)
-            self._update_if_first_time()
+        version = custom_components[DOMAIN].version
+        assert version
+        self.device_info["sw_version"] = version.string
 
     async def _input_event_handler(self, event: Event) -> None:
-        state: State = event.data.get("new_state")
+        state: State | None = event.data.get("new_state")
+        assert state
         self._update_input_from_state(state)
 
     def _update_input_from_state(self, state: State) -> None:
         if (value := self._get_state_value(state)) is None:
             return
 
-        device_class: str = state.attributes.get(ATTR_DEVICE_CLASS)
+        device_class: str | None = state.attributes.get(ATTR_DEVICE_CLASS)
         if device_class == SensorDeviceClass.TEMPERATURE:
-            unit: str = state.attributes.get(ATTR_UNIT_OF_MEASUREMENT)
+            unit: str | None = state.attributes.get(ATTR_UNIT_OF_MEASUREMENT)
             if unit and unit != self._temp_unit:
                 value = TC.convert(value, unit, self._temp_unit)
 
-        input_key = self._entity_id_map[state.entity_id]
+        input_key = self._entity_id_to_input[state.entity_id]
         self._comfort.update_input(input_key, value)
         self._update_if_first_time()
 
@@ -173,7 +165,7 @@ class ComfortAdvisorDevice:
         return None
 
     # `async_track_time_interval` adds a `now` arg that must be stripped
-    async def _async_update_scheduled(self, now: datetime) -> None:
+    async def _async_update_scheduled(self, _: datetime) -> None:
         await self._async_update()
 
     def _update_if_first_time(self) -> None:
@@ -183,6 +175,5 @@ class ComfortAdvisorDevice:
     async def _async_update(self, force_refresh: bool = True) -> None:
         if self._comfort.refresh_state():
             self._first_time = False
-            self._extra_state_attributes.update(self._comfort.extra_attributes)
             for entity in self._entities:
                 entity.async_schedule_update_ha_state(force_refresh)

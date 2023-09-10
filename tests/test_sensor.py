@@ -4,7 +4,7 @@ from homeassistant.components.command_line.const import DOMAIN as COMMAND_LINE_D
 from homeassistant.components.sensor import DOMAIN as PLATFORM_DOMAIN
 import pytest
 
-from custom_components.comfort_advisor.comfort import State
+from custom_components.comfort_advisor.comfort import Calculated
 from custom_components.comfort_advisor.const import DOMAIN
 
 TEST_NAME = "sensor.test_comfort_advisor"
@@ -86,7 +86,7 @@ DEFAULT_TEST_SENSORS = [
     ],
 ]
 
-ALL_SENSOR_TYPES = [str(x) for x in State]  # type:ignore
+ALL_SENSOR_TYPES = [str(x) for x in Calculated]  # type:ignore
 LEN_DEFAULT_SENSORS = len(ALL_SENSOR_TYPES)
 
 

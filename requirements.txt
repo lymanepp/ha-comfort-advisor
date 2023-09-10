@@ -1,1 +1,5 @@
-pytomorrowio==0.3.1
+homeassistant==2023.9.1
+colorlog==6.7.0
+pynws==1.5.1
+pytomorrowio==0.3.6
+ruff==0.0.285

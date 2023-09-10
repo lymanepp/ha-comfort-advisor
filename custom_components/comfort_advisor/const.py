@@ -3,10 +3,11 @@ from datetime import timedelta
 from logging import Logger, getLogger
 from typing import Final
 
-LOGGER: Logger = getLogger(__package__)
+_LOGGER: Logger = getLogger(__package__)
 
 DOMAIN: Final = "comfort_advisor"
 
+CONF_WEATHER: Final = "weather"
 CONF_INDOOR_HUMIDITY: Final = "indoor_humidity"
 CONF_INDOOR_TEMPERATURE: Final = "indoor_temperature"
 CONF_OUTDOOR_HUMIDITY: Final = "outdoor_humidity"
@@ -14,8 +15,6 @@ CONF_OUTDOOR_TEMPERATURE: Final = "outdoor_temperature"
 CONF_DEW_POINT_MAX: Final = "dew_point_max"
 CONF_HUMIDITY_MAX: Final = "humidity_max"
 CONF_POLLEN_MAX: Final = "pollen_max"
-CONF_PROVIDER: Final = "provider"
-CONF_WEATHER: Final = "weather"
 CONF_SIMMER_INDEX_MAX: Final = "simmer_index_max"
 CONF_SIMMER_INDEX_MIN: Final = "simmer_index_min"
 CONF_ENABLED_SENSORS: Final = "enabled_sensors"

@@ -12,11 +12,10 @@ from homeassistant.const import (
     PERCENTAGE,
     TEMP_FAHRENHEIT,
 )
-from homeassistant.core import HomeAssistant, State, callback
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import entity_registry
 from homeassistant.helpers.typing import ConfigType
-from homeassistant.requirements import RequirementsNotFound
 from homeassistant.util.temperature import VALID_UNITS as TEMPERATURE_UNITS
 from homeassistant.util.unit_conversion import TemperatureConverter as TC
 import voluptuous as vol
@@ -26,19 +25,9 @@ from .const import (
     CONF_INDOOR_TEMPERATURE,
     CONF_OUTDOOR_HUMIDITY,
     CONF_OUTDOOR_TEMPERATURE,
-    CONF_PROVIDER,
-    CONF_WEATHER,
     DOMAIN,
 )
-from .helpers import create_issue_tracker_url
-from .provider import PROVIDER_META, Provider, ProviderException, async_create_weather_provider
-from .schemas import (
-    DATA_SCHEMA,
-    build_comfort_schema,
-    build_device_schema,
-    build_inputs_schema,
-    build_weather_schema,
-)
+from .schemas import DATA_SCHEMA, build_comfort_schema, build_device_schema, build_inputs_schema
 
 ErrorsType = MutableMapping[str, str]
 
@@ -52,11 +41,16 @@ def _validate_inputs(
     outdoor_temperature: str,
     outdoor_humidity: str,
 ) -> bool:
-    def validate_sensor_units(entity_ids: Iterable[str], valid_units: Iterable[str]) -> bool:
+    def validate_sensor_units(entity_ids: Iterable[str], valid_units: Iterable[str | None]) -> bool:
         for entity_id in entity_ids:
-            state: State = hass.states.get(entity_id)
-            unit = state.attributes.get(ATTR_UNIT_OF_MEASUREMENT)
-            if unit not in valid_units:
+            state = hass.states.get(entity_id)
+            if not state:
+                errors["base"] = "sensor_entity"
+                errors["sensor"] = entity_id
+                return False
+
+            unit: str | None = state.attributes.get(ATTR_UNIT_OF_MEASUREMENT)
+            if not unit or unit not in valid_units:
                 errors["base"] = "sensor_units"
                 errors["sensor"] = state.name
                 return False
@@ -65,15 +59,6 @@ def _validate_inputs(
     return validate_sensor_units(
         [indoor_temperature, outdoor_temperature], TEMPERATURE_UNITS
     ) and validate_sensor_units([indoor_humidity, outdoor_humidity], [PERCENTAGE])
-
-
-async def _async_test_weather(provider: Provider, errors: ErrorsType) -> bool:
-    try:
-        await provider.fetch_realtime()
-        return True
-    except ProviderException as exc:
-        errors["base"] = exc.error_key
-        return False
 
 
 def _create_unique_id(hass: HomeAssistant, inputs_config: ConfigType) -> str:
@@ -103,7 +88,6 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
         """Initialize config flow."""
 
         self._config: dict[str, Any] = {}
-        self._weather_provider: Provider | None = None
         self._weather_schema: vol.Schema | None = None
 
     async def async_step_user(self, user_input: ConfigType | None = None) -> FlowResult:
@@ -122,71 +106,13 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
                 await self.async_set_unique_id(unique_id)
                 self._abort_if_unique_id_configured()
 
-                if _validate_inputs(self.hass, errors, **user_input):
-                    self._config.update(user_input)
-                    return await self.async_step_provider()
-
-        return self.async_show_form(
-            step_id="user",
-            errors=errors,
-            data_schema=build_inputs_schema(self.hass, user_input),
-        )
-
-    async def async_step_provider(self, user_input: ConfigType | None = None) -> FlowResult:
-        """Handle a flow initialized by the user. Choose a weather provider."""
-        user_input = user_input or {}
-
-        if len(PROVIDER_META) == 1:
-            user_input = {CONF_PROVIDER: list(PROVIDER_META)[0]}
-
-        if user_input:
-            self._config[CONF_WEATHER] = user_input
-            return await self.async_step_weather()
-
-        return self.async_show_form(
-            step_id="choose", data_schema=build_weather_schema(self.hass, user_input)
-        )
-
-    async def async_step_weather(self, user_input: ConfigType | None = None) -> FlowResult:
-        """Enter weather provider configuration."""
-        user_input = user_input or {}
-        errors: ErrorsType = {}
-        weather_config = {**self._config[CONF_WEATHER], **user_input}
-        provider_type = weather_config[CONF_PROVIDER]
-
-        if user_input:
-            try:
-                self._weather_provider = await async_create_weather_provider(
-                    self.hass, weather_config
-                )
-            except (ImportError, RequirementsNotFound) as exc:
-                issue_url = await create_issue_tracker_url(
-                    self.hass, exc, title=f"Error loading '{provider_type}' provider"
-                )
-                placeholders = {
-                    "provider": provider_type,
-                    "message": getattr(exc, "msg"),
-                    "issue_url": issue_url,
-                }
-                return self.async_abort(
-                    reason="load_provider", description_placeholders=placeholders
-                )
-
-            if await _async_test_weather(self._weather_provider, errors):
-                self._config[CONF_WEATHER] = weather_config
+                # if _validate_inputs(self.hass, errors, **user_input):
+                self._config.update(user_input)
                 return await self.async_step_comfort()
 
-        if not self._weather_schema:
-            self._weather_schema = build_weather_schema(self.hass, weather_config)
+        schema = build_inputs_schema(self.hass, user_input)
 
-        placeholders = {"provider_desc": PROVIDER_META[provider_type]["DESCRIPTION"]}
-
-        return self.async_show_form(
-            step_id="weather",
-            errors=errors,
-            data_schema=self._weather_schema,
-            description_placeholders=placeholders,
-        )
+        return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
 
     async def async_step_comfort(self, user_input: ConfigType | None = None) -> FlowResult:
         """Adjust comfort values."""
@@ -200,11 +126,14 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
             self._config[CONF_TEMPERATURE_UNIT] = temp_unit
             return await self.async_step_device()
 
+        schema = build_comfort_schema(self.hass, user_input)
+        placeholders = _build_comfort_placeholders(temp_unit)
+
         return self.async_show_form(
             step_id="comfort",
+            data_schema=schema,
             errors=errors,
-            data_schema=build_comfort_schema(self.hass, user_input),
-            description_placeholders=_build_comfort_placeholders(temp_unit),
+            description_placeholders=placeholders,
         )
 
     async def async_step_device(self, user_input: ConfigType | None = None) -> FlowResult:
@@ -217,20 +146,18 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
             config = DATA_SCHEMA(self._config)
             return self.async_create_entry(title=user_input[CONF_NAME], data=config)
 
-        return self.async_show_form(
-            step_id="device",
-            errors=errors,
-            data_schema=build_device_schema(user_input),
-        )
+        schema = build_device_schema(user_input)
+
+        return self.async_show_form(step_id="device", data_schema=schema, errors=errors)
 
     @staticmethod
-    @callback  # type: ignore
-    def async_get_options_flow(config_entry: ConfigEntry) -> ConfigFlow:
+    @callback
+    def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
         """Get the options flow for this handler."""
         return ComfortAdvisorOptionsFlow(config_entry)
 
 
-class ComfortAdvisorOptionsFlow(OptionsFlow):  # type: ignore
+class ComfortAdvisorOptionsFlow(OptionsFlow):
     """Handle options."""
 
     def __init__(self, config_entry: ConfigEntry):
@@ -238,7 +165,7 @@ class ComfortAdvisorOptionsFlow(OptionsFlow):  # type: ignore
         self._original = config_entry.data | config_entry.options
         self._config: dict[str, Any] = {}
 
-    async def async_step_init(self, user_input: ConfigType = None) -> FlowResult:
+    async def async_step_init(self, user_input: ConfigType | None = None) -> FlowResult:
         """Adjust comfort values."""
         user_input = user_input or {}
         errors: ErrorsType = {}
@@ -249,11 +176,11 @@ class ComfortAdvisorOptionsFlow(OptionsFlow):  # type: ignore
 
         temp_unit = self.hass.config.units.temperature_unit
 
+        schema = build_comfort_schema(self.hass, self._original)
+        placeholders = _build_comfort_placeholders(temp_unit)
+
         return self.async_show_form(
-            step_id="init",
-            errors=errors,
-            data_schema=build_comfort_schema(self.hass, self._original),
-            description_placeholders=_build_comfort_placeholders(temp_unit),
+            step_id="init", errors=errors, data_schema=schema, description_placeholders=placeholders
         )
 
     async def async_step_device(self, user_input: ConfigType | None = None) -> FlowResult:
@@ -265,8 +192,6 @@ class ComfortAdvisorOptionsFlow(OptionsFlow):  # type: ignore
             self._config.update(user_input)
             return self.async_create_entry(title=user_input[CONF_NAME], data=self._config)
 
-        return self.async_show_form(
-            step_id="device",
-            errors=errors,
-            data_schema=build_device_schema(self._original),
-        )
+        schema = build_device_schema(self._original)
+
+        return self.async_show_form(step_id="device", data_schema=schema, errors=errors)

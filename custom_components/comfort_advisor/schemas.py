@@ -4,26 +4,24 @@ from __future__ import annotations
 from typing import Any, Mapping, Sequence
 
 from homeassistant.components.sensor import SensorDeviceClass
+from homeassistant.components.weather import WeatherEntityFeature
 from homeassistant.const import (
-    CONF_API_KEY,
-    CONF_LATITUDE,
-    CONF_LOCATION,
-    CONF_LONGITUDE,
     CONF_NAME,
     CONF_TEMPERATURE_UNIT,
     PERCENTAGE,
     TEMP_FAHRENHEIT,
+    Platform,
+    UnitOfTemperature,
 )
 from homeassistant.core import HomeAssistant
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.entityfilter import CONF_INCLUDE_ENTITIES
 from homeassistant.helpers.selector import selector
-from homeassistant.util.temperature import VALID_UNITS as VALID_TEMP_UNITS
 from homeassistant.util.unit_conversion import TemperatureConverter as TC
 from homeassistant.util.unit_system import METRIC_SYSTEM
 import voluptuous as vol
 
-from .comfort import State
+from .comfort import Calculated
 from .const import (
     CONF_DEW_POINT_MAX,
     CONF_ENABLED_SENSORS,
@@ -33,7 +31,6 @@ from .const import (
     CONF_OUTDOOR_HUMIDITY,
     CONF_OUTDOOR_TEMPERATURE,
     CONF_POLLEN_MAX,
-    CONF_PROVIDER,
     CONF_SIMMER_INDEX_MAX,
     CONF_SIMMER_INDEX_MIN,
     CONF_WEATHER,
@@ -44,52 +41,41 @@ from .const import (
     DEFAULT_SIMMER_INDEX_MAX,
     DEFAULT_SIMMER_INDEX_MIN,
 )
-from .helpers import get_sensor_entities
-from .provider import PROVIDER_META
+from .helpers import domain_entity_ids
 
-ALL_SENSOR_TYPES = [str(x) for x in State]  # type:ignore
+ALL_SENSOR_TYPES = [str(x) for x in Calculated]  # type:ignore
 
-
-def build_weather_schema(hass: HomeAssistant, weather_config: Mapping[str, Any]) -> vol.Schema:
-    """Build provider schema."""
-    provider_type: str = weather_config.get(CONF_PROVIDER, vol.UNDEFINED)
-
-    if provider_type == vol.UNDEFINED:
-        provider_types = {k: v["NAME"] for k, v in PROVIDER_META.items()}
-        return vol.Schema(
-            {vol.Required(CONF_PROVIDER): vol.In(provider_types)},
-        )
-
-    default_location = {CONF_LATITUDE: hass.config.latitude, CONF_LONGITUDE: hass.config.longitude}
-
-    api_key: str = weather_config.get(CONF_API_KEY, vol.UNDEFINED)
-    location: Mapping[str, float] = weather_config.get(CONF_LOCATION, default_location)
-
-    return vol.Schema(
-        {
-            vol.Required(CONF_API_KEY, default=api_key): vol.All(str, vol.Length(min=1)),
-            vol.Required(CONF_LOCATION, default=location): selector(
-                {"location": {"radius": False}}
-            ),
-        }
-    )
+VALID_TEMP_UNITS = [
+    UnitOfTemperature.CELSIUS,
+    UnitOfTemperature.FAHRENHEIT,
+]
 
 
 def build_inputs_schema(hass: HomeAssistant, config: Mapping[str, Any]) -> vol.Schema:
     """Build inputs schema."""
-    indoor_temperature: float = config.get(CONF_INDOOR_TEMPERATURE, vol.UNDEFINED)
-    indoor_humidity: float = config.get(CONF_INDOOR_HUMIDITY, vol.UNDEFINED)
-    outdoor_temperature: float = config.get(CONF_OUTDOOR_TEMPERATURE, vol.UNDEFINED)
-    outdoor_humidity: float = config.get(CONF_OUTDOOR_HUMIDITY, vol.UNDEFINED)
+    weather = config.get(CONF_WEATHER, vol.UNDEFINED)
+    indoor_temperature = config.get(CONF_INDOOR_TEMPERATURE, vol.UNDEFINED)
+    indoor_humidity = config.get(CONF_INDOOR_HUMIDITY, vol.UNDEFINED)
+    outdoor_temperature = config.get(CONF_OUTDOOR_TEMPERATURE, vol.UNDEFINED)
+    outdoor_humidity = config.get(CONF_OUTDOOR_HUMIDITY, vol.UNDEFINED)
 
-    temp_sensors = get_sensor_entities(hass, SensorDeviceClass.TEMPERATURE, VALID_TEMP_UNITS)
-    humidity_sensors = get_sensor_entities(hass, SensorDeviceClass.HUMIDITY, [PERCENTAGE])
+    weather_entity_ids = domain_entity_ids(
+        hass, Platform.WEATHER, required_features=WeatherEntityFeature.FORECAST_HOURLY
+    )
+    temp_sensors = domain_entity_ids(
+        hass, Platform.SENSOR, SensorDeviceClass.TEMPERATURE, VALID_TEMP_UNITS
+    )
+    humidity_sensors = domain_entity_ids(
+        hass, Platform.SENSOR, SensorDeviceClass.HUMIDITY, PERCENTAGE
+    )
 
+    weather_selector = selector({"entity": {CONF_INCLUDE_ENTITIES: weather_entity_ids}})
     temp_sensor_selector = selector({"entity": {CONF_INCLUDE_ENTITIES: temp_sensors}})
     humidity_sensor_selector = selector({"entity": {CONF_INCLUDE_ENTITIES: humidity_sensors}})
 
     return vol.Schema(
         {
+            vol.Required(CONF_WEATHER, default=weather): weather_selector,
             vol.Required(CONF_INDOOR_TEMPERATURE, default=indoor_temperature): temp_sensor_selector,
             vol.Required(CONF_INDOOR_HUMIDITY, default=indoor_humidity): humidity_sensor_selector,
             vol.Required(
@@ -104,18 +90,18 @@ def build_comfort_schema(hass: HomeAssistant, config: Mapping[str, Any]) -> vol.
     """Build comfort settings schema."""
     temp_unit = hass.config.units.temperature_unit
 
-    simmer_index_min: float = config.get(
+    simmer_index_min = config.get(
         CONF_SIMMER_INDEX_MIN,
         round(TC.convert(DEFAULT_SIMMER_INDEX_MIN, TEMP_FAHRENHEIT, temp_unit), 1),
     )
-    simmer_index_max: float = config.get(
+    simmer_index_max = config.get(
         CONF_SIMMER_INDEX_MAX,
         round(TC.convert(DEFAULT_SIMMER_INDEX_MAX, TEMP_FAHRENHEIT, temp_unit), 1),
     )
-    dew_point_max: float = config.get(
+    dew_point_max = config.get(
         CONF_DEW_POINT_MAX, round(TC.convert(DEFAULT_DEWPOINT_MAX, TEMP_FAHRENHEIT, temp_unit), 1)
     )
-    humidity_max: float = config.get(CONF_HUMIDITY_MAX, DEFAULT_HUMIDITY_MAX)
+    humidity_max = config.get(CONF_HUMIDITY_MAX, DEFAULT_HUMIDITY_MAX)
     pollen_max: int = config.get(CONF_POLLEN_MAX, DEFAULT_POLLEN_MAX)
 
     temp_step = 0.5 if hass.config.units is METRIC_SYSTEM else 1.0
@@ -128,11 +114,11 @@ def build_comfort_schema(hass: HomeAssistant, config: Mapping[str, Any]) -> vol.
 
     return vol.Schema(
         {
-            vol.Required(CONF_SIMMER_INDEX_MIN, default=simmer_index_min): temperature_selector,
-            vol.Required(CONF_SIMMER_INDEX_MAX, default=simmer_index_max): temperature_selector,
-            vol.Required(CONF_DEW_POINT_MAX, default=dew_point_max): temperature_selector,
-            vol.Required(CONF_HUMIDITY_MAX, default=humidity_max): vol.All(humidity_selector),
-            vol.Required(CONF_POLLEN_MAX, default=pollen_max): vol.In(
+            vol.Required(CONF_SIMMER_INDEX_MIN, default=simmer_index_min): temperature_selector,  # type: ignore
+            vol.Required(CONF_SIMMER_INDEX_MAX, default=simmer_index_max): temperature_selector,  # type: ignore
+            vol.Required(CONF_DEW_POINT_MAX, default=dew_point_max): temperature_selector,  # type: ignore
+            vol.Required(CONF_HUMIDITY_MAX, default=humidity_max): vol.All(humidity_selector),  # type: ignore
+            vol.Required(CONF_POLLEN_MAX, default=pollen_max): vol.In(  # type: ignore
                 {0: "none", 1: "very_low", 2: "low", 3: "medium", 4: "high", 5: "very_high"}  # TODO
             ),
         }
@@ -148,39 +134,21 @@ def build_device_schema(config: Mapping[str, Any]) -> vol.Schema:
     sensor_type_dict = {x: x.replace("_", " ").title() for x in all_sensor_types}
     return vol.Schema(
         {
-            vol.Required(CONF_NAME, default=name): str,
+            vol.Required(CONF_NAME, default=name): str,  # type: ignore
             vol.Required(
-                CONF_ENABLED_SENSORS, default=enabled_sensors or all_sensor_types
+                CONF_ENABLED_SENSORS, default=enabled_sensors or all_sensor_types  # type: ignore
             ): cv.multi_select(sensor_type_dict),
         }
     )
 
 
-_API_KEY_AND_LOCATION = {
-    vol.Required(CONF_API_KEY): vol.All(str, vol.Length(min=1)),
-    vol.Required(CONF_LOCATION): {
-        vol.Required(CONF_LATITUDE): cv.latitude,
-        vol.Required(CONF_LONGITUDE): cv.longitude,
-    },
-}
-
-_WEATHER_SCHEMA = cv.key_value_schemas(
-    CONF_PROVIDER,
-    {
-        "nws": vol.Schema({vol.Required(CONF_PROVIDER): "nws", **_API_KEY_AND_LOCATION}),
-        "tomorrowio": vol.Schema(
-            {vol.Required(CONF_PROVIDER): "tomorrowio", **_API_KEY_AND_LOCATION}
-        ),
-    },
-)
-
 DATA_SCHEMA = vol.Schema(
     {
+        vol.Required(CONF_WEATHER): cv.entity_id,
         vol.Required(CONF_INDOOR_TEMPERATURE): cv.entity_id,
         vol.Required(CONF_INDOOR_HUMIDITY): cv.entity_id,
         vol.Required(CONF_OUTDOOR_TEMPERATURE): cv.entity_id,
         vol.Required(CONF_OUTDOOR_HUMIDITY): cv.entity_id,
-        vol.Required(CONF_WEATHER): _WEATHER_SCHEMA,
         vol.Required(CONF_SIMMER_INDEX_MIN): vol.Coerce(float),
         vol.Required(CONF_SIMMER_INDEX_MAX): vol.Coerce(float),
         vol.Required(CONF_DEW_POINT_MAX): vol.Coerce(float),

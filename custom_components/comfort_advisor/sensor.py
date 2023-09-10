@@ -1,6 +1,8 @@
 """Sensor platform for comfort_advisor."""
 from __future__ import annotations
 
+from typing import cast
+
 from homeassistant.backports.enum import StrEnum
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -14,8 +16,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import async_generate_entity_id
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .comfort import State
-from .const import CONF_ENABLED_SENSORS, DOMAIN, LOGGER
+from .comfort import Calculated
+from .const import _LOGGER, CONF_ENABLED_SENSORS, DOMAIN
 from .device import ComfortAdvisorDevice
 
 
@@ -28,7 +30,7 @@ async def async_setup_entry(
     config = config_entry.data | config_entry.options or {}
     device: ComfortAdvisorDevice = hass.data[DOMAIN][config_entry.entry_id]
 
-    LOGGER.debug("async_setup_entry: %s", config_entry.title)
+    _LOGGER.debug("async_setup_entry: %s", config_entry.title)
 
     enabled_sensors = config[CONF_ENABLED_SENSORS]
 
@@ -84,39 +86,38 @@ class ComfortAdvisorSensor(SensorEntity):  # type: ignore
 
     async def async_update(self) -> None:
         """Update the state of the sensor."""
-        value = self._device.get_state(self.entity_description.key)
-        LOGGER.debug("async_update called for %s - state(%s)", self.entity_id, str(value))
+        value = self._device.get_calculated(self.entity_description.key)
+        _LOGGER.debug("async_update called for %s - state(%s)", self.entity_id, str(value))
         self._attr_native_value = value
-        self._attr_extra_state_attributes = self._device.extra_state_attributes
 
 
 class ComfortAdvisorDeviceClass(StrEnum):  # type: ignore
     """State class for thermal comfort sensors."""
 
-    CAN_OPEN_WINDOWS = f"{DOMAIN}__{State.CAN_OPEN_WINDOWS}"
+    CAN_OPEN_WINDOWS = f"{DOMAIN}__{Calculated.CAN_OPEN_WINDOWS}"
 
 
 SENSOR_DESCRIPTIONS = [
     SensorEntityDescription(
-        key=State.CAN_OPEN_WINDOWS,
-        device_class=ComfortAdvisorDeviceClass.CAN_OPEN_WINDOWS,
+        key=Calculated.CAN_OPEN_WINDOWS,
+        device_class=cast(SensorDeviceClass, ComfortAdvisorDeviceClass.CAN_OPEN_WINDOWS),
         icon="mdi:window-closed",
     ),
     SensorEntityDescription(
-        key=State.OPEN_WINDOWS_AT,
+        key=Calculated.OPEN_WINDOWS_AT,
         device_class=SensorDeviceClass.TIMESTAMP,
     ),
     SensorEntityDescription(
-        key=State.CLOSE_WINDOWS_AT,
+        key=Calculated.CLOSE_WINDOWS_AT,
         device_class=SensorDeviceClass.TIMESTAMP,
     ),
     SensorEntityDescription(
-        key=State.HIGH_SIMMER_INDEX,
+        key=Calculated.HIGH_SIMMER_INDEX,
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
     ),
     SensorEntityDescription(
-        key=State.LOW_SIMMER_INDEX,
+        key=Calculated.LOW_SIMMER_INDEX,
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
     ),

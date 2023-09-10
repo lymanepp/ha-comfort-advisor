@@ -1,11 +1,12 @@
 {
   "python.linting.pylintEnabled": true,
   "python.linting.enabled": true,
-  "python.pythonPath": "/usr/local/bin/python",
   "files.associations": {
     "*.yaml": "home-assistant"
   },
-  "python.testing.pytestArgs": ["--no-cov"],
+  "python.testing.pytestArgs": [
+    "--no-cov"
+  ],
   "python.testing.unittestEnabled": false,
   "python.testing.pytestEnabled": true,
   "files.exclude": {
@@ -13,5 +14,16 @@
     "**/.mypy_cache": true,
     "**/.pytest_cache": true
   },
-  "cSpell.words": ["hass"]
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.black-formatter",
+    "editor.formatOnPaste": true,
+    "editor.formatOnSave": true,
+    "editor.formatOnType": true
+  },
+  "python.formatting.provider": "none",
+  "python.analysis.typeCheckingMode": "basic",
+  "isort.args": [
+    "--profile",
+    "black"
+  ]
 }
