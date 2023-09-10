@@ -76,7 +76,7 @@ def domain_entity_ids(
     ignore_ids = [
         entity.entity_id
         for entity in list(ent_reg.entities.values())
-        if entity.platform in [DOMAIN, "thermal_comfort"]
+        if entity.platform in EXCLUDED_PLATFORMS
     ]
 
     entity_ids = []

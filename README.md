@@ -1,4 +1,4 @@
-# [![comfort_advisor](https://raw.githubusercontent.com/lymanepp/ha-comfort-advisor/master/icons/logo.png)](https://github.com/lymanepp/ha-comfort-advisor)
+# https://github.com/lymanepp/ha-comfort-advisor
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Default-41BDF5.svg?style=for-the-badge)](https://github.com/hacs/integration)
 

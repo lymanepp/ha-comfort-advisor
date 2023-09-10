@@ -92,7 +92,7 @@ class ComfortAdvisorSensor(SensorEntity):  # type: ignore
 
 
 class ComfortAdvisorDeviceClass(StrEnum):  # type: ignore
-    """State class for thermal comfort sensors."""
+    """Device class for comfort advisor sensors."""
 
     CAN_OPEN_WINDOWS = f"{DOMAIN}__{Calculated.CAN_OPEN_WINDOWS}"
 
