@@ -10,11 +10,9 @@ from typing import Final
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EVENT_HOMEASSISTANT_STARTED, Platform
 from homeassistant.core import CoreState, Event, HomeAssistant
-import voluptuous as vol
 
-from .const import _LOGGER, CONF_WEATHER, DOMAIN
+from .const import DOMAIN
 from .device import ComfortAdvisorDevice
-from .schemas import DATA_SCHEMA
 
 PLATFORMS: Final = [Platform.SENSOR]
 
@@ -22,17 +20,10 @@ PLATFORMS: Final = [Platform.SENSOR]
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
     """Set up entry configured from user interface."""
     hass.data.setdefault(DOMAIN, {})
-    config = config_entry.data | config_entry.options or {}
 
     if config_entry.unique_id is None:
         # We have no unique_id yet, let's use backup.
         hass.config_entries.async_update_entry(config_entry, unique_id=config_entry.entry_id)
-
-    try:
-        config = DATA_SCHEMA(config)
-    except vol.Invalid as exc:
-        _LOGGER.error("Invalid configuration: %s", exc)
-        return False
 
     device = ComfortAdvisorDevice(hass, config_entry)
     hass.data[DOMAIN][config_entry.entry_id] = device
