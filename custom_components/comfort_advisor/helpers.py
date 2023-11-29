@@ -5,11 +5,7 @@ from typing import Callable, Iterable, Literal, cast
 
 from homeassistant.components.weather import DOMAIN as WEATHER_DOMAIN
 from homeassistant.components.weather import WeatherEntity
-from homeassistant.const import (
-    ATTR_DEVICE_CLASS,
-    ATTR_SUPPORTED_FEATURES,
-    ATTR_UNIT_OF_MEASUREMENT,
-)
+from homeassistant.const import ATTR_DEVICE_CLASS, ATTR_SUPPORTED_FEATURES, ATTR_UNIT_OF_MEASUREMENT
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant
 from homeassistant.helpers import device_registry, entity_registry
 from homeassistant.helpers.entity import Entity

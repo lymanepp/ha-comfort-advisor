@@ -8,8 +8,9 @@ from __future__ import annotations
 from typing import Final
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import EVENT_HOMEASSISTANT_STARTED, Platform
-from homeassistant.core import CoreState, Event, HomeAssistant
+from homeassistant.const import Platform
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.start import async_at_start
 
 from .const import DOMAIN
 from .device import ComfortAdvisorDevice
@@ -28,15 +29,10 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
     device = ComfortAdvisorDevice(hass, config_entry)
     hass.data[DOMAIN][config_entry.entry_id] = device
 
-    # wait until HA is started to ensure that the entities we reference have been created
-
-    async def on_started(_: Event | None = None):
+    async def on_started(hass: HomeAssistant):
         await device.async_setup_entry(config_entry)
 
-    if hass.state == CoreState.running:
-        await on_started()
-    else:
-        hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, on_started)
+    config_entry.async_on_unload(async_at_start(hass, on_started))
 
     await hass.config_entries.async_forward_entry_setups(config_entry, PLATFORMS)
 

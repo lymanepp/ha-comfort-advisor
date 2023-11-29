@@ -43,7 +43,7 @@ class ComfortAdvisorDevice:
         self._config = config_entry.data | config_entry.options or {}
         self.hass = hass
         self.unique_id = config_entry.unique_id
-        self._comfort = ComfortCalculator(hass.config.units.temperature_unit, self._config)
+        self._comfort = ComfortCalculator(hass.config.units, self._config)
 
         suggested_area = get_entity_area(
             hass, self._config[CONF_INDOOR_TEMPERATURE]

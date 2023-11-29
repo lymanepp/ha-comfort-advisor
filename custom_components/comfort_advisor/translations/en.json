@@ -5,7 +5,7 @@
         "title": "Configure ambient sensors",
         "description": "Comfort Advisor compares the indoor and outdoor comfort levels to suggest when windows can be open. Use the [Comfort Advisor blueprint](https://github.com/lymanepp/ha-blueprints/blob/main/comfort-advisor.yaml) for creating automations.\n\nTip: you can use current temperature and humidity sensors from a weather integration if you don't have outdoor temperature and humidity sensors.",
         "data": {
-          "weather": "Weather forecast provider",
+          "weather": "Hourly forecast provider",
           "indoor_temperature": "Indoor temperature sensor",
           "indoor_humidity": "Indoor humidity sensor",
           "outdoor_temperature": "Outdoor temperature sensor",

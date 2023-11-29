@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from itertools import dropwhile
 import json
-from typing import Any, Mapping, Required, TypedDict
+from typing import Any, Mapping, Required, TypedDict, cast
 
 from homeassistant.backports.enum import StrEnum
 from homeassistant.components.weather import (
@@ -15,9 +15,10 @@ from homeassistant.components.weather import (
     ATTR_FORECAST_TIME,
     Forecast,
 )
-from homeassistant.const import CONF_TEMPERATURE_UNIT
+from homeassistant.const import CONF_TEMPERATURE_UNIT, UnitOfPressure
 from homeassistant.util.dt import utcnow
 from homeassistant.util.unit_conversion import TemperatureConverter as TC
+from homeassistant.util.unit_system import UnitSystem
 
 from .const import (
     _LOGGER,
@@ -45,11 +46,16 @@ class Input(StrEnum):  # type: ignore
 class Calculated(StrEnum):  # type: ignore
     """ComfortCalculator outputs."""
 
+    AVERAGE_TEMPERATURE = "average_temperature"
+    ENTHALPY = "enthalpy"
+    SIMMER_INDEX = "simmer_index"
     CAN_OPEN_WINDOWS = "can_open_windows"
     OPEN_WINDOWS_AT = "open_windows_at"
     CLOSE_WINDOWS_AT = "close_windows_at"
     LOW_SIMMER_INDEX = "low_simmer_index"
     HIGH_SIMMER_INDEX = "high_simmer_index"
+    LOW_ENTHALPY = "low_enthalpy"
+    HIGH_ENTHALPY = "high_enthalpy"
 
 
 @dataclass
@@ -57,13 +63,13 @@ class ComfortForecast(TypedDict, total=False):
     """Data format returned by weather provider."""
 
     datetime: Required[datetime]
+    temperature: Required[float]
     dew_point: Required[float]
     ssi: Required[float]
     enthalpy: Required[float]
     comfortable: Required[bool]
 
 
-ATTR_FORECAST_DATE_TIME = "datetime"
 ATTR_FORECAST_SSI = "ssi"
 ATTR_FORECAST_ENTHALPY = "enthalpy"
 ATTR_FORECAST_COMFORTABLE = "comfortable"
@@ -79,12 +85,12 @@ ATTR_FORECAST_COMFORTABLE = "comfortable"
 class ComfortCalculator:
     """Calculate comfort states."""
 
-    def __init__(self, hass_temp_unit: str, config: Mapping[str, Any]) -> None:
+    def __init__(self, unit_system: UnitSystem, config: Mapping[str, Any]) -> None:
         """Initialize."""
 
         self._humidity_max: float = config[CONF_HUMIDITY_MAX]
         self._pollen_max: int = config[CONF_POLLEN_MAX]
-        self._temp_unit = hass_temp_unit
+        self._temp_unit = unit_system.temperature_unit
         self._weather = config[CONF_WEATHER]
         self._dew_point_max = config[CONF_DEW_POINT_MAX]
         self._simmer_index_min = config[CONF_SIMMER_INDEX_MIN]
@@ -92,13 +98,15 @@ class ComfortCalculator:
 
         # The temperature unit is stored with configuration just in case the unit
         # system is changed later. Convert units to the current unit system.
-        if (config_temp_unit := config[CONF_TEMPERATURE_UNIT]) != hass_temp_unit:
-            self._dew_point_max = TC.convert(self._dew_point_max, config_temp_unit, hass_temp_unit)
+        if (config_temp_unit := config[CONF_TEMPERATURE_UNIT]) != unit_system.temperature_unit:
+            self._dew_point_max = TC.convert(
+                self._dew_point_max, config_temp_unit, unit_system.temperature_unit
+            )
             self._simmer_index_min = TC.convert(
-                self._simmer_index_min, config_temp_unit, hass_temp_unit
+                self._simmer_index_min, config_temp_unit, unit_system.temperature_unit
             )
             self._simmer_index_max = TC.convert(
-                self._simmer_index_max, config_temp_unit, hass_temp_unit
+                self._simmer_index_max, config_temp_unit, unit_system.temperature_unit
             )
 
         # state
@@ -132,9 +140,12 @@ class ComfortCalculator:
         if any(value is None for value in self._input.values()):
             return False
 
-        # realtime: WeatherData = self._inputs[Input.REALTIME]
         forecast = self.make_comfort_forecast(self._input[Input.FORECAST])
-        # in_temp: float = self._input[CONF_INDOOR_TEMPERATURE]
+        if not forecast:
+            return False
+
+        # realtime: WeatherData = self._inputs[Input.REALTIME]
+        # in_temp: float = self._input[Input.INDOOR_TEMPERATURE]
         # in_humidity: float = self._input[Input.INDOOR_HUMIDITY]
         out_temp: float = self._input[Input.OUTDOOR_TEMPERATURE]
         out_humidity: float = self._input[Input.OUTDOOR_HUMIDITY]
@@ -144,15 +155,20 @@ class ComfortCalculator:
         # in_enthalpy = calc_moist_air_enthalpy(in_temp, in_humidity, self._temp_unit)
         out_dewp = calc_dew_point(out_temp, out_humidity, self._temp_unit)
         out_ssi = calc_simmer_index(out_temp, out_humidity, self._temp_unit)
-        # out_enthalpy = calc_moist_air_enthalpy(out_temp, out_humidity, self._temp_unit)
+        out_enthalpy = calc_moist_air_enthalpy(
+            out_temp, out_humidity, 101_325, self._temp_unit, UnitOfPressure.PA
+        )
 
-        if forecast:
-            ssi_arr = [entry[ATTR_FORECAST_SSI] for entry in forecast]
-            low_simmer_index = min(ssi_arr)
-            high_simmer_index = max(ssi_arr)
-        else:
-            low_simmer_index = None
-            high_simmer_index = None
+        temp_arr = [entry[ATTR_FORECAST_TEMP] for entry in forecast]
+        avg_temp = sum(temp_arr) / len(temp_arr)
+
+        ssi_arr = [entry[ATTR_FORECAST_SSI] for entry in forecast]
+        low_simmer_index = min(ssi_arr)
+        high_simmer_index = max(ssi_arr)
+
+        enthalpy_arr = [entry[ATTR_FORECAST_ENTHALPY] for entry in forecast]
+        low_enthalpy = min(enthalpy_arr)
+        high_enthalpy = max(enthalpy_arr)
 
         comfortable_now = self.is_comfortable(out_humidity, out_dewp, out_ssi, 0)
 
@@ -162,16 +178,21 @@ class ComfortCalculator:
         if change := list(
             dropwhile(lambda x: x[ATTR_FORECAST_COMFORTABLE] == comfortable_now, forecast)
         ):
-            first_time = change[0][ATTR_FORECAST_DATE_TIME]
+            first_time = change[0][ATTR_FORECAST_TIME]
 
             if change := list(
                 dropwhile(lambda x: x[ATTR_FORECAST_COMFORTABLE] != comfortable_now, change)
             ):
-                second_time = change[0][ATTR_FORECAST_DATE_TIME]
+                second_time = change[0][ATTR_FORECAST_TIME]
 
+        self._calculated[Calculated.AVERAGE_TEMPERATURE] = avg_temp
+        self._calculated[Calculated.ENTHALPY] = out_enthalpy
+        self._calculated[Calculated.SIMMER_INDEX] = out_ssi
         self._calculated[Calculated.CAN_OPEN_WINDOWS] = ["off", "on"][comfortable_now]
         self._calculated[Calculated.LOW_SIMMER_INDEX] = low_simmer_index
         self._calculated[Calculated.HIGH_SIMMER_INDEX] = high_simmer_index
+        self._calculated[Calculated.LOW_ENTHALPY] = low_enthalpy
+        self._calculated[Calculated.HIGH_ENTHALPY] = high_enthalpy
         self._calculated[Calculated.OPEN_WINDOWS_AT] = (
             second_time if comfortable_now else first_time
         )
@@ -209,30 +230,35 @@ class ComfortCalculator:
             if dt > end_time:
                 break
 
-            temp = entry.get(ATTR_FORECAST_TEMP)
+            temp = cast(float, entry.get(ATTR_FORECAST_TEMP))
             humidity = entry.get(ATTR_FORECAST_HUMIDITY)
+
             if temp is None or humidity is None:
                 _LOGGER.warning("Received invalid forecast entry: %s", json.dumps(entry))
                 return new_forecast
 
-            temp_unit = self._temp_unit
-
             dew_point = entry.get(ATTR_FORECAST_DEW_POINT) or calc_dew_point(
-                temp, humidity, temp_unit
+                temp, humidity, self._temp_unit
             )
 
-            ssi = calc_simmer_index(temp, humidity, temp_unit)
-            enthalpy = calc_moist_air_enthalpy(temp, humidity, temp_unit)
+            ssi = calc_simmer_index(temp, humidity, self._temp_unit)
+
+            enthalpy = calc_moist_air_enthalpy(
+                temp, humidity, 101_325, self._temp_unit, UnitOfPressure.PA
+            )
+
             comfortable = self.is_comfortable(humidity, dew_point, ssi, 0)
 
-            new_entry: ComfortForecast = {
-                ATTR_FORECAST_DATE_TIME: dt,
-                ATTR_FORECAST_DEW_POINT: dew_point,
-                ATTR_FORECAST_SSI: ssi,
-                ATTR_FORECAST_ENTHALPY: enthalpy,
-                ATTR_FORECAST_COMFORTABLE: comfortable,
-            }
-            new_forecast.append(new_entry)
+            new_forecast.append(
+                {
+                    ATTR_FORECAST_TIME: dt,
+                    ATTR_FORECAST_TEMP: temp,
+                    ATTR_FORECAST_DEW_POINT: dew_point,
+                    ATTR_FORECAST_SSI: ssi,
+                    ATTR_FORECAST_ENTHALPY: enthalpy,
+                    ATTR_FORECAST_COMFORTABLE: comfortable,
+                }
+            )
 
         return new_forecast
 

@@ -1,6 +1,4 @@
 {
-  "python.linting.pylintEnabled": true,
-  "python.linting.enabled": true,
   "files.associations": {
     "*.yaml": "home-assistant"
   },
@@ -20,7 +18,6 @@
     "editor.formatOnSave": true,
     "editor.formatOnType": true
   },
-  "python.formatting.provider": "none",
   "python.analysis.typeCheckingMode": "basic",
   "isort.args": [
     "--profile",

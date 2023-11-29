@@ -99,6 +99,21 @@ class ComfortAdvisorDeviceClass(StrEnum):  # type: ignore
 
 SENSOR_DESCRIPTIONS = [
     SensorEntityDescription(
+        key=Calculated.AVERAGE_TEMPERATURE,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key=Calculated.ENTHALPY,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement="kJ/kg",
+    ),
+    SensorEntityDescription(
+        key=Calculated.SIMMER_INDEX,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
         key=Calculated.CAN_OPEN_WINDOWS,
         device_class=cast(SensorDeviceClass, ComfortAdvisorDeviceClass.CAN_OPEN_WINDOWS),
         icon="mdi:window-closed",
@@ -120,5 +135,15 @@ SENSOR_DESCRIPTIONS = [
         key=Calculated.LOW_SIMMER_INDEX,
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key=Calculated.HIGH_ENTHALPY,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement="kJ/kg",
+    ),
+    SensorEntityDescription(
+        key=Calculated.LOW_ENTHALPY,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement="kJ/kg",
     ),
 ]

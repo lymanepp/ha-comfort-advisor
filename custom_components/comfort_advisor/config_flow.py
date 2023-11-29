@@ -16,7 +16,6 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import entity_registry
 from homeassistant.helpers.typing import ConfigType
-from homeassistant.util.temperature import VALID_UNITS as TEMPERATURE_UNITS
 from homeassistant.util.unit_conversion import TemperatureConverter as TC
 import voluptuous as vol
 
@@ -25,6 +24,7 @@ from .const import (
     CONF_INDOOR_TEMPERATURE,
     CONF_OUTDOOR_HUMIDITY,
     CONF_OUTDOOR_TEMPERATURE,
+    CONF_WEATHER,
     DOMAIN,
 )
 from .schemas import DATA_SCHEMA, build_comfort_schema, build_device_schema, build_inputs_schema
@@ -57,7 +57,7 @@ def _validate_inputs(
         return True
 
     return validate_sensor_units(
-        [indoor_temperature, outdoor_temperature], TEMPERATURE_UNITS
+        [indoor_temperature, outdoor_temperature], TC.VALID_UNITS
     ) and validate_sensor_units([indoor_humidity, outdoor_humidity], [PERCENTAGE])
 
 
@@ -69,6 +69,7 @@ def _create_unique_id(hass: HomeAssistant, inputs_config: ConfigType) -> str:
         CONF_INDOOR_HUMIDITY,
         CONF_OUTDOOR_TEMPERATURE,
         CONF_OUTDOOR_HUMIDITY,
+        CONF_WEATHER,
     ):
         entity_id: str = inputs_config[key]
         entity = ent_reg.async_get(entity_id)
@@ -110,7 +111,7 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
                 self._config.update(user_input)
                 return await self.async_step_comfort()
 
-        schema = build_inputs_schema(self.hass, user_input)
+        schema = await build_inputs_schema(self.hass, user_input)
 
         return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
 

@@ -4,8 +4,11 @@ from __future__ import annotations
 from typing import Any, Mapping, Sequence
 
 from homeassistant.components.sensor import SensorDeviceClass
-from homeassistant.components.weather import WeatherEntityFeature
+from homeassistant.components.weather import ATTR_FORECAST_DEW_POINT, ATTR_FORECAST_HUMIDITY
+from homeassistant.components.weather import DOMAIN as WEATHER_DOMAIN
+from homeassistant.components.weather import SERVICE_GET_FORECAST, WeatherEntityFeature
 from homeassistant.const import (
+    ATTR_ENTITY_ID,
     CONF_NAME,
     CONF_TEMPERATURE_UNIT,
     PERCENTAGE,
@@ -51,7 +54,27 @@ VALID_TEMP_UNITS = [
 ]
 
 
-def build_inputs_schema(hass: HomeAssistant, config: Mapping[str, Any]) -> vol.Schema:
+async def _forecast_has_humidity(hass: HomeAssistant, entity_id: str) -> bool:
+    response = await hass.services.async_call(
+        WEATHER_DOMAIN,
+        SERVICE_GET_FORECAST,
+        service_data={"type": "hourly"},
+        target={ATTR_ENTITY_ID: entity_id},
+        blocking=True,
+        return_response=True,
+    )
+
+    return (
+        isinstance(response, Mapping)
+        and (forecast := response.get("forecast")) is not None
+        and isinstance(forecast, Sequence)
+        and isinstance(forecast[0], Mapping)
+        and (forecast[0].get(ATTR_FORECAST_HUMIDITY) or forecast[0].get(ATTR_FORECAST_DEW_POINT))
+        is not None
+    )
+
+
+async def build_inputs_schema(hass: HomeAssistant, config: Mapping[str, Any]) -> vol.Schema:
     """Build inputs schema."""
     weather = config.get(CONF_WEATHER, vol.UNDEFINED)
     indoor_temperature = config.get(CONF_INDOOR_TEMPERATURE, vol.UNDEFINED)
@@ -68,6 +91,8 @@ def build_inputs_schema(hass: HomeAssistant, config: Mapping[str, Any]) -> vol.S
     humidity_sensors = domain_entity_ids(
         hass, Platform.SENSOR, SensorDeviceClass.HUMIDITY, PERCENTAGE
     )
+
+    weather_entity_ids = [id for id in weather_entity_ids if await _forecast_has_humidity(hass, id)]
 
     weather_selector = selector({"entity": {CONF_INCLUDE_ENTITIES: weather_entity_ids}})
     temp_sensor_selector = selector({"entity": {CONF_INCLUDE_ENTITIES: temp_sensors}})
