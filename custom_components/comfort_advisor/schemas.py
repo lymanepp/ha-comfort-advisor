@@ -6,7 +6,7 @@ from typing import Any, Mapping, Sequence
 from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.components.weather import ATTR_FORECAST_DEW_POINT, ATTR_FORECAST_HUMIDITY
 from homeassistant.components.weather import DOMAIN as WEATHER_DOMAIN
-from homeassistant.components.weather import SERVICE_GET_FORECAST, WeatherEntityFeature
+from homeassistant.components.weather import SERVICE_GET_FORECASTS, WeatherEntityFeature
 from homeassistant.const import (
     ATTR_ENTITY_ID,
     CONF_NAME,
@@ -57,7 +57,7 @@ VALID_TEMP_UNITS = [
 async def _forecast_has_humidity(hass: HomeAssistant, entity_id: str) -> bool:
     response = await hass.services.async_call(
         WEATHER_DOMAIN,
-        SERVICE_GET_FORECAST,
+        SERVICE_GET_FORECASTS,
         service_data={"type": "hourly"},
         target={ATTR_ENTITY_ID: entity_id},
         blocking=True,
@@ -66,7 +66,9 @@ async def _forecast_has_humidity(hass: HomeAssistant, entity_id: str) -> bool:
 
     return (
         isinstance(response, Mapping)
-        and (forecast := response.get("forecast")) is not None
+        and (entity_forecast := response.get(entity_id)) is not None
+        and isinstance(entity_forecast, Mapping)
+        and (forecast := entity_forecast.get("forecast")) is not None
         and isinstance(forecast, Sequence)
         and isinstance(forecast[0], Mapping)
         and (forecast[0].get(ATTR_FORECAST_HUMIDITY) or forecast[0].get(ATTR_FORECAST_DEW_POINT))
