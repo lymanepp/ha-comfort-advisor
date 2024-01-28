@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from itertools import dropwhile
 import json
-from typing import Any, Mapping, Required, TypedDict, cast
+from typing import Any, Final, Mapping, Required, TypedDict, cast
 
 from homeassistant.backports.enum import StrEnum
 from homeassistant.components.weather import (
@@ -30,6 +30,8 @@ from .const import (
     CONF_WEATHER,
 )
 from .formulas import calc_dew_point, calc_moist_air_enthalpy, calc_simmer_index
+
+STANDARD_PRESSURE_PA: Final = 101_325
 
 
 class Input(StrEnum):  # type: ignore
@@ -244,7 +246,7 @@ class ComfortCalculator:
             ssi = calc_simmer_index(temp, humidity, self._temp_unit)
 
             enthalpy = calc_moist_air_enthalpy(
-                temp, humidity, 101_325, self._temp_unit, UnitOfPressure.PA
+                temp, humidity, STANDARD_PRESSURE_PA, self._temp_unit, UnitOfPressure.PA
             )
 
             comfortable = self.is_comfortable(humidity, dew_point, ssi, 0)
@@ -265,7 +267,7 @@ class ComfortCalculator:
     def is_comfortable(
         self, humidity: float, dew_point: float, simmer_index: float, pollen: int
     ) -> bool:
-        # TODO: use moist air enthalpy instead of dew point and SSI
+        # TODO: use moist air enthalpy instead of dew point and SSI?
         return (
             self._simmer_index_min <= simmer_index <= self._simmer_index_max
             and dew_point <= self._dew_point_max

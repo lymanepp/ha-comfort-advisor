@@ -10,7 +10,7 @@ from homeassistant.const import (
     CONF_NAME,
     CONF_TEMPERATURE_UNIT,
     PERCENTAGE,
-    TEMP_FAHRENHEIT,
+    UnitOfTemperature,
 )
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import FlowResult
@@ -79,7 +79,10 @@ def _create_unique_id(hass: HomeAssistant, inputs_config: ConfigType) -> str:
 
 
 def _build_comfort_placeholders(temp_unit: str) -> Mapping[str, Any]:
-    return {str(x): round(TC.convert(x, TEMP_FAHRENHEIT, temp_unit), 1) for x in (70, 77, 83, 91)}
+    return {
+        str(x): round(TC.convert(x, UnitOfTemperature.FAHRENHEIT, temp_unit), 1)
+        for x in (70, 77, 83, 91)
+    }
 
 
 class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore

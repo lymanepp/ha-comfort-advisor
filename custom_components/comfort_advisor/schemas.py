@@ -12,7 +12,6 @@ from homeassistant.const import (
     CONF_NAME,
     CONF_TEMPERATURE_UNIT,
     PERCENTAGE,
-    TEMP_FAHRENHEIT,
     Platform,
     UnitOfTemperature,
 )
@@ -119,14 +118,15 @@ def build_comfort_schema(hass: HomeAssistant, config: Mapping[str, Any]) -> vol.
 
     simmer_index_min = config.get(
         CONF_SIMMER_INDEX_MIN,
-        round(TC.convert(DEFAULT_SIMMER_INDEX_MIN, TEMP_FAHRENHEIT, temp_unit), 1),
+        round(TC.convert(DEFAULT_SIMMER_INDEX_MIN, UnitOfTemperature.FAHRENHEIT, temp_unit), 1),
     )
     simmer_index_max = config.get(
         CONF_SIMMER_INDEX_MAX,
-        round(TC.convert(DEFAULT_SIMMER_INDEX_MAX, TEMP_FAHRENHEIT, temp_unit), 1),
+        round(TC.convert(DEFAULT_SIMMER_INDEX_MAX, UnitOfTemperature.FAHRENHEIT, temp_unit), 1),
     )
     dew_point_max = config.get(
-        CONF_DEW_POINT_MAX, round(TC.convert(DEFAULT_DEWPOINT_MAX, TEMP_FAHRENHEIT, temp_unit), 1)
+        CONF_DEW_POINT_MAX,
+        round(TC.convert(DEFAULT_DEWPOINT_MAX, UnitOfTemperature.FAHRENHEIT, temp_unit), 1),
     )
     humidity_max = config.get(CONF_HUMIDITY_MAX, DEFAULT_HUMIDITY_MAX)
     pollen_max: int = config.get(CONF_POLLEN_MAX, DEFAULT_POLLEN_MAX)
