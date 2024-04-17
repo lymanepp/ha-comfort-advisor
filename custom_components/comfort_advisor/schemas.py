@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Any, Mapping, Sequence
 
 from homeassistant.components.sensor import SensorDeviceClass
-from homeassistant.components.weather import ATTR_FORECAST_DEW_POINT, ATTR_FORECAST_HUMIDITY
+from homeassistant.components.weather import ATTR_FORECAST_HUMIDITY
 from homeassistant.components.weather import DOMAIN as WEATHER_DOMAIN
 from homeassistant.components.weather import SERVICE_GET_FORECASTS, WeatherEntityFeature
 from homeassistant.const import (
@@ -70,8 +70,7 @@ async def _forecast_has_humidity(hass: HomeAssistant, entity_id: str) -> bool:
         and (forecast := entity_forecast.get("forecast")) is not None
         and isinstance(forecast, Sequence)
         and isinstance(forecast[0], Mapping)
-        and (forecast[0].get(ATTR_FORECAST_HUMIDITY) or forecast[0].get(ATTR_FORECAST_DEW_POINT))
-        is not None
+        and forecast[0].get(ATTR_FORECAST_HUMIDITY) is not None
     )
 
 

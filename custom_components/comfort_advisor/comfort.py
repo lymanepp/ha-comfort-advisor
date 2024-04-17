@@ -1,13 +1,14 @@
 """TODO."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from enum import StrEnum
 from itertools import dropwhile
 import json
 from typing import Any, Final, Mapping, Required, TypedDict, cast
 
-from homeassistant.backports.enum import StrEnum
 from homeassistant.components.weather import (
     ATTR_FORECAST_DEW_POINT,
     ATTR_FORECAST_HUMIDITY,
@@ -37,7 +38,6 @@ STANDARD_PRESSURE_PA: Final = 101_325
 class Input(StrEnum):  # type: ignore
     """ComfortCalculator inputs."""
 
-    # REALTIME = "realtime"
     FORECAST = "forecast"
     INDOOR_TEMPERATURE = "indoor_temperature"
     INDOOR_HUMIDITY = "indoor_humidity"
@@ -146,15 +146,14 @@ class ComfortCalculator:
         if not forecast:
             return False
 
-        # realtime: WeatherData = self._inputs[Input.REALTIME]
         # in_temp: float = self._input[Input.INDOOR_TEMPERATURE]
         # in_humidity: float = self._input[Input.INDOOR_HUMIDITY]
-        out_temp: float = self._input[Input.OUTDOOR_TEMPERATURE]
-        out_humidity: float = self._input[Input.OUTDOOR_HUMIDITY]
-
         # in_dewp = compute_dew_point(in_temp, in_humidity, self._temp_unit)
         # in_ssi = compute_simmer_index(in_temp, in_humidity, self._temp_unit)
         # in_enthalpy = calc_moist_air_enthalpy(in_temp, in_humidity, self._temp_unit)
+
+        out_temp: float = self._input[Input.OUTDOOR_TEMPERATURE]
+        out_humidity: float = self._input[Input.OUTDOOR_HUMIDITY]
         out_dewp = calc_dew_point(out_temp, out_humidity, self._temp_unit)
         out_ssi = calc_simmer_index(out_temp, out_humidity, self._temp_unit)
         out_enthalpy = calc_moist_air_enthalpy(
@@ -208,9 +207,6 @@ class ComfortCalculator:
         #    ATTR_OUTDOOR_DEW_POINT: out_dewp,
         #    ATTR_OUTDOOR_SIMMER_INDEX: out_si,
         # }
-
-        # if realtime and realtime.pollen is not None:
-        #    self._extra_attributes[ATTR_POLLEN] = realtime.pollen
 
         return True
 

@@ -1,9 +1,10 @@
 """Sensor platform for comfort_advisor."""
+
 from __future__ import annotations
 
+from enum import StrEnum
 from typing import cast
 
-from homeassistant.backports.enum import StrEnum
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,

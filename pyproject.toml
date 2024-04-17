@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.black]
 line-length = 100
-target-version = ["py39", "py310"]
+target-version = ["py312"]
 exclude = '''
 (
   /(
@@ -126,7 +126,7 @@ addopts = "--cov=weatherbitpypi --cov-append"
 
 [tool.mypy]
 # https://mypy.readthedocs.io/en/stable/config_file.html
-python_version = "3.11"
+python_version = "3.12"
 exclude = ["^tests/"]
 ignore_missing_imports = true
 warn_redundant_casts = true
