@@ -1,6 +1,6 @@
 # Contributor License Agreement (CLA)
 
-Thank you for your interest in contributing to Home Assistant Comfort Advisor (the "Project"). This Contributor License Agreement ("Agreement") sets out the terms under which intellectual property rights are licensed by contributors to the Project.
+Thank you for your interest in contributing to Home Assistant Smart Controller (the "Project"). This Contributor License Agreement ("Agreement") sets out the terms under which intellectual property rights are licensed by contributors to the Project.
 
 **Please read this document carefully before submitting your contribution.**
 

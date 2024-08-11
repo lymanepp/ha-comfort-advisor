@@ -20,6 +20,10 @@ I use GitHub issues to track public bugs. Report a bug by [opening a new issue](
 
 People *love* thorough bug reports. I'm not even kidding.
 
+## Any contributions you make will be under the Contributor License Agreement (CLA)
+
+In short, when you submit code changes, your submissions are understood to be under [Contributor License Agreement (CLA)](CLA.md) that covers the project. Feel free to contact the maintainers if that's a concern.
+
 ## Pull Requests
 
 1. Fork the repo and create your branch from `master`.
