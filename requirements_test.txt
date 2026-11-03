@@ -1,5 +1,5 @@
 # Strictly for tests
-pytest==8.3.5
+pytest==9.0.3
 pytest-cov==6.1.1
 # homeassistant 2024.4 doesn't import with josepy 2.x (pulled in via acme)
 josepy<2
