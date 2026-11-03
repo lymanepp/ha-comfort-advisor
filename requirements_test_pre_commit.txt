@@ -1,5 +1,5 @@
 black==24.3.0
 isort==5.13.2
 mypy==1.7.1
-pylint==3.0.3
+pylint==4.0.9
 yamllint==1.32.0
