@@ -60,7 +60,7 @@ async def test_setup_creates_sensors(hass: HomeAssistant, config_entry: MockConf
     assert config_entry.state is ConfigEntryState.LOADED
 
     entries = er.async_entries_for_config_entry(er.async_get(hass), config_entry.entry_id)
-    assert len(entries) == 12
+    assert len(entries) == 13
 
     assert hass.states.get(CAN_OPEN_WINDOWS).state == "on"
     assert hass.states.get(CAN_OPEN_WINDOWS).attributes["reason"] == "fresh_air"
@@ -323,3 +323,17 @@ async def test_forecast_offset_sensors(hass: HomeAssistant, config_entry: MockCo
         assert state.attributes["unit_of_measurement"] == "°C"
         # The outdoor sensors read exactly the forecast's first hour.
         assert float(state.state) == 0.0
+
+
+async def test_open_time_remaining_sensor(
+    hass: HomeAssistant, config_entry: MockConfigEntry, weather: MockWeather
+):
+    """The open time remaining is a duration sensor in hours."""
+    weather.samples = [NICE, NICE, HOT]
+    await setup_entry(hass, config_entry)
+    state = hass.states.get("sensor.comfort_advisor_open_time_remaining")
+    assert state.attributes["device_class"] == "duration"
+    assert state.attributes["unit_of_measurement"] == "h"
+    close_at = datetime.fromisoformat(hass.states.get(CLOSE_WINDOWS_AT).state)
+    hours = (close_at - dt_util.utcnow()).total_seconds() / 3600
+    assert abs(float(state.state) - hours) <= 0.25

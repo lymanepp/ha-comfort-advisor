@@ -136,6 +136,9 @@
       "close_windows_at": {
         "name": "Close windows at"
       },
+      "open_time_remaining": {
+        "name": "Open time remaining"
+      },
       "low_simmer_index": {
         "name": "Low simmer index"
       },

@@ -35,6 +35,22 @@ values are rounded to one decimal place, so small changes don't record new state
 
 > The high simmer index over the next 24 hours.
 
+**Open Time Remaining**
+
+> Hours until the windows should be closed, rounded to the nearest half hour: `0` while windows
+> can't be open, and unknown when they can stay open longer than the forecast covers (24 hours).
+> It's recalculated whenever the advice is, at least every hour, so it's current the moment
+> **Can Open Windows** turns on. For example, to announce it:
+>
+> ```yaml
+> {% set hours = states('sensor.comfort_advisor_open_time_remaining') %}
+> {% if hours in ['unknown', 'unavailable'] %}
+>   Windows can be opened for the rest of the day.
+> {% else %}
+>   Windows can be opened for about {{ hours | float | round(1) }} hours.
+> {% endif %}
+> ```
+
 **Open Windows At / Close Windows At**
 
 > The next time the windows are recommended to be opened or closed, based on the hourly forecast.

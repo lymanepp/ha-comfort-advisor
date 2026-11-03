@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from enum import StrEnum
 from itertools import dropwhile
 import json
+import math
 from typing import Any, Final
 
 from homeassistant.components.weather import (
@@ -39,6 +40,7 @@ from .const import (
     FORECAST_CORRECTION_HOURS,
     FORECAST_CORRECTION_MAX,
     OUTPUT_PRECISION,
+    REMAINING_TIME_STEP,
 )
 from .formulas import (
     calc_dew_point,
@@ -73,6 +75,7 @@ class Calculated(StrEnum):
     CAN_OPEN_WINDOWS = "can_open_windows"
     OPEN_WINDOWS_AT = "open_windows_at"
     CLOSE_WINDOWS_AT = "close_windows_at"
+    OPEN_TIME_REMAINING = "open_time_remaining"
     LOW_SIMMER_INDEX = "low_simmer_index"
     HIGH_SIMMER_INDEX = "high_simmer_index"
     LOW_ENTHALPY = "low_enthalpy"
@@ -325,6 +328,9 @@ class ComfortCalculator:
         )
         self._calculated[Calculated.OPEN_WINDOWS_AT] = second_time if open_now else first_time
         self._calculated[Calculated.CLOSE_WINDOWS_AT] = first_time if open_now else second_time
+        self._calculated[Calculated.OPEN_TIME_REMAINING] = self._open_time_remaining(
+            open_now, first_time if open_now else None
+        )
         self._extra_attributes = {ATTR_REASON: advice_now}
         self._expires_at = forecast[0].time
 
@@ -509,6 +515,21 @@ class ComfortCalculator:
         if dew_point is None:
             dew_point = calc_dew_point(temp, humidity, self._temp_unit)
         return datetime.fromisoformat(entry[ATTR_FORECAST_TIME]), temp, humidity, dew_point
+
+    @staticmethod
+    def _open_time_remaining(open_now: bool, close_at: datetime | None) -> float | None:
+        """Hours until windows should be closed, rounded to REMAINING_TIME_STEP.
+
+        0 when windows can't be open; None (unknown) when they can stay open
+        beyond the forecast.
+        """
+        if not open_now:
+            return 0.0
+        if close_at is None:
+            return None
+        hours = max((close_at - utcnow()).total_seconds() / 3600, 0)
+        # Round halves up (round() would round 2.5 steps to 2).
+        return math.floor(hours / REMAINING_TIME_STEP + 0.5) * REMAINING_TIME_STEP
 
     def _clear(self) -> bool:
         """Clear all outputs; return True if they had values."""
