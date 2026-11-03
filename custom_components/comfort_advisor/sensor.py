@@ -73,6 +73,11 @@ class ComfortAdvisorSensor(SensorEntity):
         self.async_on_remove(self._device.add_entity(self))
         self.async_schedule_update_ha_state(force_refresh=True)
 
+    @property
+    def available(self) -> bool:
+        """Unavailable while any input is unavailable."""
+        return self._device.available
+
     async def async_update(self) -> None:
         """Update the state of the sensor."""
         value = self._device.get_calculated(self.entity_description.key)

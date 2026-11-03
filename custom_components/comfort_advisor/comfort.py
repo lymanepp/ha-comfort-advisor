@@ -164,6 +164,7 @@ class ComfortCalculator:
 
         # state
         self._have_changes = False
+        self._expires_at: datetime | None = None
         self._input: dict[str, Any] = {str(x): None for x in Input}
         self._calculated: dict[str, Any] = {str(x): None for x in Calculated}
         self._extra_attributes: dict[str, Any] = {}
@@ -173,10 +174,15 @@ class ComfortCalculator:
         """Return extra attributes for the "can open windows" sensor."""
         return self._extra_attributes
 
+    @property
+    def available(self) -> bool:
+        """Whether outputs have been calculated from a full set of inputs."""
+        return self._calculated[Calculated.CAN_OPEN_WINDOWS] is not None
+
     def update_input(self, key: str, value: Any) -> None:
-        """Update an input value."""
+        """Update an input value; None means the input is unavailable."""
         _LOGGER.debug("update_input called with %s=%s", key, str(value))
-        if value is not None and self._input[key] != value:
+        if self._input[key] != value:
             self._input[key] = value
             self._have_changes = True
 
@@ -185,13 +191,19 @@ class ComfortCalculator:
         return self._calculated.get(name, default)
 
     def refresh_state(self) -> bool:
-        """Refresh the calculated state."""
-        if not self._have_changes:
+        """Refresh the calculated state; return True if it changed.
+
+        Recalculates when an input changed or when the next forecast hour
+        arrives (so change times never fall into the past). Outputs are cleared
+        while any input is unavailable.
+        """
+        expired = self._expires_at is not None and utcnow() >= self._expires_at
+        if not self._have_changes and not expired:
             return False
         self._have_changes = False
 
         if any(value is None for value in self._input.values()):
-            return False
+            return self._clear()
 
         in_temp: float = self._input[Input.INDOOR_TEMPERATURE]
         in_humidity: float = self._input[Input.INDOOR_HUMIDITY]
@@ -205,7 +217,7 @@ class ComfortCalculator:
         # against the current indoor conditions.
         forecast = self.make_comfort_forecast(self._input[Input.FORECAST], indoor)
         if not forecast:
-            return False
+            return self._clear()
 
         out_temp: float = self._input[Input.OUTDOOR_TEMPERATURE]
         out_humidity: float = self._input[Input.OUTDOOR_HUMIDITY]
@@ -251,6 +263,7 @@ class ComfortCalculator:
         self._calculated[Calculated.OPEN_WINDOWS_AT] = second_time if open_now else first_time
         self._calculated[Calculated.CLOSE_WINDOWS_AT] = first_time if open_now else second_time
         self._extra_attributes = {ATTR_REASON: advice_now}
+        self._expires_at = forecast[0][ATTR_FORECAST_TIME]
 
         return True
 
@@ -281,9 +294,9 @@ class ComfortCalculator:
                 _LOGGER.warning("Received invalid forecast entry: %s", json.dumps(entry))
                 return new_forecast
 
-            dew_point = entry.get(ATTR_FORECAST_DEW_POINT) or calc_dew_point(
-                temp, humidity, self._temp_unit
-            )
+            dew_point = entry.get(ATTR_FORECAST_DEW_POINT)
+            if dew_point is None:
+                dew_point = calc_dew_point(temp, humidity, self._temp_unit)
             ssi = calc_simmer_index(temp, humidity, self._temp_unit)
             enthalpy = self._enthalpy(temp, humidity)
 
@@ -348,6 +361,15 @@ class ComfortCalculator:
             return Advice.FREE_COOLING
 
         return Advice.UNCOMFORTABLE
+
+    def _clear(self) -> bool:
+        """Clear all outputs; return True if they had values."""
+        self._expires_at = None
+        if not self.available:
+            return False
+        self._calculated = {str(x): None for x in Calculated}
+        self._extra_attributes = {}
+        return True
 
     def _is_breathable(self, humidity: float, dew_point: float, pollen: int) -> bool:
         return (

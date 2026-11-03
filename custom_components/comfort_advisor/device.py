@@ -90,9 +90,8 @@ class ComfortAdvisorDevice:
 
         @callback
         def forecast_listener(forecast: list[JsonValueType] | None) -> None:
-            if forecast:
-                self._comfort.update_input(Input.FORECAST, forecast)
-                self._update_if_first_time()
+            self._comfort.update_input(Input.FORECAST, forecast or None)
+            self._update_if_first_time()
 
         weather_entity_id = self._config[CONF_WEATHER]
         unsubscribe = await async_subscribe_forecast(
@@ -111,8 +110,7 @@ class ComfortAdvisorDevice:
         )
 
         for entity_id in self._entity_id_to_input:
-            if state := self.hass.states.get(entity_id):
-                self._update_input_from_state(state)
+            self._update_input_from_state(entity_id, self.hass.states.get(entity_id))
 
         config_entry.async_on_unload(
             async_track_time_interval(
@@ -127,6 +125,11 @@ class ComfortAdvisorDevice:
     def name(self) -> str:
         """Return the name."""
         return cast(str, self.device_info.get("name"))
+
+    @property
+    def available(self) -> bool:
+        """Whether the calculated values are available."""
+        return self._comfort.available
 
     def get_calculated(self, name: str, default: Any = None) -> Any:
         """Retrieve calculated comfort state."""
@@ -145,22 +148,20 @@ class ComfortAdvisorDevice:
     # Internal methods
 
     async def _input_event_handler(self, event: Event[EventStateChangedData]) -> None:
-        state: State | None = event.data.get("new_state")
-        assert state
-        self._update_input_from_state(state)
+        self._update_input_from_state(event.data["entity_id"], event.data["new_state"])
 
-    def _update_input_from_state(self, state: State) -> None:
-        if (value := self._get_state_value(state)) is None:
-            return
+    def _update_input_from_state(self, entity_id: str, state: State | None) -> None:
+        """Feed a sensor state to the calculator; unavailable states clear the input."""
+        value = self._get_state_value(state) if state else None
 
-        device_class: str | None = state.attributes.get(ATTR_DEVICE_CLASS)
-        if device_class == SensorDeviceClass.TEMPERATURE:
-            unit: str | None = state.attributes.get(ATTR_UNIT_OF_MEASUREMENT)
-            if unit and unit != self._temp_unit:
-                value = TC.convert(value, unit, self._temp_unit)
+        if value is not None and state is not None:
+            device_class: str | None = state.attributes.get(ATTR_DEVICE_CLASS)
+            if device_class == SensorDeviceClass.TEMPERATURE:
+                unit: str | None = state.attributes.get(ATTR_UNIT_OF_MEASUREMENT)
+                if unit and unit != self._temp_unit:
+                    value = TC.convert(value, unit, self._temp_unit)
 
-        input_key = self._entity_id_to_input[state.entity_id]
-        self._comfort.update_input(input_key, value)
+        self._comfort.update_input(self._entity_id_to_input[entity_id], value)
         self._update_if_first_time()
 
     @staticmethod
