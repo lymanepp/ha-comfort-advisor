@@ -62,6 +62,31 @@ values are rounded to one decimal place, so small changes don't record new state
 > the diagnostic sensors **Forecast Temperature Offset** and **Forecast Dew Point Offset**
 > (not enabled by default).
 
+## Pollen (optional)
+
+Comfort Advisor can keep the windows closed when pollen is above the **highest acceptable pollen
+level** (default: *low*). Select one or more pollen sensors during setup (or later with
+**Reconfigure**); the highest level among them counts. The **Can Open Windows** reason is then
+`high_pollen`.
+
+Pollen sensors must report either a **0–5 index** or a **level name** (None, Very Low, Low,
+Medium/Moderate, High, Very High). Pollen data is a daily forecast, so the current level applies
+to the whole forecast. Sensors that are unavailable or have no current level are ignored, so a
+pollen service outage doesn't stop the advice.
+
+These integrations work directly (US coverage):
+
+| Integration | Install | Sensors to select | Notes |
+|---|---|---|---|
+| [Pollen Levels](https://github.com/eXPerience83/pollenlevels) (Google Pollen API) | HACS (default store) | Grass, tree and weed pollen (0–5 index) | Actively maintained. Needs a Google Cloud API key with the Maps Pollen API enabled (free monthly usage covers a few updates a day). Requires Home Assistant 2026.5 or newer. |
+| [Tomorrow.io](https://www.home-assistant.io/integrations/tomorrowio/) | Built in | Tree, weed and grass pollen index (None–Very High) | Needs a Tomorrow.io API key; the free plan has tight request limits. |
+| [Google Pollen](https://github.com/frenck/google_pollen) (Google Pollen API) | HACS custom repository | Grass, tree and weed pollen index (0–5) or level | Same data source as Pollen Levels; up to 5 days of forecast attributes. |
+
+AccuWeather (pollen counts) and IQVIA (a 0–12 allergy index) use other scales; a
+[template sensor](https://www.home-assistant.io/integrations/template/) can convert them to 0–5.
+All of these are modeled daily forecasts, not measured counts, so compare them with local
+reports for a season before relying on one.
+
 ## Recommended: condition the input sensors
 
 Raw temperature and humidity sensors often report small changes every few seconds, and

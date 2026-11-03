@@ -27,11 +27,12 @@ from homeassistant.helpers.event import (
 from homeassistant.util.json import JsonValueType
 from homeassistant.util.unit_conversion import TemperatureConverter as TC
 
-from .comfort import ComfortCalculator, Input
+from .comfort import ComfortCalculator, Input, pollen_level
 from .const import (
     _LOGGER,
     CONF_INDOOR_HUMIDITY,
     CONF_INDOOR_TEMPERATURE,
+    CONF_POLLEN,
     CONF_WEATHER,
     DEFAULT_MANUFACTURER,
     DEFAULT_NAME,
@@ -91,6 +92,7 @@ class ComfortAdvisorDevice:
                 Input.OUTDOOR_HUMIDITY,
             ]
         }
+        self._pollen_entity_ids: list[str] = list(self._config.get(CONF_POLLEN, []))
 
     async def async_setup_entry(self, config_entry: ConfigEntry) -> None:
         """Subscribe to the weather forecast and input sensors.
@@ -122,12 +124,19 @@ class ComfortAdvisorDevice:
                 self.hass, self._entity_id_to_input.keys(), self._input_event_handler
             )
         )
+        if self._pollen_entity_ids:
+            config_entry.async_on_unload(
+                async_track_state_change_event(
+                    self.hass, self._pollen_entity_ids, self._pollen_event_handler
+                )
+            )
 
         config_entry.async_on_unload(self._cancel_expiry_timer)
         config_entry.async_on_unload(self._debouncer.async_shutdown)
 
         for entity_id in self._entity_id_to_input:
             self._update_input_from_state(entity_id, self.hass.states.get(entity_id))
+        self._update_pollen()
 
         # Calculate now so the sensors start with values.
         self._debouncer.async_cancel()
@@ -158,6 +167,25 @@ class ComfortAdvisorDevice:
     @callback
     def _input_event_handler(self, event: Event[EventStateChangedData]) -> None:
         self._update_input_from_state(event.data["entity_id"], event.data["new_state"])
+
+    @callback
+    def _pollen_event_handler(self, _: Event[EventStateChangedData]) -> None:
+        self._update_pollen()
+        self._debouncer.async_schedule_call()
+
+    def _update_pollen(self) -> None:
+        """Feed the highest level of the pollen sensors that have one.
+
+        Pollen is optional: sensors without a usable level (unavailable,
+        unknown or unrecognized) are left out rather than clearing the outputs.
+        """
+        levels = [
+            level
+            for entity_id in self._pollen_entity_ids
+            if (state := self.hass.states.get(entity_id))
+            and (level := pollen_level(state.state)) is not None
+        ]
+        self._comfort.update_pollen(max(levels, default=None))
 
     def _update_input_from_state(self, entity_id: str, state: State | None) -> None:
         """Feed a sensor state to the calculator; unavailable states clear the input."""

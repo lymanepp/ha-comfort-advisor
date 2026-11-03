@@ -8,6 +8,7 @@ from homeassistant.const import (
     ATTR_UNIT_OF_MEASUREMENT,
     CONF_NAME,
     CONF_TEMPERATURE_UNIT,
+    STATE_UNAVAILABLE,
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
@@ -81,6 +82,7 @@ async def test_user_flow(hass: HomeAssistant):
     assert result["title"] == "Living Room"
     assert result["data"] == {
         **INPUTS,
+        "pollen": [],
         **COMFORT,
         CONF_TEMPERATURE_UNIT: "°C",
         CONF_NAME: "Living Room",
@@ -347,3 +349,31 @@ def test_diagnostic_sensors_not_enabled_by_default():
     assert "forecast_temperature_offset" not in default
     assert "forecast_dew_point_offset" not in default
     assert "can_open_windows" in default
+
+
+def test_validate_pollen_sensors(hass: HomeAssistant):
+    """Pollen sensors must exist and report a level (unavailable is allowed)."""
+    hass.states.async_set("sensor.grass_pollen", "Moderate")
+    hass.states.async_set("sensor.tree_pollen", STATE_UNAVAILABLE)
+    hass.states.async_set("sensor.pollen_count", "150")
+    ok = INPUTS | {"pollen": ["sensor.grass_pollen", "sensor.tree_pollen"]}
+    assert _validate_inputs(hass, ok) == {}
+    assert _validate_inputs(hass, INPUTS | {"pollen": ["sensor.pollen_count"]}) == {
+        "pollen": "invalid_pollen"
+    }
+    assert _validate_inputs(hass, INPUTS | {"pollen": ["sensor.missing"]}) == {
+        "pollen": "entity_not_found"
+    }
+
+
+async def test_reconfigure_adds_pollen_sensors(hass: HomeAssistant):
+    """Pollen sensors can be added to an existing entry."""
+    hass.states.async_set("sensor.grass_pollen", "2")
+    entry = MockConfigEntry(domain=DOMAIN, data=ENTRY_DATA, unique_id="test")
+    entry.add_to_hass(hass)
+    result = await entry.start_reconfigure_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], INPUTS | {"pollen": ["sensor.grass_pollen"]}
+    )
+    assert result["reason"] == "reconfigure_successful"
+    assert entry.data["pollen"] == ["sensor.grass_pollen"]

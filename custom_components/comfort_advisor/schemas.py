@@ -36,6 +36,7 @@ from .const import (
     CONF_INDOOR_TEMPERATURE,
     CONF_OUTDOOR_HUMIDITY,
     CONF_OUTDOOR_TEMPERATURE,
+    CONF_POLLEN,
     CONF_POLLEN_MAX,
     CONF_SIMMER_INDEX_MAX,
     CONF_SIMMER_INDEX_MIN,
@@ -133,6 +134,9 @@ async def build_inputs_schema(hass: HomeAssistant, config: Mapping[str, Any]) ->
             probatio.Required(
                 CONF_OUTDOOR_HUMIDITY, default=outdoor_humidity
             ): humidity_sensor_selector,
+            probatio.Optional(CONF_POLLEN, default=list(config.get(CONF_POLLEN, []))): selector(
+                {"entity": {"domain": "sensor", "multiple": True}}
+            ),
         }
     )
 
@@ -258,6 +262,7 @@ DATA_SCHEMA = probatio.Schema(
         probatio.Required(CONF_INDOOR_HUMIDITY): cv.entity_id,
         probatio.Required(CONF_OUTDOOR_TEMPERATURE): cv.entity_id,
         probatio.Required(CONF_OUTDOOR_HUMIDITY): cv.entity_id,
+        probatio.Optional(CONF_POLLEN, default=[]): cv.entity_ids,
         probatio.Required(CONF_SIMMER_INDEX_MIN): probatio.Coerce(float),
         probatio.Required(CONF_SIMMER_INDEX_MAX): probatio.Coerce(float),
         probatio.Required(CONF_DEW_POINT_MAX): probatio.Coerce(float),
