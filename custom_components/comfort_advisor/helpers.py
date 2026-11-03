@@ -1,11 +1,9 @@
 """Helper functions."""
 
-from __future__ import annotations
+from collections.abc import Callable, Iterable
+from typing import Literal
 
-from typing import Callable, Iterable, Literal, cast
-
-from homeassistant.components.weather import DOMAIN as WEATHER_DOMAIN
-from homeassistant.components.weather import WeatherEntity
+from homeassistant.components.weather.const import DATA_COMPONENT as WEATHER_COMPONENT
 from homeassistant.const import ATTR_DEVICE_CLASS, ATTR_SUPPORTED_FEATURES, ATTR_UNIT_OF_MEASUREMENT
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant
 from homeassistant.helpers import device_registry, entity_registry
@@ -37,12 +35,11 @@ async def async_subscribe_forecast(
     This should be in HA Core!
     """
 
-    component: EntityComponent[Entity] | None = hass.data.get(WEATHER_DOMAIN)
-    entity = component.get_entity(entity_id) if component else None
-    if entity is None:
+    component = hass.data.get(WEATHER_COMPONENT)
+    weather_entity = component.get_entity(entity_id) if component else None
+    if weather_entity is None:
         return None
 
-    weather_entity = cast(WeatherEntity, entity)
     unsubscribe = weather_entity.async_subscribe_forecast(forecast_type, forecast_listener)
 
     # Push an initial forecast update

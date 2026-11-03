@@ -1,7 +1,5 @@
 """Device for comfort_advisor."""
 
-from __future__ import annotations
-
 import contextlib
 from datetime import datetime, timedelta
 import math
@@ -10,11 +8,17 @@ from typing import Any, cast
 from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_DEVICE_CLASS, ATTR_UNIT_OF_MEASUREMENT, CONF_NAME
-from homeassistant.core import CALLBACK_TYPE, Event, HomeAssistant, State, callback
+from homeassistant.core import (
+    CALLBACK_TYPE,
+    Event,
+    EventStateChangedData,
+    HomeAssistant,
+    State,
+    callback,
+)
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
-from homeassistant.loader import async_get_custom_components
 from homeassistant.util.json import JsonValueType
 from homeassistant.util.unit_conversion import TemperatureConverter as TC
 
@@ -31,6 +35,8 @@ from .const import (
 )
 from .helpers import async_subscribe_forecast, get_entity_area
 
+type ComfortAdvisorConfigEntry = ConfigEntry[ComfortAdvisorDevice]
+
 
 class ComfortAdvisorDevice:
     """Representation of a Comfort Advisor Device."""
@@ -39,9 +45,10 @@ class ComfortAdvisorDevice:
         self,
         hass: HomeAssistant,
         config_entry: ConfigEntry,
+        sw_version: str | None = None,
     ) -> None:
         """Initialize the device."""
-        self._config = config_entry.data | config_entry.options or {}
+        self._config = config_entry.data | config_entry.options
         self.hass = hass
         self.unique_id = config_entry.unique_id
         self._comfort = ComfortCalculator(hass.config.units, self._config)
@@ -59,6 +66,7 @@ class ComfortAdvisorDevice:
             model=DEFAULT_NAME,
             name=self._config[CONF_NAME],
             suggested_area=suggested_area,
+            sw_version=sw_version,
         )
 
         self._temp_unit = self.hass.config.units.temperature_unit
@@ -112,8 +120,6 @@ class ComfortAdvisorDevice:
                 timedelta(seconds=DEFAULT_POLL_INTERVAL),
             )
         )
-
-        self.hass.async_create_task(self._set_sw_version())
         return True
 
     @property
@@ -132,13 +138,7 @@ class ComfortAdvisorDevice:
 
     # Internal methods
 
-    async def _set_sw_version(self) -> None:
-        custom_components = await async_get_custom_components(self.hass)
-        version = custom_components[DOMAIN].version
-        assert version
-        self.device_info["sw_version"] = version.string
-
-    async def _input_event_handler(self, event: Event) -> None:
+    async def _input_event_handler(self, event: Event[EventStateChangedData]) -> None:
         state: State | None = event.data.get("new_state")
         assert state
         self._update_input_from_state(state)

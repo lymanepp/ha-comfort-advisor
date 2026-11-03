@@ -27,6 +27,8 @@ To use Comfort Advisor check the documentation for your preferred way to setup s
 
 ## Installation
 
+Requires Home Assistant 2026.10 or newer.
+
 ### Using [HACS](https://hacs.xyz/) (recommended)
 
 This integration can be installed using HACS. To do it search for Comfort Advisor in the integrations section.

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.black]
 line-length = 100
-target-version = ["py312"]
+target-version = ["py314"]
 exclude = '''
 (
   /(
@@ -123,10 +123,12 @@ overgeneral-exceptions = ["BaseException", "Exception", "HomeAssistantError"]
 testpaths = ["tests"]
 norecursedirs = [".git", "testing_config", ".tox"]
 addopts = "--strict-markers --cov=custom_components"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 
 [tool.mypy]
 # https://mypy.readthedocs.io/en/stable/config_file.html
-python_version = "3.12"
+python_version = "3.14"
 exclude = ["^tests/"]
 ignore_missing_imports = true
 warn_redundant_casts = true
