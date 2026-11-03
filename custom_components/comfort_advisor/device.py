@@ -1,4 +1,5 @@
 """Device for comfort_advisor."""
+
 from __future__ import annotations
 
 import contextlib

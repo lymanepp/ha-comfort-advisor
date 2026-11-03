@@ -217,6 +217,7 @@ class ComfortCalculator:
         # TODO: check if temperature forecast is rising or falling currently
 
     def make_comfort_forecast(self, forecast: list[Forecast]) -> list[ComfortForecast]:
+        """Convert the next 24 hours of the weather forecast into comfort entries."""
         start_time = utcnow()
         end_time = start_time + timedelta(hours=24)
         new_forecast: list[ComfortForecast] = []
@@ -263,6 +264,7 @@ class ComfortCalculator:
     def is_comfortable(
         self, humidity: float, dew_point: float, simmer_index: float, pollen: int
     ) -> bool:
+        """Return True if all values are within the configured comfort limits."""
         # TODO: use moist air enthalpy instead of dew point and SSI?
         return (
             self._simmer_index_min <= simmer_index <= self._simmer_index_max

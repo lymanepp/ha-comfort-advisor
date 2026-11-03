@@ -1,4 +1,5 @@
 """Weather formulas."""
+
 from __future__ import annotations
 
 from enum import IntEnum
@@ -111,11 +112,13 @@ def moist_air_enthalpy_from_humidity_ratio(t, W):
 
 
 def absolute_humidity_from_relative_humidity(t: float, rh: float):
+    """Calculate absolute humidity [g/m³] from temperature [°C] and relative humidity [%]."""
     # https://carnotcycle.wordpress.com/2012/08/04/how-to-convert-relative-humidity-to-absolute-humidity
     return (6.122 * math.exp((17.67 * t) / (243.5 + t)) * rh * 2.1674) / (t + CELSIUS_TO_KELVIN)
 
 
 def dew_point_from_relative_humidity(t: float, rh: float):
+    """Calculate dew-point [°C] from temperature [°C] and relative humidity [%]."""
     # https://pon.fr/dzvents-alerte-givre-et-calcul-humidite-absolue
     A0 = 373.15 / (273.15 + t)
     SUM = (
