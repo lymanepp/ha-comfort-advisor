@@ -27,7 +27,11 @@ from custom_components.comfort_advisor.const import (
     CONF_WEATHER,
     DOMAIN,
 )
-from custom_components.comfort_advisor.schemas import _forecast_has_humidity, build_comfort_schema
+from custom_components.comfort_advisor.schemas import (
+    _forecast_has_humidity,
+    build_comfort_schema,
+    build_device_schema,
+)
 
 from .conftest import (
     COMFORT,
@@ -334,3 +338,12 @@ async def test_options_flow_rejects_reversed_simmer_index_range(hass: HomeAssist
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "init"
     assert result["errors"] == {CONF_SIMMER_INDEX_MAX: "simmer_index_range"}
+
+
+def test_diagnostic_sensors_not_enabled_by_default():
+    """New entries don't enable the forecast offset sensors unless chosen."""
+    schema = build_device_schema({})
+    default = next(k for k in schema.schema if str(k) == CONF_ENABLED_SENSORS).default()
+    assert "forecast_temperature_offset" not in default
+    assert "forecast_dew_point_offset" not in default
+    assert "can_open_windows" in default

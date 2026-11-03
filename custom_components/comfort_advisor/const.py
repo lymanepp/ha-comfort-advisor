@@ -43,3 +43,10 @@ INPUT_COOLDOWN: Final = 1.0
 # Decimal places for published temperature and enthalpy values, so tiny input
 # changes don't record new states.
 OUTPUT_PRECISION: Final = 1
+
+# The difference between the outdoor sensor and the forecast at the current time
+# is applied to the upcoming forecast, fading out over this many hours.
+FORECAST_CORRECTION_HOURS: Final = 3
+# Largest correction applied (°F difference), so a faulty or sun-heated sensor
+# can't skew the forecast badly.
+FORECAST_CORRECTION_MAX: Final = 10

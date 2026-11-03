@@ -36,9 +36,16 @@ from .const import (
     DEFAULT_HUMIDITY_HYSTERESIS,
     DEFAULT_HYSTERESIS,
     DEFAULT_TEMPERATURE_TOLERANCE,
+    FORECAST_CORRECTION_HOURS,
+    FORECAST_CORRECTION_MAX,
     OUTPUT_PRECISION,
 )
-from .formulas import calc_dew_point, calc_moist_air_enthalpy, calc_simmer_index
+from .formulas import (
+    calc_dew_point,
+    calc_moist_air_enthalpy,
+    calc_relative_humidity,
+    calc_simmer_index,
+)
 
 STANDARD_PRESSURE_PA: Final = 101_325
 
@@ -70,6 +77,8 @@ class Calculated(StrEnum):
     HIGH_SIMMER_INDEX = "high_simmer_index"
     LOW_ENTHALPY = "low_enthalpy"
     HIGH_ENTHALPY = "high_enthalpy"
+    FORECAST_TEMPERATURE_OFFSET = "forecast_temperature_offset"
+    FORECAST_DEW_POINT_OFFSET = "forecast_dew_point_offset"
 
 
 class Advice(StrEnum):
@@ -118,6 +127,17 @@ class Margins:
 
 
 NO_MARGINS: Final = Margins()
+
+
+@dataclass(frozen=True, slots=True)
+class ForecastOffsets:
+    """Outdoor sensor minus forecast at the current time."""
+
+    temperature: float = 0.0
+    dew_point: float = 0.0
+
+
+NO_OFFSETS: Final = ForecastOffsets()
 
 
 @dataclass(frozen=True, slots=True)
@@ -182,6 +202,10 @@ class ComfortCalculator:
             temperature=temp_margin,
             enthalpy=enthalpy_margin,
             humidity=config.get(CONF_HUMIDITY_HYSTERESIS, DEFAULT_HUMIDITY_HYSTERESIS),
+        )
+
+        self._offset_max = TDC.convert(
+            FORECAST_CORRECTION_MAX, UnitOfTemperature.FAHRENHEIT, temp_unit
         )
 
         # state
@@ -254,8 +278,12 @@ class ComfortCalculator:
         open_now = advice_now.can_open
 
         # Future indoor conditions aren't known, so forecast hours are compared
-        # against the current indoor conditions.
-        forecast = self.make_comfort_forecast(self._input[Input.FORECAST], indoor, open_now)
+        # against the current indoor conditions. Near-term hours are corrected by
+        # how far the outdoor sensor is from the forecast right now.
+        offsets = self.forecast_offsets(self._input[Input.FORECAST], out_temp, out_dewp)
+        forecast = self.make_comfort_forecast(
+            self._input[Input.FORECAST], indoor, open_now, offsets
+        )
         if not forecast:
             return self._clear()
 
@@ -289,6 +317,12 @@ class ComfortCalculator:
         self._calculated[Calculated.HIGH_SIMMER_INDEX] = round(high_simmer_index, OUTPUT_PRECISION)
         self._calculated[Calculated.LOW_ENTHALPY] = round(low_enthalpy, OUTPUT_PRECISION)
         self._calculated[Calculated.HIGH_ENTHALPY] = round(high_enthalpy, OUTPUT_PRECISION)
+        self._calculated[Calculated.FORECAST_TEMPERATURE_OFFSET] = round(
+            offsets.temperature, OUTPUT_PRECISION
+        )
+        self._calculated[Calculated.FORECAST_DEW_POINT_OFFSET] = round(
+            offsets.dew_point, OUTPUT_PRECISION
+        )
         self._calculated[Calculated.OPEN_WINDOWS_AT] = second_time if open_now else first_time
         self._calculated[Calculated.CLOSE_WINDOWS_AT] = first_time if open_now else second_time
         self._extra_attributes = {ATTR_REASON: advice_now}
@@ -301,14 +335,62 @@ class ComfortCalculator:
         # TODO: create `comfort score` and create sensor for that?
         # TODO: check if temperature forecast is rising or falling currently
 
+    def forecast_offsets(
+        self, forecast: list[Forecast], out_temp: float, out_dew_point: float
+    ) -> ForecastOffsets:
+        """Return the outdoor sensor minus the forecast at the current time.
+
+        The forecast is interpolated between the hours before and after now, or
+        taken from the nearest hour within an hour. Each offset is limited to
+        FORECAST_CORRECTION_MAX. No usable forecast hour means no correction.
+        """
+        now = utcnow()
+        before: tuple[datetime, float, float] | None = None
+        after: tuple[datetime, float, float] | None = None
+        for entry in forecast:
+            if (parsed := self._parse_forecast_entry(entry)) is None:
+                continue
+            dt, temp, humidity, dew_point = parsed
+            if dt <= now:
+                before = (dt, temp, dew_point)
+            else:
+                after = (dt, temp, dew_point)
+                break
+
+        if before and after:
+            fraction = (now - before[0]) / (after[0] - before[0])
+            forecast_temp = before[1] + (after[1] - before[1]) * fraction
+            forecast_dew_point = before[2] + (after[2] - before[2]) * fraction
+        elif (nearest := before or after) and abs(nearest[0] - now) <= timedelta(hours=1):
+            _, forecast_temp, forecast_dew_point = nearest
+        else:
+            return NO_OFFSETS
+
+        def limit(value: float) -> float:
+            return max(-self._offset_max, min(self._offset_max, value))
+
+        return ForecastOffsets(
+            temperature=limit(out_temp - forecast_temp),
+            dew_point=limit(out_dew_point - forecast_dew_point),
+        )
+
     def make_comfort_forecast(
-        self, forecast: list[Forecast], indoor: Indoor, is_open: bool = False
+        self,
+        forecast: list[Forecast],
+        indoor: Indoor,
+        is_open: bool = False,
+        offsets: ForecastOffsets = NO_OFFSETS,
     ) -> list[ComfortForecast]:
         """Convert the next 24 hours of the weather forecast into comfort entries.
 
         Each hour is advised with the windows state carried from the hour before
         (starting with `is_open`), so change times follow the hysteresis.
+
+        `offsets` are added to each hour's temperature and dew point, fading out
+        linearly over FORECAST_CORRECTION_HOURS; humidity is recalculated from
+        the corrected values.
         """
+        fade = timedelta(hours=FORECAST_CORRECTION_HOURS)
         start_time = utcnow()
         end_time = start_time + timedelta(hours=24)
         new_forecast: list[ComfortForecast] = []
@@ -330,6 +412,12 @@ class ComfortCalculator:
             dew_point = entry.get(ATTR_FORECAST_DEW_POINT)
             if dew_point is None:
                 dew_point = calc_dew_point(temp, humidity, self._temp_unit)
+
+            if offsets != NO_OFFSETS and (weight := 1 - (dt - start_time) / fade) > 0:
+                temp += offsets.temperature * weight
+                dew_point = min(dew_point + offsets.dew_point * weight, temp)
+                humidity = min(calc_relative_humidity(temp, dew_point, self._temp_unit), 100)
+
             ssi = calc_simmer_index(temp, humidity, self._temp_unit)
             enthalpy = self._enthalpy(temp, humidity)
 
@@ -410,6 +498,17 @@ class ComfortCalculator:
             return Advice.FREE_COOLING
 
         return Advice.UNCOMFORTABLE
+
+    def _parse_forecast_entry(self, entry: Forecast) -> tuple[datetime, float, float, float] | None:
+        """Return (time, temperature, humidity, dew point), or None if incomplete."""
+        temp = entry.get(ATTR_FORECAST_TEMP)
+        humidity = entry.get(ATTR_FORECAST_HUMIDITY)
+        if temp is None or humidity is None:
+            return None
+        dew_point = entry.get(ATTR_FORECAST_DEW_POINT)
+        if dew_point is None:
+            dew_point = calc_dew_point(temp, humidity, self._temp_unit)
+        return datetime.fromisoformat(entry[ATTR_FORECAST_TIME]), temp, humidity, dew_point
 
     def _clear(self) -> bool:
         """Clear all outputs; return True if they had values."""

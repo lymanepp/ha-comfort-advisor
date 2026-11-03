@@ -56,6 +56,13 @@ from .helpers import domain_entity_ids
 
 ALL_SENSOR_TYPES = [str(x) for x in Calculated]
 
+# Diagnostic sensors are available but not enabled unless chosen.
+DEFAULT_SENSOR_TYPES = [
+    x
+    for x in ALL_SENSOR_TYPES
+    if x not in (Calculated.FORECAST_TEMPERATURE_OFFSET, Calculated.FORECAST_DEW_POINT_OFFSET)
+]
+
 VALID_TEMP_UNITS = [
     UnitOfTemperature.CELSIUS,
     UnitOfTemperature.FAHRENHEIT,
@@ -230,7 +237,7 @@ def build_comfort_schema(hass: HomeAssistant, config: Mapping[str, Any]) -> prob
 def build_device_schema(config: Mapping[str, Any]) -> probatio.Schema:
     """Build device settings schema."""
     name: str = config.get(CONF_NAME, DEFAULT_NAME)
-    enabled_sensors: Sequence[str] = config.get(CONF_ENABLED_SENSORS, ALL_SENSOR_TYPES)
+    enabled_sensors: Sequence[str] = config.get(CONF_ENABLED_SENSORS, DEFAULT_SENSOR_TYPES)
 
     all_sensor_types = sorted(ALL_SENSOR_TYPES)
     sensor_type_dict = {x: x.replace("_", " ").title() for x in all_sensor_types}
@@ -238,7 +245,7 @@ def build_device_schema(config: Mapping[str, Any]) -> probatio.Schema:
         {
             probatio.Required(CONF_NAME, default=name): str,
             probatio.Required(
-                CONF_ENABLED_SENSORS, default=enabled_sensors or all_sensor_types
+                CONF_ENABLED_SENSORS, default=enabled_sensors or DEFAULT_SENSOR_TYPES
             ): cv.multi_select(sensor_type_dict),
         }
     )

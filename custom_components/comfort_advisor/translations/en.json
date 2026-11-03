@@ -147,6 +147,12 @@
       },
       "high_enthalpy": {
         "name": "High enthalpy"
+      },
+      "forecast_temperature_offset": {
+        "name": "Forecast temperature offset"
+      },
+      "forecast_dew_point_offset": {
+        "name": "Forecast dew point offset"
       }
     }
   },
