@@ -1,3 +1,4 @@
 # Strictly for tests. Keep in step with the homeassistant version in requirements.txt:
 # https://github.com/MatthewFlamm/pytest-homeassistant-custom-component/releases
 pytest-homeassistant-custom-component==0.13.375
+mypy==2.4.1
