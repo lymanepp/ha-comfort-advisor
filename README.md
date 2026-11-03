@@ -74,13 +74,14 @@ Medium/Moderate, High, Very High). Pollen data is a daily forecast, so the curre
 to the whole forecast. Sensors that are unavailable or have no current level are ignored, so a
 pollen service outage doesn't stop the advice.
 
-These integrations work directly (US coverage):
+These integrations work directly (US coverage). **Google Pollen** is recommended: it's the one
+this integration's maintainer uses.
 
 | Integration | Install | Sensors to select | Notes |
 |---|---|---|---|
-| [Pollen Levels](https://github.com/eXPerience83/pollenlevels) (Google Pollen API) | HACS (default store) | Grass, tree and weed pollen (0–5 index) | Actively maintained. Needs a Google Cloud API key with the Maps Pollen API enabled (free monthly usage covers a few updates a day). Requires Home Assistant 2026.5 or newer. |
+| **[Google Pollen](https://github.com/robbybarnes/google_pollen)** (Google Pollen API), recommended | HACS custom repository: `https://github.com/robbybarnes/google_pollen` | Grass, tree and weed pollen index (0–5), e.g. `sensor.google_pollen_grass_pollen_index` | Updates every 6 hours by default; 5-day forecast attributes. Needs a Google Cloud API key with the Pollen API enabled (free monthly usage covers a few updates a day). Requires Home Assistant 2025.4.4 or newer. |
+| [Pollen Levels](https://github.com/eXPerience83/pollenlevels) (Google Pollen API) | HACS (default store) | Grass, tree and weed pollen (0–5 index) | Same data source as Google Pollen. Requires Home Assistant 2026.5 or newer. |
 | [Tomorrow.io](https://www.home-assistant.io/integrations/tomorrowio/) | Built in | Tree, weed and grass pollen index (None–Very High) | Needs a Tomorrow.io API key; the free plan has tight request limits. |
-| [Google Pollen](https://github.com/frenck/google_pollen) (Google Pollen API) | HACS custom repository | Grass, tree and weed pollen index (0–5) or level | Same data source as Pollen Levels; up to 5 days of forecast attributes. |
 
 AccuWeather (pollen counts) and IQVIA (a 0–12 allergy index) use other scales; a
 [template sensor](https://www.home-assistant.io/integrations/template/) can convert them to 0–5.

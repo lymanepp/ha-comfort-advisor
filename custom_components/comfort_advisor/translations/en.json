@@ -13,7 +13,7 @@
           "pollen": "Pollen sensors (optional)"
         },
         "data_description": {
-          "pollen": "Sensors reporting a pollen index from 0 to 5, or a level from None to Very High, such as the grass, tree and weed sensors of Pollen Levels, Google Pollen or Tomorrow.io. The highest level counts. Sensors without a current level are ignored."
+          "pollen": "Sensors reporting a pollen index from 0 to 5, or a level from None to Very High, such as the grass, tree and weed index sensors of Google Pollen, Pollen Levels or Tomorrow.io. The highest level counts. Sensors without a current level are ignored."
         }
       },
       "comfort": {
@@ -57,7 +57,7 @@
           "pollen": "Pollen sensors (optional)"
         },
         "data_description": {
-          "pollen": "Sensors reporting a pollen index from 0 to 5, or a level from None to Very High, such as the grass, tree and weed sensors of Pollen Levels, Google Pollen or Tomorrow.io. The highest level counts. Sensors without a current level are ignored."
+          "pollen": "Sensors reporting a pollen index from 0 to 5, or a level from None to Very High, such as the grass, tree and weed index sensors of Google Pollen, Pollen Levels or Tomorrow.io. The highest level counts. Sensors without a current level are ignored."
         }
       }
     },
