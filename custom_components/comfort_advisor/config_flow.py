@@ -31,6 +31,7 @@ from .const import (
     CONF_WEATHER,
     DOMAIN,
 )
+from .helpers import is_iqvia_sensor
 from .schemas import DATA_SCHEMA, build_comfort_schema, build_device_schema, build_inputs_schema
 
 type ErrorsType = dict[str, str]
@@ -69,7 +70,7 @@ def _validate_inputs(hass: HomeAssistant, user_input: Mapping[str, Any]) -> Erro
         if state is None:
             errors[CONF_POLLEN] = "entity_not_found"
         elif state.state not in (STATE_UNAVAILABLE, STATE_UNKNOWN) and (
-            pollen_level(state.state) is None
+            pollen_level(state.state, iqvia=is_iqvia_sensor(hass, entity_id)) is None
         ):
             errors[CONF_POLLEN] = "invalid_pollen"
 

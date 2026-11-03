@@ -126,16 +126,27 @@ POLLEN_LEVELS: Final = {
 }
 
 
-def pollen_level(state: str) -> int | None:
+# IQVIA's allergy index (0-12) rating bands: Low, Low-Medium, Medium,
+# Medium-High and High count as Very Low through Very High.
+IQVIA_LEVEL_LIMITS: Final = (0.0, 2.4, 4.8, 7.2, 9.6, 12.0)
+
+
+def pollen_level(state: str, *, iqvia: bool = False) -> int | None:
     """Return the 0-5 pollen level of a sensor state, or None if it isn't one.
 
-    Accepts a 0-5 index (such as Google's Universal Pollen Index) or a level
-    name such as "Very Low" or "very_high".
+    Accepts a 0-5 index (such as Google's Universal Pollen Index), a level name
+    such as "Very Low" or "very_high", or with `iqvia` an IQVIA allergy index
+    (0-12).
     """
     try:
         value = float(state)
     except ValueError:
         return POLLEN_LEVELS.get(state.strip().lower().replace(" ", "_").replace("-", "_"))
+    if iqvia:
+        return next(
+            (level for level, limit in enumerate(IQVIA_LEVEL_LIMITS) if 0 <= value <= limit),
+            None,
+        )
     if not 0 <= value <= 5:
         return None
     return math.floor(value + 0.5)

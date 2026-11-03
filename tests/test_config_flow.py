@@ -12,6 +12,7 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.helpers import entity_registry as er
 from homeassistant.util.unit_system import METRIC_SYSTEM, US_CUSTOMARY_SYSTEM
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -377,3 +378,14 @@ async def test_reconfigure_adds_pollen_sensors(hass: HomeAssistant):
     )
     assert result["reason"] == "reconfigure_successful"
     assert entry.data["pollen"] == ["sensor.grass_pollen"]
+
+
+def test_validate_iqvia_pollen_sensor(hass: HomeAssistant):
+    """An IQVIA index above 5 is valid; the same value from another sensor isn't."""
+    iqvia = er.async_get(hass).async_get_or_create("sensor", "iqvia", "10001_allergy_index_today")
+    hass.states.async_set(iqvia.entity_id, "10.5")
+    hass.states.async_set("sensor.other_pollen", "10.5")
+    assert _validate_inputs(hass, INPUTS | {"pollen": [iqvia.entity_id]}) == {}
+    assert _validate_inputs(hass, INPUTS | {"pollen": ["sensor.other_pollen"]}) == {
+        "pollen": "invalid_pollen"
+    }

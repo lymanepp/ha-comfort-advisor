@@ -74,16 +74,57 @@ Medium/Moderate, High, Very High). Pollen data is a daily forecast, so the curre
 to the whole forecast. Sensors that are unavailable or have no current level are ignored, so a
 pollen service outage doesn't stop the advice.
 
-These integrations work directly (US coverage). **Google Pollen** is recommended: it's the one
-this integration's maintainer uses.
+Two sources are recommended (US coverage):
+
+### No API key: IQVIA (built in)
+
+1. **Settings → Devices & services → Add integration → IQVIA**, and enter your ZIP code.
+2. In Comfort Advisor (**Reconfigure**), select the **Allergy index: today** sensor as the pollen
+   sensor.
+
+IQVIA reports one overall allergy index from 0 to 12 (from pollen.com), not separate grass, tree
+and weed levels. Comfort Advisor recognizes IQVIA sensors and converts the index by IQVIA's
+ratings:
+
+| IQVIA index | IQVIA rating | Pollen level |
+|---|---|---|
+| 0 | | None |
+| up to 2.4 | Low | Very Low |
+| up to 4.8 | Low-Medium | Low |
+| up to 7.2 | Medium | Medium |
+| up to 9.6 | Medium-High | High |
+| up to 12 | High | Very High |
+
+### More detail: Google Pollen
+
+[Google Pollen](https://github.com/robbybarnes/google_pollen) gives separate grass, tree and weed
+levels (a 0–5 index) and is what this integration's maintainer uses. It needs a Google Cloud API
+key. Google requires a billing account for it, but a few updates a day stay within the free
+monthly usage. To create the key (keep the new project selected at the top of each page):
+
+1. [Create a project](https://console.cloud.google.com/projectcreate), for example
+   "Home Assistant".
+2. [Link a billing account](https://console.cloud.google.com/billing/linkedaccount) to it.
+   Optionally, [add a budget alert](https://console.cloud.google.com/billing/budgets) of a dollar
+   or so to be notified of any charges.
+3. [Enable the Pollen API](https://console.cloud.google.com/apis/library/pollen.googleapis.com).
+4. On [Credentials](https://console.cloud.google.com/apis/credentials), choose
+   **Create credentials → API key**. Under **API restrictions**, keep only **Pollen API**
+   (Google strongly recommends restricting keys), then create the key and copy it.
+   ([Google's instructions](https://developers.google.com/maps/documentation/pollen/get-api-key))
+5. In HACS, add `https://github.com/robbybarnes/google_pollen` as a custom repository
+   (type: Integration) and install **Google Pollen**. Restart Home Assistant, then add the
+   **Google Pollen** integration and paste the key.
+6. In Comfort Advisor (**Reconfigure**), select the **grass, tree and weed pollen index** sensors.
+
+### Other sources
 
 | Integration | Install | Sensors to select | Notes |
 |---|---|---|---|
-| **[Google Pollen](https://github.com/robbybarnes/google_pollen)** (Google Pollen API), recommended | HACS custom repository: `https://github.com/robbybarnes/google_pollen` | Grass, tree and weed pollen index (0–5), e.g. `sensor.google_pollen_grass_pollen_index` | Updates every 6 hours by default; 5-day forecast attributes. Needs a Google Cloud API key with the Pollen API enabled (free monthly usage covers a few updates a day). Requires Home Assistant 2025.4.4 or newer. |
-| [Pollen Levels](https://github.com/eXPerience83/pollenlevels) (Google Pollen API) | HACS (default store) | Grass, tree and weed pollen (0–5 index) | Same data source as Google Pollen. Requires Home Assistant 2026.5 or newer. |
+| [Pollen Levels](https://github.com/eXPerience83/pollenlevels) (Google Pollen API) | HACS (default store) | Grass, tree and weed pollen (0–5 index) | Same data and API key as Google Pollen. Requires Home Assistant 2026.5 or newer. |
 | [Tomorrow.io](https://www.home-assistant.io/integrations/tomorrowio/) | Built in | Tree, weed and grass pollen index (None–Very High) | Needs a Tomorrow.io API key; the free plan has tight request limits. |
 
-AccuWeather (pollen counts) and IQVIA (a 0–12 allergy index) use other scales; a
+AccuWeather reports pollen counts on another scale; a
 [template sensor](https://www.home-assistant.io/integrations/template/) can convert them to 0–5.
 All of these are modeled daily forecasts, not measured counts, so compare them with local
 reports for a season before relying on one.

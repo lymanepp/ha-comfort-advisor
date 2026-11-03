@@ -1037,3 +1037,27 @@ class TestPollen:
         assert calc.refresh_state()
         calc.update_pollen(1)
         assert not calc.refresh_state()
+
+
+@pytest.mark.parametrize(
+    ("state", "expected"),
+    [
+        ("0", 0),
+        ("1.2", 1),
+        ("2.4", 1),  # Low
+        ("2.5", 2),
+        ("4.8", 2),  # Low-Medium
+        ("4.9", 3),
+        ("7.2", 3),  # Medium
+        ("7.3", 4),
+        ("9.6", 4),  # Medium-High
+        ("9.7", 5),
+        ("12", 5),  # High
+        ("12.1", None),
+        ("-1", None),
+        ("unavailable", None),
+    ],
+)
+def test_iqvia_pollen_level(state, expected):
+    """IQVIA's 0-12 allergy index rating bands map to Very Low..Very High."""
+    assert comfort_module.pollen_level(state, iqvia=True) == expected

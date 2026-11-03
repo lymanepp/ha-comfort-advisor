@@ -94,6 +94,12 @@ def domain_entity_ids(
     return entity_ids
 
 
+def is_iqvia_sensor(hass: HomeAssistant, entity_id: str) -> bool:
+    """Return True if the entity is an IQVIA sensor (0-12 allergy index)."""
+    entry = entity_registry.async_get(hass).async_get(entity_id)
+    return entry is not None and entry.platform == "iqvia"
+
+
 def get_entity_area(hass: HomeAssistant, entity_id: str) -> str | None:
     """Get the area of an entity (if one is assigned)."""
     ent_reg = entity_registry.async_get(hass)

@@ -39,7 +39,7 @@ from .const import (
     DOMAIN,
     INPUT_COOLDOWN,
 )
-from .helpers import async_subscribe_forecast, get_entity_area
+from .helpers import async_subscribe_forecast, get_entity_area, is_iqvia_sensor
 
 type ComfortAdvisorConfigEntry = ConfigEntry[ComfortAdvisorDevice]
 
@@ -183,7 +183,8 @@ class ComfortAdvisorDevice:
             level
             for entity_id in self._pollen_entity_ids
             if (state := self.hass.states.get(entity_id))
-            and (level := pollen_level(state.state)) is not None
+            and (level := pollen_level(state.state, iqvia=is_iqvia_sensor(self.hass, entity_id)))
+            is not None
         ]
         self._comfort.update_pollen(max(levels, default=None))
 
