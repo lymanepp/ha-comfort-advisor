@@ -1,6 +1,5 @@
 """Tests for the config and options flows."""
 
-
 from homeassistant.config_entries import SOURCE_USER
 from homeassistant.const import CONF_NAME, CONF_TEMPERATURE_UNIT
 from homeassistant.core import HomeAssistant
@@ -78,9 +77,7 @@ async def test_user_flow_rejects_same_indoor_and_outdoor_sensor(hass: HomeAssist
 async def test_user_flow_aborts_for_duplicate_inputs(hass: HomeAssistant):
     """The same set of inputs can only be configured once."""
     for expected in (FlowResultType.FORM, FlowResultType.ABORT):
-        result = await hass.config_entries.flow.async_init(
-            DOMAIN, context={"source": SOURCE_USER}
-        )
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
         result = await hass.config_entries.flow.async_configure(result["flow_id"], INPUTS)
         assert result["type"] is expected
         if expected is FlowResultType.FORM:

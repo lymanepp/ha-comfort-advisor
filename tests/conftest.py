@@ -1,15 +1,10 @@
 """Shared fixtures for Comfort Advisor tests."""
 
-
 from datetime import timedelta
 from typing import Any
 
-from homeassistant.components.weather import (
-    DOMAIN as WEATHER_DOMAIN,
-    Forecast,
-    WeatherEntity,
-    WeatherEntityFeature,
-)
+from homeassistant.components.weather import DOMAIN as WEATHER_DOMAIN
+from homeassistant.components.weather import Forecast, WeatherEntity, WeatherEntityFeature
 from homeassistant.const import (
     ATTR_DEVICE_CLASS,
     ATTR_UNIT_OF_MEASUREMENT,
