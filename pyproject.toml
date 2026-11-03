@@ -2,38 +2,42 @@
 requires = ["setuptools >= 40.9.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
-[tool.black]
+[tool.ruff]
 line-length = 100
-target-version = ["py314"]
-exclude = '''
-(
-  /(
-      \.eggs         # exclude a few common directories in the
-    | \.git          # root of the project
-    | \.hg
-    | \.mypy_cache
-    | \.tox
-    | \.venv
-    | _build
-    | buck-out
-    | build
-    | dist
-    | generated
-  )/
-)
-'''
+target-version = "py314"
+
+[tool.ruff.lint]
+select = [
+  "C4",     # flake8-comprehensions
+  "C90",    # mccabe complexity
+  "D",      # pydocstyle
+  "E",      # pycodestyle errors
+  "F",      # pyflakes
+  "I",      # isort
+  "RUF100", # unused noqa comments
+  "UP",     # pyupgrade
+  "W",      # pycodestyle warnings
+  # flake8-bandit: the checks previously enabled in tests/bandit.yaml
+  "S103", "S108", "S306", "S307", "S313", "S314", "S315", "S316", "S317",
+  "S318", "S319", "S601", "S602", "S604", "S608", "S609",
+]
+ignore = [
+  "D202", # no blank lines allowed after function docstring
+  "E501", # line too long (the formatter handles code; long strings are allowed)
+]
+
+[tool.ruff.lint.isort]
+force-sort-within-sections = true
+known-first-party = ["custom_components"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 25
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
 
 [tool.coverage.run]
 omit = [".tox/*", "tests/*"]
-
-[tool.isort]
-# https://github.com/PyCQA/isort/wiki/isort-Settings
-profile = "black"
-# will group `import x` and `from x import` of the same module.
-force_sort_within_sections = true
-known_first_party = ["custom_components"]
-# combine_as_imports = true
-line_length = 100
 
 [tool.pylint.MASTER]
 ignore = ["tests"]
@@ -50,7 +54,7 @@ good-names = ["_", "ex", "id", "T"]
 
 [tool.pylint."MESSAGES CONTROL"]
 # Reasons disabled:
-# format - handled by black
+# format - handled by ruff format
 # locally-disabled - it spams too much
 # duplicate-code - unavoidable
 # cyclic-import - doesn't test if both import on load
@@ -61,7 +65,7 @@ good-names = ["_", "ex", "id", "T"]
 # abstract-method - with intro of async there are always methods missing
 # inconsistent-return-statements - doesn't handle raise
 # too-many-ancestors - it's too strict.
-# wrong-import-order - isort guards this
+# wrong-import-order - ruff (isort rules) guards this
 
 # handled by mypy:
 # no-member, unsupported-membership-test, unsupported-assignment-operation,
