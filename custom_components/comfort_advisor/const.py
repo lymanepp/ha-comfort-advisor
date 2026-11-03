@@ -44,6 +44,10 @@ INPUT_COOLDOWN: Final = 1.0
 # changes don't record new states.
 OUTPUT_PRECISION: Final = 1
 
+# The open time remaining is rounded to this many hours: the close time is on a
+# forecast hour, so finer precision would be false, and it limits recorded states.
+REMAINING_TIME_STEP: Final = 0.5
+
 # The difference between the outdoor sensor and the forecast at the current time
 # is applied to the upcoming forecast, fading out over this many hours.
 FORECAST_CORRECTION_HOURS: Final = 3

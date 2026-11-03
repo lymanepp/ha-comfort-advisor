@@ -9,7 +9,7 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
-from homeassistant.const import EntityCategory
+from homeassistant.const import EntityCategory, UnitOfTime
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.typing import StateType
@@ -114,6 +114,12 @@ SENSOR_DESCRIPTIONS = [
     SensorEntityDescription(
         key=Calculated.CLOSE_WINDOWS_AT,
         device_class=SensorDeviceClass.TIMESTAMP,
+    ),
+    SensorEntityDescription(
+        key=Calculated.OPEN_TIME_REMAINING,
+        device_class=SensorDeviceClass.DURATION,
+        native_unit_of_measurement=UnitOfTime.HOURS,
+        suggested_display_precision=1,
     ),
     SensorEntityDescription(
         key=Calculated.HIGH_SIMMER_INDEX,

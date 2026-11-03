@@ -912,3 +912,51 @@ class TestForecastCorrection:
         calc = make_calculator(forecast, outdoor=(HOT[0] + 12, HOT[1]))
         assert calc.refresh_state()
         assert calc.get_calculated(Calculated.OPEN_WINDOWS_AT) == hour(2)
+
+
+class TestOpenTimeRemaining:
+    """Hours until windows should be closed, for announcements."""
+
+    def remaining(self, calc: ComfortCalculator):
+        """Return the published open time remaining."""
+        return calc.get_calculated(Calculated.OPEN_TIME_REMAINING)
+
+    def test_hours_until_close(self):
+        """While windows can be open, it's the time until the close time."""
+        calc = make_calculator(hourly(NICE, NICE, HOT), outdoor=NICE)
+        assert calc.refresh_state()
+        assert calc.get_calculated(Calculated.CLOSE_WINDOWS_AT) == hour(3)
+        assert self.remaining(calc) == 3.0
+
+    def test_zero_while_closed(self):
+        """While windows can't be open, nothing remains."""
+        calc = make_calculator(hourly(HOT, NICE, NICE, HOT), outdoor=HOT)
+        assert calc.refresh_state()
+        assert self.remaining(calc) == 0.0
+
+    def test_unknown_beyond_the_forecast(self):
+        """Without a close time, windows can stay open longer than the forecast covers."""
+        calc = make_calculator(hourly(*[NICE] * 24), outdoor=NICE)
+        assert calc.refresh_state()
+        assert self.remaining(calc) is None
+
+    @pytest.mark.parametrize(
+        ("minutes_before_close", "expected"),
+        [(70, 1.0), (75, 1.5), (100, 1.5), (105, 2.0), (10, 0.0), (15, 0.5)],
+    )
+    def test_rounded_to_half_hours(self, clock: Clock, minutes_before_close, expected):
+        """Rounded to the nearest half hour, halves up."""
+        calc = make_calculator(hourly(*[NICE] * 4, HOT, start=0), outdoor=NICE)
+        clock.now = hour(4) - timedelta(minutes=minutes_before_close)
+        assert calc.refresh_state()
+        assert calc.get_calculated(Calculated.CLOSE_WINDOWS_AT) == hour(4)
+        assert self.remaining(calc) == expected
+
+    def test_counts_down_when_recalculated(self, clock: Clock):
+        """Each recalculation updates it; the forecast-hour timer ensures one hourly."""
+        calc = make_calculator(hourly(NICE, NICE, HOT), outdoor=NICE)
+        assert calc.refresh_state()
+        assert self.remaining(calc) == 3.0
+        clock.now = hour(1)  # the next forecast hour arrives
+        assert calc.refresh_state()
+        assert self.remaining(calc) == 2.0
