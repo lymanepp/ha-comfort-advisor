@@ -209,34 +209,34 @@ class TestMakeComfortForecast:
         """Only entries from now through the next 24 hours are used."""
         forecast = hourly(*[NICE] * 30, start=-3)
         result = make_calculator().make_comfort_forecast(forecast, INDOOR)
-        assert result[0]["datetime"] == hour(0)
-        assert result[-1]["datetime"] == hour(24)
+        assert result[0].time == hour(0)
+        assert result[-1].time == hour(24)
         assert len(result) == 25
 
     def test_entry_fields(self):
         """Each entry carries the derived comfort values."""
         (entry,) = make_calculator().make_comfort_forecast(hourly(NICE), INDOOR)
-        assert entry["datetime"] == hour(1)
-        assert entry["temperature"] == 72.0
-        assert entry["dew_point"] == pytest.approx(calc_dew_point(*NICE, "°F"))
-        assert entry["ssi"] == pytest.approx(calc_simmer_index(*NICE, "°F"))
-        assert entry["enthalpy"] == pytest.approx(39.27, abs=0.01)
-        assert entry["comfortable"] is True
+        assert entry.time == hour(1)
+        assert entry.temperature == 72.0
+        assert entry.dew_point == pytest.approx(calc_dew_point(*NICE, "°F"))
+        assert entry.simmer_index == pytest.approx(calc_simmer_index(*NICE, "°F"))
+        assert entry.enthalpy == pytest.approx(39.27, abs=0.01)
+        assert entry.comfortable is True
 
     def test_uses_provider_dew_point_of_zero(self):
         """A provider dew point of exactly 0 is used, not treated as missing."""
         forecast = hourly(NICE)
         forecast[0]["dew_point"] = 0.0
         (entry,) = make_calculator().make_comfort_forecast(forecast, INDOOR)
-        assert entry["dew_point"] == 0.0
+        assert entry.dew_point == 0.0
 
     def test_uses_provider_dew_point_when_present(self):
         """A dew point supplied by the weather provider takes precedence."""
         forecast = hourly(NICE)
         forecast[0]["dew_point"] = 65.0  # above the 60°F maximum
         (entry,) = make_calculator().make_comfort_forecast(forecast, INDOOR)
-        assert entry["dew_point"] == 65.0
-        assert entry["comfortable"] is False
+        assert entry.dew_point == 65.0
+        assert entry.comfortable is False
 
     @pytest.mark.parametrize("missing", ["temperature", "humidity"])
     def test_stops_at_first_incomplete_entry(self, missing):
@@ -244,7 +244,7 @@ class TestMakeComfortForecast:
         forecast = hourly(NICE, NICE, NICE)
         forecast[1][missing] = None
         result = make_calculator().make_comfort_forecast(forecast, INDOOR)
-        assert [e["datetime"] for e in result] == [hour(1)]
+        assert [e.time for e in result] == [hour(1)]
 
     def test_empty_forecast(self):
         """An empty forecast produces no entries."""

@@ -2,7 +2,6 @@
 
 from enum import IntEnum
 import math
-from typing import cast
 
 from homeassistant.const import UnitOfPressure, UnitOfTemperature
 from homeassistant.util.unit_conversion import PressureConverter as PC
@@ -49,7 +48,7 @@ def saturation_vapor_pressure(t: float) -> float:
     )
 
 
-def humidity_ratio_from_vapor_pressure(p: float, p_w: float):
+def humidity_ratio_from_vapor_pressure(p: float, p_w: float) -> float:
     """Calculate humidity ratio from vapor pressure.
 
     Arguments:
@@ -64,7 +63,7 @@ def humidity_ratio_from_vapor_pressure(p: float, p_w: float):
     return 0.621945 * p_w / (p - p_w)
 
 
-def vapor_pressure_from_relative_humidity(p_ws: float, rh: float):
+def vapor_pressure_from_relative_humidity(p_ws: float, rh: float) -> float:
     """Calculate vapor pressure from relative humidity.
 
     Arguments:
@@ -79,7 +78,7 @@ def vapor_pressure_from_relative_humidity(p_ws: float, rh: float):
     return rh / 100 * p_ws
 
 
-def relative_humidity_from_dew_point(t: float, t_d: float):
+def relative_humidity_from_dew_point(t: float, t_d: float) -> float:
     """Calculate relative humidity from temperature and dew-point.
 
     Arguments:
@@ -94,7 +93,7 @@ def relative_humidity_from_dew_point(t: float, t_d: float):
     return saturation_vapor_pressure(t_d) / saturation_vapor_pressure(t) * 100
 
 
-def moist_air_enthalpy_from_humidity_ratio(t, W):
+def moist_air_enthalpy_from_humidity_ratio(t: float, W: float) -> float:
     """Calculate moist air enthalpy from temperature and humidity ratio.
 
     Arguments:
@@ -109,13 +108,13 @@ def moist_air_enthalpy_from_humidity_ratio(t, W):
     return 1.006 * t + W * (2501 + 1.86 * t)
 
 
-def absolute_humidity_from_relative_humidity(t: float, rh: float):
+def absolute_humidity_from_relative_humidity(t: float, rh: float) -> float:
     """Calculate absolute humidity [g/m³] from temperature [°C] and relative humidity [%]."""
     # https://carnotcycle.wordpress.com/2012/08/04/how-to-convert-relative-humidity-to-absolute-humidity
     return (6.122 * math.exp((17.67 * t) / (243.5 + t)) * rh * 2.1674) / (t + CELSIUS_TO_KELVIN)
 
 
-def dew_point_from_relative_humidity(t: float, rh: float):
+def dew_point_from_relative_humidity(t: float, rh: float) -> float:
     """Calculate dew-point [°C] from temperature [°C] and relative humidity [%]."""
     # https://pon.fr/dzvents-alerte-givre-et-calcul-humidite-absolue
     A0 = 373.15 / (273.15 + t)
@@ -164,7 +163,7 @@ def heat_index_from_relative_humidity(tf: float, rh: float) -> float:
     return hi
 
 
-def summer_simmer_index(tf: float, rh: float):
+def summer_simmer_index(tf: float, rh: float) -> float:
     """Calculate summer simmer index from temperature and relative humidity.
 
     Arguments:
@@ -197,7 +196,7 @@ def frost_point(t: float, t_d: float) -> float:
     return Tfp - CELSIUS_TO_KELVIN
 
 
-def moist_air_enthalpy_from_relative_humidity(t: float, rh: float, p: float):
+def moist_air_enthalpy_from_relative_humidity(t: float, rh: float, p: float) -> float:
     """Calculate the specific enthalpy of moist air from relative humidity.
 
     Arguments:
@@ -239,7 +238,7 @@ def calc_dew_point(temp: float, rh: float, temp_unit: str) -> float:
 
     t_d = dew_point_from_relative_humidity(t, rh)
 
-    return cast(float, round(TC.convert(t_d, UnitOfTemperature.CELSIUS, temp_unit), 2))
+    return round(TC.convert(t_d, UnitOfTemperature.CELSIUS, temp_unit), 2)
 
 
 def calc_heat_index(temp: float, rh: float, temp_unit: str) -> float:
@@ -248,7 +247,7 @@ def calc_heat_index(temp: float, rh: float, temp_unit: str) -> float:
 
     hi = heat_index_from_relative_humidity(tf, rh)
 
-    return cast(float, round(TC.convert(hi, UnitOfTemperature.FAHRENHEIT, temp_unit), 2))
+    return round(TC.convert(hi, UnitOfTemperature.FAHRENHEIT, temp_unit), 2)
 
 
 def calc_absolute_humidity(temp: float, rh: float, temp_unit: str) -> float:
