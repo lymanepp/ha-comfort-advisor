@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Configure ambient sensors",
-        "description": "Comfort Advisor compares the indoor and outdoor comfort levels to suggest when windows can be open. Use the [Comfort Advisor blueprint](https://github.com/lymanepp/ha-blueprints/blob/main/comfort-advisor.yaml) for creating automations.\n\nTip: you can use current temperature and humidity sensors from a weather integration if you don't have outdoor temperature and humidity sensors.",
+        "description": "Comfort Advisor compares the indoor and outdoor comfort levels to suggest when windows can be open. Use the [Comfort Advisor blueprint]({blueprint_url}) for creating automations.\n\nTip: you can use current temperature and humidity sensors from a weather integration if you don't have outdoor temperature and humidity sensors.",
         "data": {
           "weather": "Hourly forecast provider",
           "indoor_temperature": "Indoor temperature sensor",
@@ -14,7 +14,7 @@
       },
       "comfort": {
         "title": "Configure comfort settings",
-        "description": "The [Summer simmer index](http://summersimmer.com/home.htm) is a modern heat index equation. For SSI values between {70} and {77}, most people are comfortable, but slightly cool. From {77} to {83}, nearly everyone feels quite comfortable, while from {83} to {91} most are comfortable, but slightly warm.\n\n[Dew point temperatures](https://weatherology.com/trending/articles/Professor-Paul-Dew-Point-Relative-Humidity.html) tell the absolute quantity of moisture that is in the air, thereby indicating how humid it will feel outside to our bodies. On the other hand, relative humidity only tells us how saturated the air is compared to how much it can hold at the current temperature.",
+        "description": "The [Summer simmer index]({simmer_index_url}) is a modern heat index equation. For SSI values between {ssi_70} and {ssi_77}, most people are comfortable, but slightly cool. From {ssi_77} to {ssi_83}, nearly everyone feels quite comfortable, while from {ssi_83} to {ssi_91} most are comfortable, but slightly warm.\n\n[Dew point temperatures]({dew_point_url}) tell the absolute quantity of moisture that is in the air, thereby indicating how humid it will feel outside to our bodies. On the other hand, relative humidity only tells us how saturated the air is compared to how much it can hold at the current temperature.",
         "data": {
           "simmer_index_min": "Lowest comfortable summer simmer index",
           "simmer_index_max": "Highest comfortable summer simmer index",
@@ -54,7 +54,7 @@
           "humidity_max": "Highest comfortable relative humidity.",
           "pollen_max": "Highest comfortable pollen level (if available from weather provider)."
         },
-        "description": "The [Summer simmer index](http://summersimmer.com/home.htm) is a modern heat index equation. For SSI values between {70} and {77}, most people are comfortable, but slightly cool. From {77} to {83}, nearly everyone feels quite comfortable, while from {83} to {91} most are comfortable, but slightly warm.\n\n[Dew point temperatures](https://weatherology.com/trending/articles/Professor-Paul-Dew-Point-Relative-Humidity.html) tell the absolute quantity of moisture that is in the air, thereby indicating how humid it will feel outside to our bodies. On the other hand, relative humidity only tells us how saturated the air is compared to how much it can hold at the current temperature."
+        "description": "The [Summer simmer index]({simmer_index_url}) is a modern heat index equation. For SSI values between {ssi_70} and {ssi_77}, most people are comfortable, but slightly cool. From {ssi_77} to {ssi_83}, nearly everyone feels quite comfortable, while from {ssi_83} to {ssi_91} most are comfortable, but slightly warm.\n\n[Dew point temperatures]({dew_point_url}) tell the absolute quantity of moisture that is in the air, thereby indicating how humid it will feel outside to our bodies. On the other hand, relative humidity only tells us how saturated the air is compared to how much it can hold at the current temperature."
       },
       "device": {
         "title": "Configure device settings",
@@ -65,6 +65,40 @@
       },
       "error": {},
       "abort": {}
+    }
+  },
+  "entity": {
+    "sensor": {
+      "average_temperature": {
+        "name": "Average temperature"
+      },
+      "enthalpy": {
+        "name": "Enthalpy"
+      },
+      "simmer_index": {
+        "name": "Simmer index"
+      },
+      "can_open_windows": {
+        "name": "Can open windows"
+      },
+      "open_windows_at": {
+        "name": "Open windows at"
+      },
+      "close_windows_at": {
+        "name": "Close windows at"
+      },
+      "low_simmer_index": {
+        "name": "Low simmer index"
+      },
+      "high_simmer_index": {
+        "name": "High simmer index"
+      },
+      "low_enthalpy": {
+        "name": "Low enthalpy"
+      },
+      "high_enthalpy": {
+        "name": "High enthalpy"
+      }
     }
   }
 }

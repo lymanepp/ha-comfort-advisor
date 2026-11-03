@@ -1,11 +1,10 @@
-"""Tests for config flows."""
+"""Config and options flows for comfort_advisor."""
 
-from __future__ import annotations
-
+from collections.abc import Iterable, Mapping
 from hashlib import md5
-from typing import Any, Iterable, Mapping, MutableMapping
+from typing import Any, Final
 
-from homeassistant.config_entries import ConfigEntry, ConfigFlow, OptionsFlow
+from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
 from homeassistant.const import (
     ATTR_UNIT_OF_MEASUREMENT,
     CONF_NAME,
@@ -14,11 +13,10 @@ from homeassistant.const import (
     UnitOfTemperature,
 )
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import entity_registry
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.util.unit_conversion import TemperatureConverter as TC
-import voluptuous as vol
+import probatio
 
 from .const import (
     CONF_INDOOR_HUMIDITY,
@@ -30,7 +28,7 @@ from .const import (
 )
 from .schemas import DATA_SCHEMA, build_comfort_schema, build_device_schema, build_inputs_schema
 
-ErrorsType = MutableMapping[str, str]
+type ErrorsType = dict[str, str]
 
 
 def _validate_inputs(
@@ -79,23 +77,34 @@ def _create_unique_id(hass: HomeAssistant, inputs_config: ConfigType) -> str:
     return md5(str(values).encode("utf8")).hexdigest()
 
 
-def _build_comfort_placeholders(temp_unit: str) -> Mapping[str, Any]:
+USER_PLACEHOLDERS: Final = {
+    "blueprint_url": "https://github.com/lymanepp/ha-blueprints/blob/main/comfort-advisor.yaml",
+}
+
+
+def _build_comfort_placeholders(temp_unit: str) -> dict[str, str]:
     return {
-        str(x): round(TC.convert(x, UnitOfTemperature.FAHRENHEIT, temp_unit), 1)
+        "simmer_index_url": "http://summersimmer.com/home.htm",
+        "dew_point_url": (
+            "https://weatherology.com/trending/articles/"
+            "Professor-Paul-Dew-Point-Relative-Humidity.html"
+        ),
+    } | {
+        f"ssi_{x}": str(round(TC.convert(x, UnitOfTemperature.FAHRENHEIT, temp_unit), 1))
         for x in (70, 77, 83, 91)
     }
 
 
-class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
+class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):
     """Configuration flow for setting up new comfort_advisor entry."""
 
     def __init__(self) -> None:
         """Initialize config flow."""
 
         self._config: dict[str, Any] = {}
-        self._weather_schema: vol.Schema | None = None
+        self._weather_schema: probatio.Schema | None = None
 
-    async def async_step_user(self, user_input: ConfigType | None = None) -> FlowResult:
+    async def async_step_user(self, user_input: ConfigType | None = None) -> ConfigFlowResult:
         """Select temperature and humidity sensors."""
         user_input = user_input or {}
         errors: ErrorsType = {}
@@ -117,9 +126,14 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
 
         schema = await build_inputs_schema(self.hass, user_input)
 
-        return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
+        return self.async_show_form(
+            step_id="user",
+            data_schema=schema,
+            errors=errors,
+            description_placeholders=USER_PLACEHOLDERS,
+        )
 
-    async def async_step_comfort(self, user_input: ConfigType | None = None) -> FlowResult:
+    async def async_step_comfort(self, user_input: ConfigType | None = None) -> ConfigFlowResult:
         """Adjust comfort values."""
         user_input = user_input or {}
         errors: ErrorsType = {}
@@ -141,7 +155,7 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
             description_placeholders=placeholders,
         )
 
-    async def async_step_device(self, user_input: ConfigType | None = None) -> FlowResult:
+    async def async_step_device(self, user_input: ConfigType | None = None) -> ConfigFlowResult:
         """Adjust device settings."""
         user_input = user_input or {}
         errors: ErrorsType = {}
@@ -159,18 +173,21 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore
     @callback
     def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
         """Get the options flow for this handler."""
-        return ComfortAdvisorOptionsFlow(config_entry)
+        return ComfortAdvisorOptionsFlow()
 
 
 class ComfortAdvisorOptionsFlow(OptionsFlow):
     """Handle options."""
 
-    def __init__(self, config_entry: ConfigEntry):
+    def __init__(self) -> None:
         """Initialize options flow."""
-        self._original = config_entry.data | config_entry.options
         self._config: dict[str, Any] = {}
 
-    async def async_step_init(self, user_input: ConfigType | None = None) -> FlowResult:
+    @property
+    def _original(self) -> Mapping[str, Any]:
+        return self.config_entry.data | self.config_entry.options
+
+    async def async_step_init(self, user_input: ConfigType | None = None) -> ConfigFlowResult:
         """Adjust comfort values."""
         user_input = user_input or {}
         errors: ErrorsType = {}
@@ -188,7 +205,7 @@ class ComfortAdvisorOptionsFlow(OptionsFlow):
             step_id="init", errors=errors, data_schema=schema, description_placeholders=placeholders
         )
 
-    async def async_step_device(self, user_input: ConfigType | None = None) -> FlowResult:
+    async def async_step_device(self, user_input: ConfigType | None = None) -> ConfigFlowResult:
         """Adjust device settings."""
         user_input = user_input or {}
         errors: ErrorsType = {}

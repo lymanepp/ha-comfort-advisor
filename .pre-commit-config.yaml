@@ -1,11 +1,11 @@
 repos:
   - repo: https://github.com/asottile/pyupgrade
-    rev: v2.32.0
+    rev: v3.22.0
     hooks:
       - id: pyupgrade
-        args: [--py39-plus]
-  - repo: https://github.com/psf/black
-    rev: 24.3.0
+        args: [--py314-plus]
+  - repo: https://github.com/psf/black-pre-commit-mirror
+    rev: 26.10.1
     hooks:
       - id: black
         args:
@@ -13,7 +13,7 @@ repos:
           - --quiet
         files: ^((custom_components|tests)/.+)?[^/]+\.py$
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.1.0
+    rev: v2.4.3
     hooks:
       - id: codespell
         args:
@@ -23,17 +23,17 @@ repos:
         exclude_types: [csv, json]
         exclude: ^tests/fixtures/
   - repo: https://github.com/PyCQA/flake8
-    rev: 7.1.2
+    rev: 7.5.0
     hooks:
       - id: flake8
         additional_dependencies:
           - flake8-docstrings==1.7.0
           - pydocstyle==6.3.0
-          - flake8-comprehensions==3.16.0
-          - flake8-noqa==1.4.0
+          - flake8-comprehensions==3.17.0
+          - flake8-noqa==1.5.0
         files: ^(custom_components|tests)/.+\.py$
   - repo: https://github.com/PyCQA/bandit
-    rev: 1.8.3
+    rev: 1.9.4
     hooks:
       - id: bandit
         args:
@@ -42,7 +42,7 @@ repos:
           - --configfile=tests/bandit.yaml
         files: ^(custom_components|tests)/.+\.py$
   - repo: https://github.com/PyCQA/isort
-    rev: 5.13.2
+    rev: 9.0.2
     hooks:
       - id: isort
         additional_dependencies:
@@ -50,7 +50,7 @@ repos:
         args:
           - --profile black
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.2.0
+    rev: v6.0.0
     hooks:
       - id: check-executables-have-shebangs
         stages: [manual]
@@ -62,7 +62,7 @@ repos:
           - --branch=master
           - --branch=rc
   - repo: https://github.com/adrienverge/yamllint.git
-    rev: v1.32.0
+    rev: v1.38.0
     hooks:
       - id: yamllint
   - repo: https://github.com/pre-commit/mirrors-prettier
@@ -71,7 +71,7 @@ repos:
       - id: prettier
         stages: [manual]
   - repo: https://github.com/cdce8p/python-typing-update
-    rev: v0.4.1
+    rev: v0.9.0
     hooks:
       # Run `python-typing-update` hook manually from time to time
       # to update python typing syntax.
@@ -79,7 +79,7 @@ repos:
       - id: python-typing-update
         stages: [manual]
         args:
-          - --py39-plus
+          - --py314-plus
           - --force
           - --keep-updates
         files: ^(custom_components|script)/.+\.py$

@@ -1,13 +1,12 @@
 """TODO."""
 
-from __future__ import annotations
-
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import StrEnum
 from itertools import dropwhile
 import json
-from typing import Any, Final, Mapping, Required, TypedDict, cast
+from typing import Any, Final, Required, TypedDict, cast
 
 from homeassistant.components.weather import (
     ATTR_FORECAST_DEW_POINT,

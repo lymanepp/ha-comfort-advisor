@@ -1,7 +1,5 @@
 """Weather formulas."""
 
-from __future__ import annotations
-
 from enum import IntEnum
 import math
 from typing import cast

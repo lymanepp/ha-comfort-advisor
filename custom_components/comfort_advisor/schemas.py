@@ -1,13 +1,12 @@
-"""Tests for config flows."""
+"""Config flow schemas for comfort_advisor."""
 
-from __future__ import annotations
-
-from typing import Any, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from typing import Any
 
 from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.components.weather import ATTR_FORECAST_HUMIDITY
-from homeassistant.components.weather import DOMAIN as WEATHER_DOMAIN
-from homeassistant.components.weather import SERVICE_GET_FORECASTS, WeatherEntityFeature
+from homeassistant.components.weather.const import DOMAIN as WEATHER_DOMAIN
+from homeassistant.components.weather.const import SERVICE_GET_FORECASTS, WeatherEntityFeature
 from homeassistant.const import (
     ATTR_ENTITY_ID,
     CONF_NAME,
@@ -22,7 +21,7 @@ from homeassistant.helpers.entityfilter import CONF_INCLUDE_ENTITIES
 from homeassistant.helpers.selector import selector
 from homeassistant.util.unit_conversion import TemperatureConverter as TC
 from homeassistant.util.unit_system import METRIC_SYSTEM
-import voluptuous as vol
+import probatio
 
 from .comfort import Calculated
 from .const import (
@@ -46,7 +45,7 @@ from .const import (
 )
 from .helpers import domain_entity_ids
 
-ALL_SENSOR_TYPES = [str(x) for x in Calculated]  # type:ignore
+ALL_SENSOR_TYPES = [str(x) for x in Calculated]
 
 VALID_TEMP_UNITS = [
     UnitOfTemperature.CELSIUS,
@@ -75,13 +74,13 @@ async def _forecast_has_humidity(hass: HomeAssistant, entity_id: str) -> bool:
     )
 
 
-async def build_inputs_schema(hass: HomeAssistant, config: Mapping[str, Any]) -> vol.Schema:
+async def build_inputs_schema(hass: HomeAssistant, config: Mapping[str, Any]) -> probatio.Schema:
     """Build inputs schema."""
-    weather = config.get(CONF_WEATHER, vol.UNDEFINED)
-    indoor_temperature = config.get(CONF_INDOOR_TEMPERATURE, vol.UNDEFINED)
-    indoor_humidity = config.get(CONF_INDOOR_HUMIDITY, vol.UNDEFINED)
-    outdoor_temperature = config.get(CONF_OUTDOOR_TEMPERATURE, vol.UNDEFINED)
-    outdoor_humidity = config.get(CONF_OUTDOOR_HUMIDITY, vol.UNDEFINED)
+    weather = config.get(CONF_WEATHER, probatio.UNDEFINED)
+    indoor_temperature = config.get(CONF_INDOOR_TEMPERATURE, probatio.UNDEFINED)
+    indoor_humidity = config.get(CONF_INDOOR_HUMIDITY, probatio.UNDEFINED)
+    outdoor_temperature = config.get(CONF_OUTDOOR_TEMPERATURE, probatio.UNDEFINED)
+    outdoor_humidity = config.get(CONF_OUTDOOR_HUMIDITY, probatio.UNDEFINED)
 
     weather_entity_ids = domain_entity_ids(
         hass, Platform.WEATHER, required_features=WeatherEntityFeature.FORECAST_HOURLY
@@ -99,20 +98,26 @@ async def build_inputs_schema(hass: HomeAssistant, config: Mapping[str, Any]) ->
     temp_sensor_selector = selector({"entity": {CONF_INCLUDE_ENTITIES: temp_sensors}})
     humidity_sensor_selector = selector({"entity": {CONF_INCLUDE_ENTITIES: humidity_sensors}})
 
-    return vol.Schema(
+    return probatio.Schema(
         {
-            vol.Required(CONF_WEATHER, default=weather): weather_selector,
-            vol.Required(CONF_INDOOR_TEMPERATURE, default=indoor_temperature): temp_sensor_selector,
-            vol.Required(CONF_INDOOR_HUMIDITY, default=indoor_humidity): humidity_sensor_selector,
-            vol.Required(
+            probatio.Required(CONF_WEATHER, default=weather): weather_selector,
+            probatio.Required(
+                CONF_INDOOR_TEMPERATURE, default=indoor_temperature
+            ): temp_sensor_selector,
+            probatio.Required(
+                CONF_INDOOR_HUMIDITY, default=indoor_humidity
+            ): humidity_sensor_selector,
+            probatio.Required(
                 CONF_OUTDOOR_TEMPERATURE, default=outdoor_temperature
             ): temp_sensor_selector,
-            vol.Required(CONF_OUTDOOR_HUMIDITY, default=outdoor_humidity): humidity_sensor_selector,
+            probatio.Required(
+                CONF_OUTDOOR_HUMIDITY, default=outdoor_humidity
+            ): humidity_sensor_selector,
         }
     )
 
 
-def build_comfort_schema(hass: HomeAssistant, config: Mapping[str, Any]) -> vol.Schema:
+def build_comfort_schema(hass: HomeAssistant, config: Mapping[str, Any]) -> probatio.Schema:
     """Build comfort settings schema."""
     temp_unit = hass.config.units.temperature_unit
 
@@ -139,50 +144,58 @@ def build_comfort_schema(hass: HomeAssistant, config: Mapping[str, Any]) -> vol.
         {"number": {"mode": "slider", "unit_of_measurement": PERCENTAGE, "min": 90, "max": 100}}
     )
 
-    return vol.Schema(
+    return probatio.Schema(
         {
-            vol.Required(CONF_SIMMER_INDEX_MIN, default=simmer_index_min): temperature_selector,  # type: ignore
-            vol.Required(CONF_SIMMER_INDEX_MAX, default=simmer_index_max): temperature_selector,  # type: ignore
-            vol.Required(CONF_DEW_POINT_MAX, default=dew_point_max): temperature_selector,  # type: ignore
-            vol.Required(CONF_HUMIDITY_MAX, default=humidity_max): vol.All(humidity_selector),  # type: ignore
-            vol.Required(CONF_POLLEN_MAX, default=pollen_max): vol.In(  # type: ignore
+            probatio.Required(
+                CONF_SIMMER_INDEX_MIN, default=simmer_index_min
+            ): temperature_selector,
+            probatio.Required(
+                CONF_SIMMER_INDEX_MAX, default=simmer_index_max
+            ): temperature_selector,
+            probatio.Required(CONF_DEW_POINT_MAX, default=dew_point_max): temperature_selector,
+            probatio.Required(CONF_HUMIDITY_MAX, default=humidity_max): probatio.All(
+                humidity_selector
+            ),
+            probatio.Required(CONF_POLLEN_MAX, default=pollen_max): probatio.In(
                 {0: "none", 1: "very_low", 2: "low", 3: "medium", 4: "high", 5: "very_high"}  # TODO
             ),
         }
     )
 
 
-def build_device_schema(config: Mapping[str, Any]) -> vol.Schema:
+def build_device_schema(config: Mapping[str, Any]) -> probatio.Schema:
     """Build device settings schema."""
     name: str = config.get(CONF_NAME, DEFAULT_NAME)
     enabled_sensors: Sequence[str] = config.get(CONF_ENABLED_SENSORS, ALL_SENSOR_TYPES)
 
     all_sensor_types = sorted(ALL_SENSOR_TYPES)
     sensor_type_dict = {x: x.replace("_", " ").title() for x in all_sensor_types}
-    return vol.Schema(
+    return probatio.Schema(
         {
-            vol.Required(CONF_NAME, default=name): str,  # type: ignore
-            vol.Required(
-                CONF_ENABLED_SENSORS, default=enabled_sensors or all_sensor_types  # type: ignore
+            probatio.Required(CONF_NAME, default=name): str,
+            probatio.Required(
+                CONF_ENABLED_SENSORS, default=enabled_sensors or all_sensor_types
             ): cv.multi_select(sensor_type_dict),
         }
     )
 
 
-DATA_SCHEMA = vol.Schema(
+DATA_SCHEMA = probatio.Schema(
     {
-        vol.Required(CONF_WEATHER): cv.entity_id,
-        vol.Required(CONF_INDOOR_TEMPERATURE): cv.entity_id,
-        vol.Required(CONF_INDOOR_HUMIDITY): cv.entity_id,
-        vol.Required(CONF_OUTDOOR_TEMPERATURE): cv.entity_id,
-        vol.Required(CONF_OUTDOOR_HUMIDITY): cv.entity_id,
-        vol.Required(CONF_SIMMER_INDEX_MIN): vol.Coerce(float),
-        vol.Required(CONF_SIMMER_INDEX_MAX): vol.Coerce(float),
-        vol.Required(CONF_DEW_POINT_MAX): vol.Coerce(float),
-        vol.Required(CONF_HUMIDITY_MAX): vol.Coerce(float),
-        vol.Required(CONF_POLLEN_MAX): vol.All(vol.Coerce(int), vol.Range(min=0, max=5)),
-        vol.Required(CONF_TEMPERATURE_UNIT): vol.In(VALID_TEMP_UNITS),
-        vol.Required(CONF_NAME): vol.All(str, vol.Length(min=1)),
-        vol.Required(CONF_ENABLED_SENSORS): cv.multi_select(ALL_SENSOR_TYPES),
+        probatio.Required(CONF_WEATHER): cv.entity_id,
+        probatio.Required(CONF_INDOOR_TEMPERATURE): cv.entity_id,
+        probatio.Required(CONF_INDOOR_HUMIDITY): cv.entity_id,
+        probatio.Required(CONF_OUTDOOR_TEMPERATURE): cv.entity_id,
+        probatio.Required(CONF_OUTDOOR_HUMIDITY): cv.entity_id,
+        probatio.Required(CONF_SIMMER_INDEX_MIN): probatio.Coerce(float),
+        probatio.Required(CONF_SIMMER_INDEX_MAX): probatio.Coerce(float),
+        probatio.Required(CONF_DEW_POINT_MAX): probatio.Coerce(float),
+        probatio.Required(CONF_HUMIDITY_MAX): probatio.Coerce(float),
+        probatio.Required(CONF_POLLEN_MAX): probatio.All(
+            probatio.Coerce(int), probatio.Range(min=0, max=5)
+        ),
+        probatio.Required(CONF_TEMPERATURE_UNIT): probatio.In(VALID_TEMP_UNITS),
+        probatio.Required(CONF_NAME): probatio.All(str, probatio.Length(min=1)),
+        probatio.Required(CONF_ENABLED_SENSORS): cv.multi_select(ALL_SENSOR_TYPES),
     }
 )
