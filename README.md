@@ -78,9 +78,10 @@ Two sources are recommended (US coverage):
 
 ### No API key: IQVIA (built in)
 
-1. **Settings → Devices & services → Add integration → IQVIA**, and enter your ZIP code.
-2. In Comfort Advisor (**Reconfigure**), select the **Allergy index: today** sensor as the pollen
-   sensor.
+1. [Add the IQVIA integration](https://my.home-assistant.io/redirect/config_flow_start/?domain=iqvia) and enter your ZIP
+   code.
+2. [Open Comfort Advisor](https://my.home-assistant.io/redirect/integration/?domain=comfort_advisor), choose
+   **⋮ → Reconfigure**, and select the **Allergy index: today** sensor as the pollen sensor.
 
 IQVIA reports one overall allergy index from 0 to 12 (from pollen.com), not separate grass, tree
 and weed levels. Comfort Advisor recognizes IQVIA sensors and converts the index by IQVIA's
@@ -112,17 +113,19 @@ monthly usage. To create the key (keep the new project selected at the top of ea
    **Create credentials → API key**. Under **API restrictions**, keep only **Pollen API**
    (Google strongly recommends restricting keys), then create the key and copy it.
    ([Google's instructions](https://developers.google.com/maps/documentation/pollen/get-api-key))
-5. In HACS, add `https://github.com/robbybarnes/google_pollen` as a custom repository
-   (type: Integration) and install **Google Pollen**. Restart Home Assistant, then add the
-   **Google Pollen** integration and paste the key.
-6. In Comfort Advisor (**Reconfigure**), select the **grass, tree and weed pollen index** sensors.
+5. [Open Google Pollen in HACS](https://my.home-assistant.io/redirect/hacs_repository/?owner=robbybarnes&repository=google_pollen&category=integration)
+   (this adds the custom repository) and **Download** it. Restart Home Assistant, then
+   [add the Google Pollen integration](https://my.home-assistant.io/redirect/config_flow_start/?domain=google_pollen) and paste
+   the key.
+6. [Open Comfort Advisor](https://my.home-assistant.io/redirect/integration/?domain=comfort_advisor), choose
+   **⋮ → Reconfigure**, and select the **grass, tree and weed pollen index** sensors.
 
 ### Other sources
 
 | Integration | Install | Sensors to select | Notes |
 |---|---|---|---|
-| [Pollen Levels](https://github.com/eXPerience83/pollenlevels) (Google Pollen API) | HACS (default store) | Grass, tree and weed pollen (0–5 index) | Same data and API key as Google Pollen. Requires Home Assistant 2026.5 or newer. |
-| [Tomorrow.io](https://www.home-assistant.io/integrations/tomorrowio/) | Built in | Tree, weed and grass pollen index (None–Very High) | Needs a Tomorrow.io API key; the free plan has tight request limits. |
+| [Pollen Levels](https://github.com/eXPerience83/pollenlevels) (Google Pollen API) | [HACS (default store)](https://my.home-assistant.io/redirect/hacs_repository/?owner=eXPerience83&repository=pollenlevels&category=integration) | Grass, tree and weed pollen (0–5 index) | Same data and API key as Google Pollen. Requires Home Assistant 2026.5 or newer. |
+| [Tomorrow.io](https://www.home-assistant.io/integrations/tomorrowio/) | [Built in](https://my.home-assistant.io/redirect/config_flow_start/?domain=tomorrowio) | Tree, weed and grass pollen index (None–Very High) | Needs a Tomorrow.io API key; the free plan has tight request limits. |
 
 AccuWeather reports pollen counts on another scale; a
 [template sensor](https://www.home-assistant.io/integrations/template/) can convert them to 0–5.
