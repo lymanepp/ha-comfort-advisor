@@ -25,6 +25,7 @@ from pytest_homeassistant_custom_component.common import (
 
 from custom_components.comfort_advisor.comfort import Calculated
 from custom_components.comfort_advisor.const import (
+    CONF_COOLING_TEMPERATURE_MIN,
     CONF_DEW_POINT_MAX,
     CONF_ENABLED_SENSORS,
     CONF_HUMIDITY_MAX,
@@ -35,6 +36,7 @@ from custom_components.comfort_advisor.const import (
     CONF_POLLEN_MAX,
     CONF_SIMMER_INDEX_MAX,
     CONF_SIMMER_INDEX_MIN,
+    CONF_TEMPERATURE_TOLERANCE,
     CONF_WEATHER,
     DOMAIN,
 )
@@ -60,6 +62,8 @@ COMFORT: dict[str, Any] = {
     CONF_DEW_POINT_MAX: 15.5,
     CONF_HUMIDITY_MAX: 95.0,
     CONF_POLLEN_MAX: 2,
+    CONF_COOLING_TEMPERATURE_MIN: 15.5,
+    CONF_TEMPERATURE_TOLERANCE: 0.5,
 }
 
 ENTRY_DATA: dict[str, Any] = {

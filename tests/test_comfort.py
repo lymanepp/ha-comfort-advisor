@@ -8,16 +8,29 @@ from homeassistant.util.unit_system import METRIC_SYSTEM, US_CUSTOMARY_SYSTEM
 import pytest
 
 from custom_components.comfort_advisor import comfort as comfort_module
-from custom_components.comfort_advisor.comfort import Calculated, ComfortCalculator, Input
+from custom_components.comfort_advisor.comfort import (
+    ATTR_REASON,
+    Advice,
+    Calculated,
+    ComfortCalculator,
+    Indoor,
+    Input,
+)
 from custom_components.comfort_advisor.const import (
+    CONF_COOLING_TEMPERATURE_MIN,
     CONF_DEW_POINT_MAX,
     CONF_HUMIDITY_MAX,
     CONF_POLLEN_MAX,
     CONF_SIMMER_INDEX_MAX,
     CONF_SIMMER_INDEX_MIN,
+    CONF_TEMPERATURE_TOLERANCE,
     CONF_WEATHER,
 )
-from custom_components.comfort_advisor.formulas import calc_dew_point, calc_simmer_index
+from custom_components.comfort_advisor.formulas import (
+    calc_dew_point,
+    calc_moist_air_enthalpy,
+    calc_simmer_index,
+)
 
 NOW = datetime(2026, 7, 1, 12, 0, tzinfo=UTC)
 
@@ -36,6 +49,14 @@ NICE = (72.0, 40.0)  # simmer index ~75, dew point ~46, enthalpy ~39.27 kJ/kg
 HOT = (90.0, 50.0)  # simmer index ~103
 COLD = (60.0, 50.0)  # simmer index ~61
 MUGGY = (68.0, 90.0)  # simmer index ~77 but dew point ~65
+COOL_NIGHT = (64.0, 50.0)  # simmer index ~67, below the comfortable range
+
+# Indoor (temperature °F, relative humidity %) samples. The comfort target is the
+# middle of the simmer index range: 77.5.
+SLIGHTLY_COOL_HOUSE = (71.0, 40.0)  # simmer index ~75
+COOL_HOUSE = (72.0, 40.0)  # simmer index ~77, just below the target
+WARM_HOUSE = (80.0, 55.0)  # simmer index ~91
+WARM_DRY_HOUSE = (78.0, 30.0)  # simmer index ~82, but little moisture
 
 
 @pytest.fixture(autouse=True)
@@ -56,6 +77,18 @@ def hourly(*samples: tuple[float, float], start: int = 1) -> list[dict[str, Any]
     ]
 
 
+def indoor(temp: float, humidity: float) -> Indoor:
+    """Build indoor conditions in °F."""
+    return Indoor(
+        temperature=temp,
+        simmer_index=calc_simmer_index(temp, humidity, "°F"),
+        enthalpy=calc_moist_air_enthalpy(temp, humidity, 101_325, "°F", "Pa"),
+    )
+
+
+INDOOR = indoor(*SLIGHTLY_COOL_HOUSE)
+
+
 def hour(n: int) -> datetime:
     """Return the time `n` hours from NOW."""
     return NOW + timedelta(hours=n)
@@ -64,7 +97,7 @@ def hour(n: int) -> datetime:
 def make_calculator(
     forecast: list[dict[str, Any]] | None = None,
     outdoor: tuple[float, float] | None = NICE,
-    indoor: tuple[float, float] | None = (75.0, 50.0),
+    indoor: tuple[float, float] | None = SLIGHTLY_COOL_HOUSE,
     config: dict[str, Any] | None = None,
     unit_system=US_CUSTOMARY_SYSTEM,
 ) -> ComfortCalculator:
@@ -161,14 +194,14 @@ class TestMakeComfortForecast:
     def test_skips_past_entries_and_limits_to_24_hours(self):
         """Only entries from now through the next 24 hours are used."""
         forecast = hourly(*[NICE] * 30, start=-3)
-        result = make_calculator().make_comfort_forecast(forecast)
+        result = make_calculator().make_comfort_forecast(forecast, INDOOR)
         assert result[0]["datetime"] == hour(0)
         assert result[-1]["datetime"] == hour(24)
         assert len(result) == 25
 
     def test_entry_fields(self):
         """Each entry carries the derived comfort values."""
-        (entry,) = make_calculator().make_comfort_forecast(hourly(NICE))
+        (entry,) = make_calculator().make_comfort_forecast(hourly(NICE), INDOOR)
         assert entry["datetime"] == hour(1)
         assert entry["temperature"] == 72.0
         assert entry["dew_point"] == pytest.approx(calc_dew_point(*NICE, "°F"))
@@ -180,7 +213,7 @@ class TestMakeComfortForecast:
         """A dew point supplied by the weather provider takes precedence."""
         forecast = hourly(NICE)
         forecast[0]["dew_point"] = 65.0  # above the 60°F maximum
-        (entry,) = make_calculator().make_comfort_forecast(forecast)
+        (entry,) = make_calculator().make_comfort_forecast(forecast, INDOOR)
         assert entry["dew_point"] == 65.0
         assert entry["comfortable"] is False
 
@@ -189,12 +222,12 @@ class TestMakeComfortForecast:
         """The forecast is truncated at the first entry missing data."""
         forecast = hourly(NICE, NICE, NICE)
         forecast[1][missing] = None
-        result = make_calculator().make_comfort_forecast(forecast)
+        result = make_calculator().make_comfort_forecast(forecast, INDOOR)
         assert [e["datetime"] for e in result] == [hour(1)]
 
     def test_empty_forecast(self):
         """An empty forecast produces no entries."""
-        assert make_calculator().make_comfort_forecast([]) == []
+        assert make_calculator().make_comfort_forecast([], INDOOR) == []
 
 
 class TestUpdateInput:
@@ -306,3 +339,172 @@ class TestRefreshState:
         assert calc.get_calculated(Calculated.CAN_OPEN_WINDOWS) == "off"
         assert calc.get_calculated(Calculated.OPEN_WINDOWS_AT) == hour(1)
         assert calc.get_calculated(Calculated.CLOSE_WINDOWS_AT) == hour(3)
+
+
+def advise(
+    outdoor: tuple[float, float],
+    house: tuple[float, float],
+    calc: ComfortCalculator | None = None,
+) -> Advice:
+    """Advise for °F outdoor and indoor samples."""
+    calc = calc or make_calculator()
+    temp, humidity = outdoor
+    return calc.advise(
+        temp,
+        humidity,
+        calc_dew_point(temp, humidity, "°F"),
+        calc_simmer_index(temp, humidity, "°F"),
+        calc_moist_air_enthalpy(temp, humidity, 101_325, "°F", "Pa"),
+        0,
+        indoor(*house),
+    )
+
+
+class TestAdvise:
+    """Indoor-aware window advice."""
+
+    def test_fresh_air_when_comfortable_and_house_is_warm(self):
+        """Comfortable outdoor air with less heat than the house is let in."""
+        assert advise(NICE, WARM_HOUSE) is Advice.FRESH_AIR
+
+    def test_fresh_air_when_comfortable_and_close_to_indoor(self):
+        """Comfortable outdoor air near the indoor temperature is let in."""
+        assert advise(NICE, COOL_HOUSE) is Advice.FRESH_AIR
+
+    def test_adds_heat(self):
+        """Comfortable but more heat/moisture than a warm house is kept out."""
+        assert advise((75.0, 55.0), WARM_DRY_HOUSE) is Advice.ADDS_HEAT
+
+    def test_heat_within_tolerance_is_fresh_air(self):
+        """Slightly more heat than a warm house is within the tolerance."""
+        # 41.59 vs 41.23 kJ/kg; 1°F is worth about 0.56 kJ/kg
+        assert advise((74.0, 40.0), WARM_DRY_HOUSE) is Advice.FRESH_AIR
+
+    def test_adds_chill(self):
+        """Comfortable but colder than a cool house is kept out."""
+        assert advise((69.0, 60.0), COOL_HOUSE) is Advice.ADDS_CHILL
+
+    def test_chill_within_tolerance_is_fresh_air(self):
+        """Being slightly colder than a cool house is within the tolerance."""
+        assert advise((71.2, 45.0), COOL_HOUSE) is Advice.FRESH_AIR
+
+    def test_tolerance_setting(self):
+        """A larger tolerance lets in cooler comfortable air."""
+        calc = make_calculator(config=CONFIG_F | {CONF_TEMPERATURE_TOLERANCE: 4.0})
+        assert advise((69.0, 60.0), COOL_HOUSE, calc) is Advice.FRESH_AIR
+
+    def test_free_cooling(self):
+        """Cool night air is let into a warm house even though it's not comfortable."""
+        assert advise(COOL_NIGHT, WARM_HOUSE) is Advice.FREE_COOLING
+
+    def test_free_cooling_stops_at_comfort_target(self):
+        """Free cooling only applies while the house is warmer than the target."""
+        assert advise(COOL_NIGHT, COOL_HOUSE) is Advice.UNCOMFORTABLE
+
+    def test_free_cooling_floor(self):
+        """Air colder than the floor is never let in for cooling."""
+        assert advise((58.0, 50.0), WARM_HOUSE) is Advice.UNCOMFORTABLE
+        calc = make_calculator(config=CONFIG_F | {CONF_COOLING_TEMPERATURE_MIN: 55.0})
+        assert advise((58.0, 50.0), WARM_HOUSE, calc) is Advice.FREE_COOLING
+
+    def test_free_cooling_respects_dew_point(self):
+        """Humid air isn't let in for cooling."""
+        assert advise((66.0, 90.0), WARM_HOUSE) is Advice.UNCOMFORTABLE
+
+    def test_free_cooling_needs_less_heat(self):
+        """Cooler but moister air holding more heat than the house isn't let in."""
+        # 63°F / 85%: 43.7 kJ/kg vs the house's 41.2, dew point 58°F (allowed)
+        assert advise((63.0, 85.0), WARM_DRY_HOUSE) is Advice.UNCOMFORTABLE
+
+    def test_free_cooling_needs_cooler_air(self):
+        """Hot, dry air has less enthalpy but would still warm the house."""
+        assert advise((86.0, 15.0), WARM_HOUSE) is Advice.UNCOMFORTABLE
+
+    @pytest.mark.parametrize("sample", [HOT, MUGGY])
+    def test_uncomfortable(self, sample):
+        """Uncomfortable air without a cooling benefit is kept out."""
+        assert advise(sample, WARM_HOUSE) is Advice.UNCOMFORTABLE
+
+    @pytest.mark.parametrize(
+        ("advice", "expected"),
+        [
+            (Advice.FRESH_AIR, True),
+            (Advice.FREE_COOLING, True),
+            (Advice.ADDS_HEAT, False),
+            (Advice.ADDS_CHILL, False),
+            (Advice.UNCOMFORTABLE, False),
+        ],
+    )
+    def test_can_open(self, advice, expected):
+        """Only fresh air and free cooling mean open."""
+        assert advice.can_open is expected
+
+
+class TestAdviceSettings:
+    """The new settings are converted and defaulted like the others."""
+
+    def test_defaults_for_older_entries(self):
+        """Entries saved before these settings existed use 60°F and 1°F."""
+        assert CONF_COOLING_TEMPERATURE_MIN not in CONFIG_F
+        calc = make_calculator()
+        assert calc._cooling_temp_min == pytest.approx(60.0)  # pylint: disable=protected-access
+        assert calc._temp_tolerance == pytest.approx(1.0)  # pylint: disable=protected-access
+
+    def test_defaults_converted_to_metric(self):
+        """Defaults are converted to °C on a metric system."""
+        calc = make_calculator(unit_system=METRIC_SYSTEM)
+        # pylint: disable=protected-access
+        assert calc._cooling_temp_min == pytest.approx(15.56, abs=0.01)
+        assert calc._temp_tolerance == pytest.approx(0.556, abs=0.001)
+        assert calc._enthalpy_tolerance == pytest.approx(0.559, abs=0.001)
+
+    def test_saved_fahrenheit_settings_converted_to_metric(self):
+        """The floor converts as a temperature, the tolerance as a difference."""
+        config = CONFIG_F | {
+            CONF_COOLING_TEMPERATURE_MIN: 50.0,
+            CONF_TEMPERATURE_TOLERANCE: 9.0,
+        }
+        calc = make_calculator(config=config, unit_system=METRIC_SYSTEM)
+        # pylint: disable=protected-access
+        assert calc._cooling_temp_min == pytest.approx(10.0)
+        assert calc._temp_tolerance == pytest.approx(5.0)
+
+
+class TestIndoorAwareRefresh:
+    """Indoor conditions drive the windows state and change times."""
+
+    def test_cool_night_opens_windows_for_a_warm_house(self):
+        """Free cooling now, then fresh air, then close when it gets hot."""
+        calc = make_calculator(
+            hourly(COOL_NIGHT, COOL_NIGHT, NICE, HOT, HOT),
+            outdoor=COOL_NIGHT,
+            indoor=WARM_HOUSE,
+        )
+        assert calc.refresh_state()
+        assert calc.get_calculated(Calculated.CAN_OPEN_WINDOWS) == "on"
+        assert calc.extra_attributes[ATTR_REASON] is Advice.FREE_COOLING
+        assert calc.get_calculated(Calculated.CLOSE_WINDOWS_AT) == hour(4)
+        assert calc.get_calculated(Calculated.OPEN_WINDOWS_AT) is None
+
+    def test_same_weather_stays_closed_for_a_cool_house(self):
+        """The same cool night doesn't open windows when the house isn't warm."""
+        calc = make_calculator(
+            hourly(COOL_NIGHT, COOL_NIGHT, NICE, HOT, HOT),
+            outdoor=COOL_NIGHT,
+            indoor=COOL_HOUSE,
+        )
+        assert calc.refresh_state()
+        assert calc.get_calculated(Calculated.CAN_OPEN_WINDOWS) == "off"
+        assert calc.extra_attributes[ATTR_REASON] is Advice.UNCOMFORTABLE
+        assert calc.get_calculated(Calculated.OPEN_WINDOWS_AT) == hour(3)
+        assert calc.get_calculated(Calculated.CLOSE_WINDOWS_AT) == hour(4)
+
+    def test_indoor_change_triggers_refresh(self):
+        """A new indoor reading recalculates the advice."""
+        calc = make_calculator(hourly(NICE), outdoor=COOL_NIGHT, indoor=COOL_HOUSE)
+        assert calc.refresh_state()
+        assert calc.get_calculated(Calculated.CAN_OPEN_WINDOWS) == "off"
+        calc.update_input(Input.INDOOR_TEMPERATURE, WARM_HOUSE[0])
+        calc.update_input(Input.INDOOR_HUMIDITY, WARM_HOUSE[1])
+        assert calc.refresh_state()
+        assert calc.get_calculated(Calculated.CAN_OPEN_WINDOWS) == "on"

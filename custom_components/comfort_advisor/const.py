@@ -19,6 +19,8 @@ CONF_POLLEN_MAX: Final = "pollen_max"
 CONF_SIMMER_INDEX_MAX: Final = "simmer_index_max"
 CONF_SIMMER_INDEX_MIN: Final = "simmer_index_min"
 CONF_ENABLED_SENSORS: Final = "enabled_sensors"
+CONF_COOLING_TEMPERATURE_MIN: Final = "cooling_temperature_min"
+CONF_TEMPERATURE_TOLERANCE: Final = "temperature_tolerance"
 
 # DataUpdateCoordinator constants
 SCAN_INTERVAL_REALTIME: Final = timedelta(minutes=15)
@@ -32,4 +34,6 @@ DEFAULT_HUMIDITY_MAX: Final = 95
 DEFAULT_POLLEN_MAX: Final = 2
 DEFAULT_SIMMER_INDEX_MAX: Final = 85
 DEFAULT_SIMMER_INDEX_MIN: Final = 70
+DEFAULT_COOLING_TEMPERATURE_MIN: Final = 60  # °F
+DEFAULT_TEMPERATURE_TOLERANCE: Final = 1  # °F interval
 DEFAULT_POLL_INTERVAL: Final = 30

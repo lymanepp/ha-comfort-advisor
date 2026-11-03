@@ -25,6 +25,7 @@ import probatio
 
 from .comfort import Calculated
 from .const import (
+    CONF_COOLING_TEMPERATURE_MIN,
     CONF_DEW_POINT_MAX,
     CONF_ENABLED_SENSORS,
     CONF_HUMIDITY_MAX,
@@ -35,13 +36,16 @@ from .const import (
     CONF_POLLEN_MAX,
     CONF_SIMMER_INDEX_MAX,
     CONF_SIMMER_INDEX_MIN,
+    CONF_TEMPERATURE_TOLERANCE,
     CONF_WEATHER,
+    DEFAULT_COOLING_TEMPERATURE_MIN,
     DEFAULT_DEWPOINT_MAX,
     DEFAULT_HUMIDITY_MAX,
     DEFAULT_NAME,
     DEFAULT_POLLEN_MAX,
     DEFAULT_SIMMER_INDEX_MAX,
     DEFAULT_SIMMER_INDEX_MIN,
+    DEFAULT_TEMPERATURE_TOLERANCE,
 )
 from .helpers import domain_entity_ids
 
@@ -135,10 +139,37 @@ def build_comfort_schema(hass: HomeAssistant, config: Mapping[str, Any]) -> prob
     )
     humidity_max = config.get(CONF_HUMIDITY_MAX, DEFAULT_HUMIDITY_MAX)
     pollen_max: int = config.get(CONF_POLLEN_MAX, DEFAULT_POLLEN_MAX)
+    cooling_temperature_min = config.get(
+        CONF_COOLING_TEMPERATURE_MIN,
+        round(
+            TC.convert(DEFAULT_COOLING_TEMPERATURE_MIN, UnitOfTemperature.FAHRENHEIT, temp_unit),
+            1,
+        ),
+    )
+    temperature_tolerance = config.get(
+        CONF_TEMPERATURE_TOLERANCE,
+        round(
+            TC.convert_interval(
+                DEFAULT_TEMPERATURE_TOLERANCE, UnitOfTemperature.FAHRENHEIT, temp_unit
+            ),
+            1,
+        ),
+    )
 
     temp_step = 0.5 if hass.config.units is METRIC_SYSTEM else 1.0
     temperature_selector = selector(
         {"number": {"mode": "box", "unit_of_measurement": temp_unit, "step": temp_step}}
+    )
+    tolerance_selector = selector(
+        {
+            "number": {
+                "mode": "box",
+                "unit_of_measurement": temp_unit,
+                "step": temp_step / 2,
+                "min": 0,
+                "max": 5,
+            }
+        }
     )
     humidity_selector = selector(
         {"number": {"mode": "slider", "unit_of_measurement": PERCENTAGE, "min": 90, "max": 100}}
@@ -159,6 +190,12 @@ def build_comfort_schema(hass: HomeAssistant, config: Mapping[str, Any]) -> prob
             probatio.Required(CONF_POLLEN_MAX, default=pollen_max): probatio.In(
                 {0: "none", 1: "very_low", 2: "low", 3: "medium", 4: "high", 5: "very_high"}  # TODO
             ),
+            probatio.Required(
+                CONF_COOLING_TEMPERATURE_MIN, default=cooling_temperature_min
+            ): temperature_selector,
+            probatio.Required(
+                CONF_TEMPERATURE_TOLERANCE, default=temperature_tolerance
+            ): tolerance_selector,
         }
     )
 
@@ -193,6 +230,10 @@ DATA_SCHEMA = probatio.Schema(
         probatio.Required(CONF_HUMIDITY_MAX): probatio.Coerce(float),
         probatio.Required(CONF_POLLEN_MAX): probatio.All(
             probatio.Coerce(int), probatio.Range(min=0, max=5)
+        ),
+        probatio.Required(CONF_COOLING_TEMPERATURE_MIN): probatio.Coerce(float),
+        probatio.Required(CONF_TEMPERATURE_TOLERANCE): probatio.All(
+            probatio.Coerce(float), probatio.Range(min=0)
         ),
         probatio.Required(CONF_TEMPERATURE_UNIT): probatio.In(VALID_TEMP_UNITS),
         probatio.Required(CONF_NAME): probatio.All(str, probatio.Length(min=1)),

@@ -8,15 +8,26 @@ Comfort Advisor provides the following calculated sensors for Home Assistant.
 
 **Can Open Windows**
 
-> The weather outside is comfortable and windows can be opened.
+> Whether windows can be open, for fresh air and to save energy. Windows can be open when:
+>
+> - it's comfortable outside (simmer index, dew point and humidity within your limits), unless the
+>   outdoor air would make the heating or cooling work harder: adding heat or moisture to a warm
+>   house, or chilling a cool house by more than the temperature tolerance; or
+> - the house is warmer than comfortable and the outdoor air is cooler and drier, even if it's
+>   below the comfortable range, as long as it's above the lowest cooling temperature and within
+>   the dew point and humidity limits.
+>
+> The `reason` attribute explains the current advice: `fresh_air`, `free_cooling`, `adds_heat`,
+> `adds_chill` or `uncomfortable`.
 
 **High Simmer Index**
 
 > The high simmer index over the next 24 hours.
 
-**Next Change Time**
+**Open Windows At / Close Windows At**
 
-> The next time the windows are recommended to be opened or closed.
+> The next time the windows are recommended to be opened or closed, based on the hourly forecast.
+> Forecast hours are compared against the current indoor conditions.
 
 ## Usage
 

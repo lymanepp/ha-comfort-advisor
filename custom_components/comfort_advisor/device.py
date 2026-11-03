@@ -1,5 +1,6 @@
 """Device for comfort_advisor."""
 
+from collections.abc import Mapping
 import contextlib
 from datetime import datetime, timedelta
 import math
@@ -130,6 +131,11 @@ class ComfortAdvisorDevice:
     def get_calculated(self, name: str, default: Any = None) -> Any:
         """Retrieve calculated comfort state."""
         return self._comfort.get_calculated(name, default)
+
+    @property
+    def extra_attributes(self) -> Mapping[str, Any]:
+        """Extra attributes for the "can open windows" sensor."""
+        return self._comfort.extra_attributes
 
     def add_entity(self, entity: Entity) -> CALLBACK_TYPE:
         """Add entity to receive callback when the calculated state is updated."""
