@@ -38,14 +38,9 @@
       }
     },
     "error": {
-      "api_error": "Service API error.",
-      "cannot_connect": "Cannot connect to service.",
-      "invalid_api_key": "API key is not valid.",
-      "rate_limited": "Currently rate limited, please try again later.",
       "sensors_not_unique": "Sensors must be unique."
     },
     "abort": {
-      "no_sensors": "No temperature or humidity sensors found.",
       "already_configured": "An integration with the same input sensors already exists."
     }
   },
@@ -74,9 +69,7 @@
           "name": "Name",
           "enabled_sensors": "Enabled sensors"
         }
-      },
-      "error": {},
-      "abort": {}
+      }
     }
   },
   "entity": {

@@ -16,7 +16,6 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_registry
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.util.unit_conversion import TemperatureConverter as TC
-import probatio
 
 from .const import (
     CONF_INDOOR_HUMIDITY,
@@ -102,7 +101,6 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):
         """Initialize config flow."""
 
         self._config: dict[str, Any] = {}
-        self._weather_schema: probatio.Schema | None = None
 
     async def async_step_user(self, user_input: ConfigType | None = None) -> ConfigFlowResult:
         """Select temperature and humidity sensors."""

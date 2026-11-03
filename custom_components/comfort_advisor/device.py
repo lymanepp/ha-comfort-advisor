@@ -4,7 +4,7 @@ from collections.abc import Mapping
 import contextlib
 from datetime import datetime, timedelta
 import math
-from typing import Any, cast
+from typing import Any
 
 from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.config_entries import ConfigEntry
@@ -120,11 +120,6 @@ class ComfortAdvisorDevice:
             )
         )
         return True
-
-    @property
-    def name(self) -> str:
-        """Return the name."""
-        return cast(str, self.device_info.get("name"))
 
     @property
     def available(self) -> bool:
