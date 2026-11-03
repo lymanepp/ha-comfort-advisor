@@ -37,7 +37,12 @@ max-complexity = 25
 convention = "pep257"
 
 [tool.coverage.run]
-omit = [".tox/*", "tests/*"]
+source = ["custom_components"]
+
+[tool.coverage.report]
+exclude_also = ["raise NotImplementedError"]
+fail_under = 85
+show_missing = true
 
 [tool.pylint.MASTER]
 ignore = ["tests"]

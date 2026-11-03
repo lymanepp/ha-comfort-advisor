@@ -1,6 +1,5 @@
-"""Weather formulas."""
+"""Psychrometric and comfort formulas."""
 
-from enum import IntEnum
 import math
 
 from homeassistant.const import UnitOfPressure, UnitOfTemperature
@@ -71,7 +70,7 @@ def vapor_pressure_from_relative_humidity(p_ws: float, rh: float) -> float:
     rh - relative humidity [%]
 
     Returns:
-    Humidity ratio of moist air [kg_w/kg_da]
+    Partial pressure of water vapor in moist air [kPa]
     """
 
     # ASHRAE fundamentals 2021 pg 1.9 eq 22
@@ -108,12 +107,6 @@ def moist_air_enthalpy_from_humidity_ratio(t: float, W: float) -> float:
     return 1.006 * t + W * (2501 + 1.86 * t)
 
 
-def absolute_humidity_from_relative_humidity(t: float, rh: float) -> float:
-    """Calculate absolute humidity [g/m³] from temperature [°C] and relative humidity [%]."""
-    # https://carnotcycle.wordpress.com/2012/08/04/how-to-convert-relative-humidity-to-absolute-humidity
-    return (6.122 * math.exp((17.67 * t) / (243.5 + t)) * rh * 2.1674) / (t + CELSIUS_TO_KELVIN)
-
-
 def dew_point_from_relative_humidity(t: float, rh: float) -> float:
     """Calculate dew-point [°C] from temperature [°C] and relative humidity [%]."""
     # https://pon.fr/dzvents-alerte-givre-et-calcul-humidite-absolue
@@ -131,38 +124,6 @@ def dew_point_from_relative_humidity(t: float, rh: float) -> float:
     return t_d
 
 
-def heat_index_from_relative_humidity(tf: float, rh: float) -> float:
-    """Calculate heat index from temperature and relative humidity.
-
-    Arguments:
-    tf - dry-bulb temperature [°F]
-    rh - relative humidity [%]
-
-    Returns:
-    Heat index [°F]
-    """
-
-    # http://www.wpc.ncep.noaa.gov/html/heatindex_equation.shtml
-    hi = 0.5 * (tf + 61.0 + ((tf - 68.0) * 1.2) + (rh * 0.094))
-    if ((tf + hi) / 2) >= 80:
-        hi = (
-            -42.379
-            + (2.04901523 * tf)
-            + (10.14333127 * rh)
-            + (-0.22475541 * tf * rh)
-            + (-0.00683783 * tf**2)
-            + (-0.05481717 * rh**2)
-            + (0.00122874 * tf**2 * rh)
-            + (0.00085282 * tf * rh**2)
-            + (-0.00000199 * tf**2 * rh**2)
-        )
-        if rh < 13 and 80 <= tf <= 112:
-            hi -= ((13 - rh) / 4) * math.sqrt((17 - abs(tf - 95)) / 17)
-        elif rh > 85 and 80 <= tf <= 87:
-            hi += ((rh - 85) / 10) * ((87 - tf) / 5)
-    return hi
-
-
 def summer_simmer_index(tf: float, rh: float) -> float:
     """Calculate summer simmer index from temperature and relative humidity.
 
@@ -176,24 +137,6 @@ def summer_simmer_index(tf: float, rh: float) -> float:
 
     # https://www.vcalc.com/wiki/rklarsen/Summer+Simmer+Index
     return 1.98 * (tf - (0.55 - (0.0055 * rh)) * (tf - 58)) - 56.83
-
-
-def frost_point(t: float, t_d: float) -> float:
-    """Calculate frost-point from temperature and dew-point.
-
-    Arguments:
-    t - dry-bulb temperature [°C]
-    t_d - dew-point temperature [°C]
-
-    Returns:
-    frost-point temperature [°C]
-    """
-
-    # https://pon.fr/dzvents-alerte-givre-et-calcul-humidite-absolue
-    T = t + CELSIUS_TO_KELVIN
-    Td = t_d + CELSIUS_TO_KELVIN
-    Tfp = Td + (2671.02 / ((2954.61 / T) + 2.193665 * math.log(T) - 13.3448)) - T
-    return Tfp - CELSIUS_TO_KELVIN
 
 
 def moist_air_enthalpy_from_relative_humidity(t: float, rh: float, p: float) -> float:
@@ -214,24 +157,6 @@ def moist_air_enthalpy_from_relative_humidity(t: float, rh: float, p: float) -> 
     return moist_air_enthalpy_from_humidity_ratio(t, W)
 
 
-class FrostRisk(IntEnum):
-    """Risk of frost formation."""
-
-    NO_RISK = 0
-    UNLIKELY = 1
-    PROBABLE = 2
-    HIGHLY_PROBABLE = 3
-
-
-def calc_relative_humidity(temp: float, dew_point: float, temp_unit: str) -> float:
-    """Calculate relative humidity from temperature and dew-point."""
-
-    t = TC.convert(temp, temp_unit, UnitOfTemperature.CELSIUS)
-    t_d = TC.convert(dew_point, temp_unit, UnitOfTemperature.CELSIUS)
-
-    return relative_humidity_from_dew_point(t, t_d)
-
-
 def calc_dew_point(temp: float, rh: float, temp_unit: str) -> float:
     """Calculate dew-point from temperature and humidity."""
     t = TC.convert(temp, temp_unit, UnitOfTemperature.CELSIUS)
@@ -239,55 +164,6 @@ def calc_dew_point(temp: float, rh: float, temp_unit: str) -> float:
     t_d = dew_point_from_relative_humidity(t, rh)
 
     return round(TC.convert(t_d, UnitOfTemperature.CELSIUS, temp_unit), 2)
-
-
-def calc_heat_index(temp: float, rh: float, temp_unit: str) -> float:
-    """Calculate heat index from temperature and humidity."""
-    tf = TC.convert(temp, temp_unit, UnitOfTemperature.FAHRENHEIT)
-
-    hi = heat_index_from_relative_humidity(tf, rh)
-
-    return round(TC.convert(hi, UnitOfTemperature.FAHRENHEIT, temp_unit), 2)
-
-
-def calc_absolute_humidity(temp: float, rh: float, temp_unit: str) -> float:
-    """Calculate absolute humidity from temperature and humidity."""
-    t = TC.convert(temp, temp_unit, UnitOfTemperature.CELSIUS)
-
-    abs_hum = absolute_humidity_from_relative_humidity(t, rh)
-
-    return round(abs_hum, 2)
-
-
-def calc_frost_point(temp: float, rh: float, temp_unit: str) -> float:
-    """Calculate frost point from temperature and humidity."""
-    t = TC.convert(temp, temp_unit, UnitOfTemperature.CELSIUS)
-
-    t_d = dew_point_from_relative_humidity(t, rh)
-    t_fp = frost_point(t, t_d)
-
-    return TC.convert(t_fp, UnitOfTemperature.CELSIUS, temp_unit)
-
-
-def calc_frost_risk(temp: float, rh: float, temp_unit: str) -> FrostRisk:
-    """Calculate frost risk from temperature and humidity."""
-    t = TC.convert(temp, temp_unit, UnitOfTemperature.CELSIUS)
-
-    abs_hum = absolute_humidity_from_relative_humidity(t, rh)
-    t_d = dew_point_from_relative_humidity(t, rh)
-    t_fp = frost_point(t, t_d)
-
-    abs_humidity_threshold = 2.8
-
-    return (
-        (FrostRisk.UNLIKELY if abs_hum <= abs_humidity_threshold else FrostRisk.HIGHLY_PROBABLE)
-        if t <= 1 and t_fp <= 0
-        else (
-            FrostRisk.PROBABLE
-            if t <= 4 and t_fp <= 0.5 and abs_hum > abs_humidity_threshold
-            else FrostRisk.NO_RISK
-        )
-    )
 
 
 def calc_simmer_index(temp: float, rh: float, temp_unit: str) -> float:

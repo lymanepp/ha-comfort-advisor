@@ -29,7 +29,6 @@ from .const import (
     CONF_SIMMER_INDEX_MAX,
     CONF_SIMMER_INDEX_MIN,
     CONF_TEMPERATURE_TOLERANCE,
-    CONF_WEATHER,
     DEFAULT_COOLING_TEMPERATURE_MIN,
     DEFAULT_TEMPERATURE_TOLERANCE,
 )
@@ -130,7 +129,6 @@ class ComfortCalculator:
             return TC.convert(config[key], config_temp_unit, temp_unit)
 
         self._temp_unit = temp_unit
-        self._weather = config[CONF_WEATHER]
         self._humidity_max: float = config[CONF_HUMIDITY_MAX]
         self._pollen_max: int = config[CONF_POLLEN_MAX]
         self._dew_point_max = temperature(CONF_DEW_POINT_MAX)

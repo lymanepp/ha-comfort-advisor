@@ -1,6 +1,5 @@
 """General comfort_advisor constants."""
 
-from datetime import timedelta
 from logging import Logger, getLogger
 from typing import Final
 
@@ -21,10 +20,6 @@ CONF_SIMMER_INDEX_MIN: Final = "simmer_index_min"
 CONF_ENABLED_SENSORS: Final = "enabled_sensors"
 CONF_COOLING_TEMPERATURE_MIN: Final = "cooling_temperature_min"
 CONF_TEMPERATURE_TOLERANCE: Final = "temperature_tolerance"
-
-# DataUpdateCoordinator constants
-SCAN_INTERVAL_REALTIME: Final = timedelta(minutes=15)
-SCAN_INTERVAL_FORECAST: Final = timedelta(hours=1)
 
 # Default values
 DEFAULT_NAME: Final = "Comfort Advisor"

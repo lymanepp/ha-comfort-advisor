@@ -7,21 +7,11 @@ from homeassistant.components.weather.const import DATA_COMPONENT as WEATHER_COM
 from homeassistant.const import ATTR_DEVICE_CLASS, ATTR_SUPPORTED_FEATURES, ATTR_UNIT_OF_MEASUREMENT
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant
 from homeassistant.helpers import device_registry, entity_registry
-from homeassistant.helpers.entity import Entity
-from homeassistant.helpers.entity_component import EntityComponent
-from homeassistant.loader import Integration, async_get_custom_components
 from homeassistant.util.json import JsonValueType
-from yarl import URL
 
 from .const import DOMAIN
 
 EXCLUDED_PLATFORMS = (DOMAIN, "thermal_comfort")
-
-
-def get_domain_entity(hass: HomeAssistant, domain: str, entity_id: str) -> Entity | None:
-    """Get an entity object from its domain's entity component."""
-    component: EntityComponent[Entity] | None = hass.data.get(domain)
-    return component.get_entity(entity_id) if component else None
 
 
 async def async_subscribe_forecast(
@@ -102,22 +92,6 @@ def domain_entity_ids(
         entity_ids.append(state.entity_id)
 
     return entity_ids
-
-
-async def create_issue_tracker_url(
-    hass: HomeAssistant, exc: Exception, *, title: str
-) -> str | None:
-    """Create an issue tracker URL."""
-    custom_components = await async_get_custom_components(hass)
-    integration: Integration = custom_components[DOMAIN]
-    if integration.issue_tracker is None:
-        return None
-    url = URL(integration.issue_tracker) / "new"
-    body = f"**Integration:** {integration.name}\n**Version:** {integration.version}"
-    if msg := getattr(exc, "msg"):
-        body += f"\n**Message:** {msg}"
-    url = url.with_query({"title": title, "body": body})
-    return str(url)
 
 
 def get_entity_area(hass: HomeAssistant, entity_id: str) -> str | None:

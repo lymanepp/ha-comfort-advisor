@@ -7,7 +7,6 @@ import pytest
 from custom_components.comfort_advisor.formulas import (
     calc_dew_point,
     calc_moist_air_enthalpy,
-    calc_relative_humidity,
     calc_simmer_index,
     dew_point_from_relative_humidity,
     moist_air_enthalpy_from_relative_humidity,
@@ -75,13 +74,6 @@ def test_calc_dew_point_converts_units():
     dew_point_c = calc_dew_point(25, 50, C)
     dew_point_f = calc_dew_point(77, 50, F)
     assert dew_point_f == pytest.approx(TC.convert(dew_point_c, C, F), abs=0.02)
-
-
-def test_calc_relative_humidity_converts_units():
-    """Relative humidity is the same from °C and °F inputs."""
-    assert calc_relative_humidity(77, 56.98, F) == pytest.approx(
-        calc_relative_humidity(25, 13.88, C), abs=0.01
-    )
 
 
 def test_enthalpy_reference_value():
