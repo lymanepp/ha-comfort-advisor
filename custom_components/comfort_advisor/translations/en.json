@@ -22,11 +22,15 @@
           "humidity_max": "Highest comfortable relative humidity.",
           "pollen_max": "Highest comfortable pollen level (if available from weather provider).",
           "cooling_temperature_min": "Lowest outdoor temperature for cooling with outside air",
-          "temperature_tolerance": "Temperature tolerance"
+          "temperature_tolerance": "Temperature tolerance",
+          "hysteresis": "Temperature margin for closing",
+          "humidity_hysteresis": "Humidity margin for closing"
         },
         "data_description": {
           "cooling_temperature_min": "When the house is warmer than comfortable, cooler and drier outdoor air is let in even if it's below the comfortable range, but never below this temperature.",
-          "temperature_tolerance": "How much outdoor air may work against the heating or cooling before comfortable outdoor air is no longer let in."
+          "temperature_tolerance": "How much outdoor air may work against the heating or cooling before comfortable outdoor air is no longer let in.",
+          "hysteresis": "Once windows can be open, they stay open until the simmer index, dew point, cooling temperature or indoor/outdoor comparison is past its limit by this much. Prevents switching back and forth near a limit.",
+          "humidity_hysteresis": "Once windows can be open, they stay open until the humidity is above its maximum by this much."
         }
       },
       "device": {
@@ -69,12 +73,16 @@
           "humidity_max": "Highest comfortable relative humidity.",
           "pollen_max": "Highest comfortable pollen level (if available from weather provider).",
           "cooling_temperature_min": "Lowest outdoor temperature for cooling with outside air",
-          "temperature_tolerance": "Temperature tolerance"
+          "temperature_tolerance": "Temperature tolerance",
+          "hysteresis": "Temperature margin for closing",
+          "humidity_hysteresis": "Humidity margin for closing"
         },
         "description": "The [Summer simmer index]({simmer_index_url}) is a modern heat index equation. For SSI values between {ssi_70} and {ssi_77}, most people are comfortable, but slightly cool. From {ssi_77} to {ssi_83}, nearly everyone feels quite comfortable, while from {ssi_83} to {ssi_91} most are comfortable, but slightly warm.\n\n[Dew point temperatures]({dew_point_url}) tell the absolute quantity of moisture that is in the air, thereby indicating how humid it will feel outside to our bodies. On the other hand, relative humidity only tells us how saturated the air is compared to how much it can hold at the current temperature.",
         "data_description": {
           "cooling_temperature_min": "When the house is warmer than comfortable, cooler and drier outdoor air is let in even if it's below the comfortable range, but never below this temperature.",
-          "temperature_tolerance": "How much outdoor air may work against the heating or cooling before comfortable outdoor air is no longer let in."
+          "temperature_tolerance": "How much outdoor air may work against the heating or cooling before comfortable outdoor air is no longer let in.",
+          "hysteresis": "Once windows can be open, they stay open until the simmer index, dew point, cooling temperature or indoor/outdoor comparison is past its limit by this much. Prevents switching back and forth near a limit.",
+          "humidity_hysteresis": "Once windows can be open, they stay open until the humidity is above its maximum by this much."
         }
       },
       "device": {

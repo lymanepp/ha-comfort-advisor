@@ -26,6 +26,10 @@ values are rounded to one decimal place, so small changes don't record new state
 >
 > The `reason` attribute explains the current advice: `fresh_air`, `free_cooling`, `adds_heat`,
 > `adds_chill` or `uncomfortable`.
+>
+> Once windows can be open, they stay open until a reading is past a limit by a margin (1°F and
+> 2% humidity by default, configurable), so the advice doesn't switch back and forth when a
+> reading hovers near a limit. The open and close times follow the same rule.
 
 **High Simmer Index**
 

@@ -20,6 +20,8 @@ CONF_SIMMER_INDEX_MIN: Final = "simmer_index_min"
 CONF_ENABLED_SENSORS: Final = "enabled_sensors"
 CONF_COOLING_TEMPERATURE_MIN: Final = "cooling_temperature_min"
 CONF_TEMPERATURE_TOLERANCE: Final = "temperature_tolerance"
+CONF_HYSTERESIS: Final = "hysteresis"
+CONF_HUMIDITY_HYSTERESIS: Final = "humidity_hysteresis"
 
 # Default values
 DEFAULT_NAME: Final = "Comfort Advisor"
@@ -31,6 +33,8 @@ DEFAULT_SIMMER_INDEX_MAX: Final = 85
 DEFAULT_SIMMER_INDEX_MIN: Final = 70
 DEFAULT_COOLING_TEMPERATURE_MIN: Final = 60  # °F
 DEFAULT_TEMPERATURE_TOLERANCE: Final = 1  # °F interval
+DEFAULT_HYSTERESIS: Final = 1  # °F interval
+DEFAULT_HUMIDITY_HYSTERESIS: Final = 2  # percentage points
 
 # Input changes arriving within this many seconds (e.g. temperature and humidity
 # published together) are combined into one recalculation.

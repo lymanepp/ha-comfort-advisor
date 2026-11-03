@@ -29,7 +29,9 @@ from .const import (
     CONF_COOLING_TEMPERATURE_MIN,
     CONF_DEW_POINT_MAX,
     CONF_ENABLED_SENSORS,
+    CONF_HUMIDITY_HYSTERESIS,
     CONF_HUMIDITY_MAX,
+    CONF_HYSTERESIS,
     CONF_INDOOR_HUMIDITY,
     CONF_INDOOR_TEMPERATURE,
     CONF_OUTDOOR_HUMIDITY,
@@ -41,7 +43,9 @@ from .const import (
     CONF_WEATHER,
     DEFAULT_COOLING_TEMPERATURE_MIN,
     DEFAULT_DEWPOINT_MAX,
+    DEFAULT_HUMIDITY_HYSTERESIS,
     DEFAULT_HUMIDITY_MAX,
+    DEFAULT_HYSTERESIS,
     DEFAULT_NAME,
     DEFAULT_POLLEN_MAX,
     DEFAULT_SIMMER_INDEX_MAX,
@@ -151,6 +155,11 @@ def build_comfort_schema(hass: HomeAssistant, config: Mapping[str, Any]) -> prob
             1,
         ),
     )
+    hysteresis = config.get(
+        CONF_HYSTERESIS,
+        round(TC.convert_interval(DEFAULT_HYSTERESIS, UnitOfTemperature.FAHRENHEIT, temp_unit), 1),
+    )
+    humidity_hysteresis = config.get(CONF_HUMIDITY_HYSTERESIS, DEFAULT_HUMIDITY_HYSTERESIS)
     temperature_tolerance = config.get(
         CONF_TEMPERATURE_TOLERANCE,
         round(
@@ -173,6 +182,17 @@ def build_comfort_schema(hass: HomeAssistant, config: Mapping[str, Any]) -> prob
                 "step": temp_step / 2,
                 "min": 0,
                 "max": 5,
+            }
+        }
+    )
+    humidity_margin_selector = selector(
+        {
+            "number": {
+                "mode": "box",
+                "unit_of_measurement": PERCENTAGE,
+                "step": 0.5,
+                "min": 0,
+                "max": 10,
             }
         }
     )
@@ -201,6 +221,10 @@ def build_comfort_schema(hass: HomeAssistant, config: Mapping[str, Any]) -> prob
             probatio.Required(
                 CONF_TEMPERATURE_TOLERANCE, default=temperature_tolerance
             ): tolerance_selector,
+            probatio.Required(CONF_HYSTERESIS, default=hysteresis): tolerance_selector,
+            probatio.Required(
+                CONF_HUMIDITY_HYSTERESIS, default=humidity_hysteresis
+            ): humidity_margin_selector,
         }
     )
 
@@ -238,6 +262,12 @@ DATA_SCHEMA = probatio.Schema(
         ),
         probatio.Required(CONF_COOLING_TEMPERATURE_MIN): probatio.Coerce(float),
         probatio.Required(CONF_TEMPERATURE_TOLERANCE): probatio.All(
+            probatio.Coerce(float), probatio.Range(min=0)
+        ),
+        probatio.Required(CONF_HYSTERESIS): probatio.All(
+            probatio.Coerce(float), probatio.Range(min=0)
+        ),
+        probatio.Required(CONF_HUMIDITY_HYSTERESIS): probatio.All(
             probatio.Coerce(float), probatio.Range(min=0)
         ),
         probatio.Required(CONF_TEMPERATURE_UNIT): probatio.In(VALID_TEMP_UNITS),
