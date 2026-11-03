@@ -78,7 +78,7 @@ async def test_device(hass: HomeAssistant, config_entry: MockConfigEntry):
     assert device
     assert device.name == "Comfort Advisor"
     assert device.entry_type is dr.DeviceEntryType.SERVICE
-    assert device.sw_version == "0.0.1"  # from manifest.json
+    assert device.sw_version == "0.1.0"  # from manifest.json
 
 
 async def test_sensor_change_updates_state(
