@@ -1,9 +1,7 @@
 """Sensor platform for comfort_advisor."""
 
-from collections.abc import Mapping
 from datetime import datetime
-from enum import StrEnum
-from typing import Any, cast
+from typing import cast
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -16,7 +14,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.typing import StateType
 
 from .comfort import Calculated
-from .const import _LOGGER, CONF_ENABLED_SENSORS, DOMAIN, OUTPUT_PRECISION
+from .const import _LOGGER, CONF_ENABLED_SENSORS, OUTPUT_PRECISION
 from .device import ComfortAdvisorConfigEntry, ComfortAdvisorDevice
 
 
@@ -85,19 +83,6 @@ class ComfortAdvisorSensor(SensorEntity):
         """Return the calculated value."""
         return cast(StateType | datetime, self._device.get_calculated(self.entity_description.key))
 
-    @property
-    def extra_state_attributes(self) -> Mapping[str, Any] | None:
-        """Return the reason for the "can open windows" advice."""
-        if self.entity_description.key == Calculated.CAN_OPEN_WINDOWS:
-            return dict(self._device.extra_attributes)
-        return None
-
-
-class ComfortAdvisorDeviceClass(StrEnum):
-    """Device class for comfort advisor sensors."""
-
-    CAN_OPEN_WINDOWS = f"{DOMAIN}__{Calculated.CAN_OPEN_WINDOWS}"
-
 
 SENSOR_DESCRIPTIONS = [
     SensorEntityDescription(
@@ -117,11 +102,6 @@ SENSOR_DESCRIPTIONS = [
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=OUTPUT_PRECISION,
-    ),
-    SensorEntityDescription(
-        key=Calculated.CAN_OPEN_WINDOWS,
-        device_class=cast(SensorDeviceClass, ComfortAdvisorDeviceClass.CAN_OPEN_WINDOWS),
-        icon="mdi:window-closed",
     ),
     SensorEntityDescription(
         key=Calculated.OPEN_WINDOWS_AT,

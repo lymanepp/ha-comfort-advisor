@@ -252,7 +252,7 @@ class ComfortCalculator:
         self._calculated[Calculated.AVERAGE_TEMPERATURE] = round(avg_temp, OUTPUT_PRECISION)
         self._calculated[Calculated.ENTHALPY] = round(out_enthalpy, OUTPUT_PRECISION)
         self._calculated[Calculated.SIMMER_INDEX] = round(out_ssi, OUTPUT_PRECISION)
-        self._calculated[Calculated.CAN_OPEN_WINDOWS] = "on" if open_now else "off"
+        self._calculated[Calculated.CAN_OPEN_WINDOWS] = open_now
         self._calculated[Calculated.LOW_SIMMER_INDEX] = round(low_simmer_index, OUTPUT_PRECISION)
         self._calculated[Calculated.HIGH_SIMMER_INDEX] = round(high_simmer_index, OUTPUT_PRECISION)
         self._calculated[Calculated.LOW_ENTHALPY] = round(low_enthalpy, OUTPUT_PRECISION)

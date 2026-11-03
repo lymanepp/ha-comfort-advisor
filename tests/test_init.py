@@ -35,7 +35,7 @@ from .conftest import (
     set_sensors,
 )
 
-CAN_OPEN_WINDOWS = "sensor.comfort_advisor_can_open_windows"
+CAN_OPEN_WINDOWS = "binary_sensor.comfort_advisor_can_open_windows"
 CLOSE_WINDOWS_AT = "sensor.comfort_advisor_close_windows_at"
 OPEN_WINDOWS_AT = "sensor.comfort_advisor_open_windows_at"
 SIMMER_INDEX = "sensor.comfort_advisor_simmer_index"
@@ -269,3 +269,38 @@ async def test_unload_cancels_timers(hass: HomeAssistant, config_entry: MockConf
 
     assert device._expiry_timer is None  # pylint: disable=protected-access
     assert device._debouncer._timer_task is None  # pylint: disable=protected-access
+
+
+async def test_can_open_windows_is_a_binary_sensor(
+    hass: HomeAssistant, config_entry: MockConfigEntry
+):
+    """The can-open-windows entity is a binary sensor with translated name and states."""
+    await setup_entry(hass, config_entry)
+    entry = er.async_get(hass).async_get(CAN_OPEN_WINDOWS)
+    assert entry
+    assert entry.unique_id == "test_can_open_windows"
+    assert entry.translation_key == "can_open_windows"
+    assert entry.original_device_class is None  # "window" would show Open/Closed
+    assert hass.states.get(CAN_OPEN_WINDOWS).name == "Comfort Advisor Can open windows"
+    assert hass.states.get("sensor.comfort_advisor_can_open_windows") is None
+
+
+async def test_old_can_open_windows_sensor_is_removed(
+    hass: HomeAssistant, config_entry: MockConfigEntry
+):
+    """The registry entry of the former "can open windows" sensor is removed."""
+    registry = er.async_get(hass)
+    old = registry.async_get_or_create(
+        "sensor",
+        "comfort_advisor",
+        "test_can_open_windows",
+        config_entry=config_entry,
+        suggested_object_id="comfort_advisor_can_open_windows",
+    )
+    assert old.entity_id == "sensor.comfort_advisor_can_open_windows"
+
+    await setup_entry(hass, config_entry)
+
+    assert registry.async_get(old.entity_id) is None
+    assert registry.async_get(CAN_OPEN_WINDOWS)
+    assert hass.states.get(CAN_OPEN_WINDOWS).state == "on"

@@ -294,7 +294,7 @@ class TestUpdateInput:
         calc.update_input(Input.OUTDOOR_TEMPERATURE, NICE[0])
         assert calc.refresh_state()
         assert calc.available
-        assert calc.get_calculated(Calculated.CAN_OPEN_WINDOWS) == "on"
+        assert calc.get_calculated(Calculated.CAN_OPEN_WINDOWS) is True
 
     def test_empty_forecast_clears_outputs(self):
         """A forecast with no usable hours clears the outputs."""
@@ -317,7 +317,7 @@ class TestUpdateInput:
         assert calc.refresh_state()
         calc.update_input(Input.OUTDOOR_TEMPERATURE, HOT[0])
         assert calc.refresh_state()
-        assert calc.get_calculated(Calculated.CAN_OPEN_WINDOWS) == "off"
+        assert calc.get_calculated(Calculated.CAN_OPEN_WINDOWS) is False
 
 
 class TestRefreshState:
@@ -360,7 +360,7 @@ class TestRefreshState:
         """Close at the first bad hour, reopen at the next good one."""
         calc = make_calculator(hourly(NICE, NICE, HOT, HOT, HOT, NICE, NICE), outdoor=NICE)
         assert calc.refresh_state()
-        assert calc.get_calculated(Calculated.CAN_OPEN_WINDOWS) == "on"
+        assert calc.get_calculated(Calculated.CAN_OPEN_WINDOWS) is True
         assert calc.get_calculated(Calculated.CLOSE_WINDOWS_AT) == hour(3)
         assert calc.get_calculated(Calculated.OPEN_WINDOWS_AT) == hour(6)
 
@@ -368,7 +368,7 @@ class TestRefreshState:
         """Open at the first good hour, close at the next bad one."""
         calc = make_calculator(hourly(COLD, NICE, NICE, HOT), outdoor=COLD)
         assert calc.refresh_state()
-        assert calc.get_calculated(Calculated.CAN_OPEN_WINDOWS) == "off"
+        assert calc.get_calculated(Calculated.CAN_OPEN_WINDOWS) is False
         assert calc.get_calculated(Calculated.OPEN_WINDOWS_AT) == hour(2)
         assert calc.get_calculated(Calculated.CLOSE_WINDOWS_AT) == hour(4)
 
@@ -376,7 +376,7 @@ class TestRefreshState:
         """No change times when it stays comfortable."""
         calc = make_calculator(hourly(*[NICE] * 24), outdoor=NICE)
         assert calc.refresh_state()
-        assert calc.get_calculated(Calculated.CAN_OPEN_WINDOWS) == "on"
+        assert calc.get_calculated(Calculated.CAN_OPEN_WINDOWS) is True
         assert calc.get_calculated(Calculated.CLOSE_WINDOWS_AT) is None
         assert calc.get_calculated(Calculated.OPEN_WINDOWS_AT) is None
 
@@ -384,7 +384,7 @@ class TestRefreshState:
         """No change times when it stays uncomfortable."""
         calc = make_calculator(hourly(*[HOT] * 24), outdoor=HOT)
         assert calc.refresh_state()
-        assert calc.get_calculated(Calculated.CAN_OPEN_WINDOWS) == "off"
+        assert calc.get_calculated(Calculated.CAN_OPEN_WINDOWS) is False
         assert calc.get_calculated(Calculated.OPEN_WINDOWS_AT) is None
         assert calc.get_calculated(Calculated.CLOSE_WINDOWS_AT) is None
 
@@ -400,7 +400,7 @@ class TestRefreshState:
         # Sensors say it's hot now even though the next forecast hour is nice.
         calc = make_calculator(hourly(NICE, NICE, HOT), outdoor=HOT)
         assert calc.refresh_state()
-        assert calc.get_calculated(Calculated.CAN_OPEN_WINDOWS) == "off"
+        assert calc.get_calculated(Calculated.CAN_OPEN_WINDOWS) is False
         assert calc.get_calculated(Calculated.OPEN_WINDOWS_AT) == hour(1)
         assert calc.get_calculated(Calculated.CLOSE_WINDOWS_AT) == hour(3)
 
@@ -545,7 +545,7 @@ class TestIndoorAwareRefresh:
             indoor=WARM_HOUSE,
         )
         assert calc.refresh_state()
-        assert calc.get_calculated(Calculated.CAN_OPEN_WINDOWS) == "on"
+        assert calc.get_calculated(Calculated.CAN_OPEN_WINDOWS) is True
         assert calc.extra_attributes[ATTR_REASON] is Advice.FREE_COOLING
         assert calc.get_calculated(Calculated.CLOSE_WINDOWS_AT) == hour(4)
         assert calc.get_calculated(Calculated.OPEN_WINDOWS_AT) is None
@@ -558,7 +558,7 @@ class TestIndoorAwareRefresh:
             indoor=COOL_HOUSE,
         )
         assert calc.refresh_state()
-        assert calc.get_calculated(Calculated.CAN_OPEN_WINDOWS) == "off"
+        assert calc.get_calculated(Calculated.CAN_OPEN_WINDOWS) is False
         assert calc.extra_attributes[ATTR_REASON] is Advice.UNCOMFORTABLE
         assert calc.get_calculated(Calculated.OPEN_WINDOWS_AT) == hour(3)
         assert calc.get_calculated(Calculated.CLOSE_WINDOWS_AT) == hour(4)
@@ -567,11 +567,11 @@ class TestIndoorAwareRefresh:
         """A new indoor reading recalculates the advice."""
         calc = make_calculator(hourly(NICE), outdoor=COOL_NIGHT, indoor=COOL_HOUSE)
         assert calc.refresh_state()
-        assert calc.get_calculated(Calculated.CAN_OPEN_WINDOWS) == "off"
+        assert calc.get_calculated(Calculated.CAN_OPEN_WINDOWS) is False
         calc.update_input(Input.INDOOR_TEMPERATURE, WARM_HOUSE[0])
         calc.update_input(Input.INDOOR_HUMIDITY, WARM_HOUSE[1])
         assert calc.refresh_state()
-        assert calc.get_calculated(Calculated.CAN_OPEN_WINDOWS) == "on"
+        assert calc.get_calculated(Calculated.CAN_OPEN_WINDOWS) is True
 
 
 class TestTimePassing:
@@ -600,7 +600,7 @@ class TestTimePassing:
         # The outdoor sensor still reads NICE after the forecast said HOT.
         clock.now = hour(3) + timedelta(minutes=1)
         assert calc.refresh_state()
-        assert calc.get_calculated(Calculated.CAN_OPEN_WINDOWS) == "on"
+        assert calc.get_calculated(Calculated.CAN_OPEN_WINDOWS) is True
         assert calc.get_calculated(Calculated.CLOSE_WINDOWS_AT) == hour(5)
         assert calc.get_calculated(Calculated.CLOSE_WINDOWS_AT) > clock.now
 
