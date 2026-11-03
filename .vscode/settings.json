@@ -13,14 +13,12 @@
     "**/.pytest_cache": true
   },
   "[python]": {
-    "editor.defaultFormatter": "ms-python.black-formatter",
-    "editor.formatOnPaste": true,
+    "editor.defaultFormatter": "charliermarsh.ruff",
     "editor.formatOnSave": true,
-    "editor.formatOnType": true
+    "editor.codeActionsOnSave": {
+      "source.fixAll.ruff": "explicit",
+      "source.organizeImports.ruff": "explicit"
+    }
   },
-  "python.analysis.typeCheckingMode": "basic",
-  "isort.args": [
-    "--profile",
-    "black"
-  ]
+  "python.analysis.typeCheckingMode": "basic"
 }
