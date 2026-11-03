@@ -182,7 +182,7 @@ To install this integration manually you can either
 git clone https://github.com/lymanepp/ha-comfort-advisor.git
 cd ha-comfort-advisor
 # if you want a specific version checkout its tag
-# e.g. git checkout 1.0.0
+# e.g. git checkout v0.1.0
 
 # replace $hacs_config_folder with your home assistant config folder path
 cp -r custom_components $hacs_config_folder
