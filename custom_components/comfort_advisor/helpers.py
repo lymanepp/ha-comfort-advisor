@@ -1,4 +1,5 @@
 """Helper functions."""
+
 from __future__ import annotations
 
 from typing import Callable, Iterable, Literal, cast
@@ -20,6 +21,7 @@ EXCLUDED_PLATFORMS = (DOMAIN, "thermal_comfort")
 
 
 def get_domain_entity(hass: HomeAssistant, domain: str, entity_id: str) -> Entity | None:
+    """Get an entity object from its domain's entity component."""
     component: EntityComponent[Entity] | None = hass.data.get(domain)
     return component.get_entity(entity_id) if component else None
 

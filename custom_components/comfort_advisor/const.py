@@ -1,4 +1,5 @@
 """General comfort_advisor constants."""
+
 from datetime import timedelta
 from logging import Logger, getLogger
 from typing import Final

@@ -3,6 +3,7 @@
 For more details about this integration, please refer to
 https://github.com/lymanepp/ha-comfort-advisor
 """
+
 from __future__ import annotations
 
 from typing import Final

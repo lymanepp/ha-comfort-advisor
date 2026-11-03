@@ -1,4 +1,5 @@
 """Tests for config flows."""
+
 from __future__ import annotations
 
 from hashlib import md5
