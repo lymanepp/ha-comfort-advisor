@@ -18,6 +18,7 @@ from homeassistant.components.weather import (
 from homeassistant.const import CONF_TEMPERATURE_UNIT, UnitOfPressure, UnitOfTemperature
 from homeassistant.util.dt import utcnow
 from homeassistant.util.unit_conversion import TemperatureConverter as TC
+from homeassistant.util.unit_conversion import TemperatureDeltaConverter as TDC
 from homeassistant.util.unit_system import UnitSystem
 
 from .const import (
@@ -169,8 +170,8 @@ class ComfortCalculator:
                 else (default_fahrenheit, UnitOfTemperature.FAHRENHEIT)
             )
             return (
-                TC.convert_interval(value, unit, temp_unit),
-                DRY_AIR_SPECIFIC_HEAT * TC.convert_interval(value, unit, UnitOfTemperature.CELSIUS),
+                TDC.convert(value, unit, temp_unit),
+                DRY_AIR_SPECIFIC_HEAT * TDC.convert(value, unit, UnitOfTemperature.CELSIUS),
             )
 
         self._temp_tolerance, self._enthalpy_tolerance = interval(

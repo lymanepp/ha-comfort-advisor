@@ -443,7 +443,7 @@ class TestAdvise:
 
     def test_heat_within_tolerance_is_fresh_air(self):
         """Slightly more heat than a warm house is within the tolerance."""
-        # 41.59 vs 41.23 kJ/kg; 1°F is worth about 0.56 kJ/kg
+        # 41.59 vs 41.23 kJ/kg; the 2°F tolerance is worth about 1.12 kJ/kg
         assert advise((74.0, 40.0), WARM_DRY_HOUSE) is Advice.FRESH_AIR
 
     def test_adds_chill(self):
@@ -510,19 +510,19 @@ class TestAdviceSettings:
     """The new settings are converted and defaulted like the others."""
 
     def test_defaults_for_older_entries(self):
-        """Entries saved before these settings existed use 60°F and 1°F."""
+        """Entries saved before these settings existed use 60°F and 2°F."""
         assert CONF_COOLING_TEMPERATURE_MIN not in CONFIG_F
         calc = make_calculator()
         assert calc._cooling_temp_min == pytest.approx(60.0)  # pylint: disable=protected-access
-        assert calc._temp_tolerance == pytest.approx(1.0)  # pylint: disable=protected-access
+        assert calc._temp_tolerance == pytest.approx(2.0)  # pylint: disable=protected-access
 
     def test_defaults_converted_to_metric(self):
         """Defaults are converted to °C on a metric system."""
         calc = make_calculator(unit_system=METRIC_SYSTEM)
         # pylint: disable=protected-access
         assert calc._cooling_temp_min == pytest.approx(15.56, abs=0.01)
-        assert calc._temp_tolerance == pytest.approx(0.556, abs=0.001)
-        assert calc._enthalpy_tolerance == pytest.approx(0.559, abs=0.001)
+        assert calc._temp_tolerance == pytest.approx(1.111, abs=0.001)
+        assert calc._enthalpy_tolerance == pytest.approx(1.118, abs=0.001)
 
     def test_saved_fahrenheit_settings_converted_to_metric(self):
         """The floor converts as a temperature, the tolerance as a difference."""
@@ -659,10 +659,10 @@ class TestHysteresis:
         assert advise_values(is_open=True, **{change: beyond_margin}) is Advice.UNCOMFORTABLE
 
     def test_adds_heat(self):
-        """The heat tolerance is widened by the margin (~0.56 kJ/kg) while open."""
-        # tolerance 0.559 kJ/kg; margin 0.559 kJ/kg
-        within = WARM_INDOOR.enthalpy + 0.559 + 0.3
-        beyond = WARM_INDOOR.enthalpy + 0.559 + 0.6
+        """The heat tolerance is widened by the margin (~0.56 kJ/kg per °F) while open."""
+        # tolerance 1.118 kJ/kg (2°F); margin 0.559 kJ/kg (1°F)
+        within = WARM_INDOOR.enthalpy + 1.118 + 0.3
+        beyond = WARM_INDOOR.enthalpy + 1.118 + 0.6
         assert advise_values(is_open=False, indoor=WARM_INDOOR, enthalpy=within) is (
             Advice.ADDS_HEAT
         )
@@ -675,10 +675,10 @@ class TestHysteresis:
 
     def test_adds_chill(self):
         """The chill tolerance is widened by the margin while open."""
-        # indoor 72°F, tolerance 1°F, margin 1°F
-        assert advise_values(is_open=False, temp=70.5) is Advice.ADDS_CHILL
-        assert advise_values(is_open=True, temp=70.5) is Advice.FRESH_AIR
-        assert advise_values(is_open=True, temp=69.5) is Advice.ADDS_CHILL
+        # indoor 72°F, tolerance 2°F, margin 1°F
+        assert advise_values(is_open=False, temp=69.5) is Advice.ADDS_CHILL
+        assert advise_values(is_open=True, temp=69.5) is Advice.FRESH_AIR
+        assert advise_values(is_open=True, temp=68.5) is Advice.ADDS_CHILL
 
     def test_free_cooling_floor(self):
         """The free cooling floor is lowered by the margin while open."""

@@ -121,6 +121,23 @@ def auto_enable_custom_integrations(enable_custom_integrations):
     return
 
 
+@pytest.fixture(autouse=True)
+def fail_on_deprecation_warnings(caplog: pytest.LogCaptureFixture):
+    """Fail a test if Home Assistant reports this integration using a deprecated API.
+
+    Home Assistant only logs these, and removes the API a few releases later.
+    """
+    yield
+    # In teardown, caplog.records only has teardown records; check setup and call too.
+    records = caplog.get_records("setup") + caplog.get_records("call")
+    reports = [
+        r.getMessage()
+        for r in records
+        if "deprecated" in r.getMessage() and "comfort_advisor" in r.getMessage()
+    ]
+    assert not reports, reports
+
+
 @pytest.fixture
 async def weather(hass: HomeAssistant) -> MockWeather:
     """Set up the mock weather entity."""

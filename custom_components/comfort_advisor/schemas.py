@@ -20,7 +20,7 @@ import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.entityfilter import CONF_INCLUDE_ENTITIES
 from homeassistant.helpers.selector import selector
 from homeassistant.util.unit_conversion import TemperatureConverter as TC
-from homeassistant.util.unit_system import METRIC_SYSTEM
+from homeassistant.util.unit_conversion import TemperatureDeltaConverter as TDC
 import probatio
 
 from .comfort import Calculated
@@ -157,29 +157,27 @@ def build_comfort_schema(hass: HomeAssistant, config: Mapping[str, Any]) -> prob
     )
     hysteresis = config.get(
         CONF_HYSTERESIS,
-        round(TC.convert_interval(DEFAULT_HYSTERESIS, UnitOfTemperature.FAHRENHEIT, temp_unit), 1),
+        round(TDC.convert(DEFAULT_HYSTERESIS, UnitOfTemperature.FAHRENHEIT, temp_unit), 2),
     )
     humidity_hysteresis = config.get(CONF_HUMIDITY_HYSTERESIS, DEFAULT_HUMIDITY_HYSTERESIS)
     temperature_tolerance = config.get(
         CONF_TEMPERATURE_TOLERANCE,
         round(
-            TC.convert_interval(
-                DEFAULT_TEMPERATURE_TOLERANCE, UnitOfTemperature.FAHRENHEIT, temp_unit
-            ),
-            1,
+            TDC.convert(DEFAULT_TEMPERATURE_TOLERANCE, UnitOfTemperature.FAHRENHEIT, temp_unit),
+            2,
         ),
     )
 
-    temp_step = 0.5 if hass.config.units is METRIC_SYSTEM else 1.0
+    # "any": converted defaults such as 21.1°C don't fit a fixed step.
     temperature_selector = selector(
-        {"number": {"mode": "box", "unit_of_measurement": temp_unit, "step": temp_step}}
+        {"number": {"mode": "box", "unit_of_measurement": temp_unit, "step": "any"}}
     )
     tolerance_selector = selector(
         {
             "number": {
                 "mode": "box",
                 "unit_of_measurement": temp_unit,
-                "step": temp_step / 2,
+                "step": "any",
                 "min": 0,
                 "max": 5,
             }
