@@ -38,6 +38,7 @@ async def test_setup_creates_sensors(hass: HomeAssistant, config_entry: MockConf
     assert len(entries) == 10
 
     assert hass.states.get(CAN_OPEN_WINDOWS).state == "on"
+    assert hass.states.get(CAN_OPEN_WINDOWS).attributes["reason"] == "fresh_air"
     assert hass.states.get(CLOSE_WINDOWS_AT).state == STATE_UNKNOWN
     assert float(hass.states.get(SIMMER_INDEX).state) == pytest.approx(
         calc_simmer_index(*NICE, "°C")
@@ -69,6 +70,7 @@ async def test_sensor_change_updates_state(
     async_fire_time_changed(hass)
     await hass.async_block_till_done()
     assert hass.states.get(CAN_OPEN_WINDOWS).state == "off"
+    assert hass.states.get(CAN_OPEN_WINDOWS).attributes["reason"] == "uncomfortable"
 
 
 async def test_forecast_drives_change_times(

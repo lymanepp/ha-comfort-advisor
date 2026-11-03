@@ -78,6 +78,8 @@ class ComfortAdvisorSensor(SensorEntity):
         value = self._device.get_calculated(self.entity_description.key)
         _LOGGER.debug("async_update called for %s - state(%s)", self.entity_id, str(value))
         self._attr_native_value = value
+        if self.entity_description.key == Calculated.CAN_OPEN_WINDOWS:
+            self._attr_extra_state_attributes = dict(self._device.extra_attributes)
 
 
 class ComfortAdvisorDeviceClass(StrEnum):
