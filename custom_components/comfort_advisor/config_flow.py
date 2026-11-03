@@ -10,6 +10,8 @@ from homeassistant.const import (
     CONF_NAME,
     CONF_TEMPERATURE_UNIT,
     PERCENTAGE,
+    STATE_UNAVAILABLE,
+    STATE_UNKNOWN,
     UnitOfTemperature,
 )
 from homeassistant.core import HomeAssistant, callback
@@ -17,16 +19,19 @@ from homeassistant.helpers import entity_registry
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.util.unit_conversion import TemperatureConverter as TC
 
+from .comfort import pollen_level
 from .const import (
     CONF_INDOOR_HUMIDITY,
     CONF_INDOOR_TEMPERATURE,
     CONF_OUTDOOR_HUMIDITY,
     CONF_OUTDOOR_TEMPERATURE,
+    CONF_POLLEN,
     CONF_SIMMER_INDEX_MAX,
     CONF_SIMMER_INDEX_MIN,
     CONF_WEATHER,
     DOMAIN,
 )
+from .helpers import is_iqvia_sensor
 from .schemas import DATA_SCHEMA, build_comfort_schema, build_device_schema, build_inputs_schema
 
 type ErrorsType = dict[str, str]
@@ -59,6 +64,15 @@ def _validate_inputs(hass: HomeAssistant, user_input: Mapping[str, Any]) -> Erro
             errors[key] = "entity_not_found"
         elif state.attributes.get(ATTR_UNIT_OF_MEASUREMENT) not in valid_units:
             errors[key] = "invalid_units"
+
+    for entity_id in user_input.get(CONF_POLLEN, []):
+        state = hass.states.get(entity_id)
+        if state is None:
+            errors[CONF_POLLEN] = "entity_not_found"
+        elif state.state not in (STATE_UNAVAILABLE, STATE_UNKNOWN) and (
+            pollen_level(state.state, iqvia=is_iqvia_sensor(hass, entity_id)) is None
+        ):
+            errors[CONF_POLLEN] = "invalid_pollen"
 
     return errors
 

@@ -9,7 +9,11 @@
           "indoor_temperature": "Indoor temperature sensor",
           "indoor_humidity": "Indoor humidity sensor",
           "outdoor_temperature": "Outdoor temperature sensor",
-          "outdoor_humidity": "Outdoor humidity sensor"
+          "outdoor_humidity": "Outdoor humidity sensor",
+          "pollen": "Pollen sensors (optional)"
+        },
+        "data_description": {
+          "pollen": "Sensors reporting a pollen index from 0 to 5 or a level from None to Very High (such as the grass, tree and weed index sensors of Google Pollen), or IQVIA's Allergy index: today. The highest level counts. Sensors without a current level are ignored."
         }
       },
       "comfort": {
@@ -20,7 +24,7 @@
           "simmer_index_max": "Highest comfortable summer simmer index",
           "dew_point_max": "Highest comfortable dew point.",
           "humidity_max": "Highest comfortable relative humidity.",
-          "pollen_max": "Highest comfortable pollen level (if available from weather provider).",
+          "pollen_max": "Highest acceptable pollen level",
           "cooling_temperature_min": "Lowest outdoor temperature for cooling with outside air",
           "temperature_tolerance": "Temperature tolerance",
           "hysteresis": "Temperature margin for closing",
@@ -30,7 +34,8 @@
           "cooling_temperature_min": "When the house is warmer than comfortable, cooler and drier outdoor air is let in even if it's below the comfortable range, but never below this temperature.",
           "temperature_tolerance": "How much outdoor air may work against the heating or cooling before comfortable outdoor air is no longer let in.",
           "hysteresis": "Once windows can be open, they stay open until the simmer index, dew point, cooling temperature or indoor/outdoor comparison is past its limit by this much. Prevents switching back and forth near a limit.",
-          "humidity_hysteresis": "Once windows can be open, they stay open until the humidity is above its maximum by this much."
+          "humidity_hysteresis": "Once windows can be open, they stay open until the humidity is above its maximum by this much.",
+          "pollen_max": "Used only when pollen sensors are selected. Above this level, windows stay closed."
         }
       },
       "device": {
@@ -48,7 +53,11 @@
           "indoor_temperature": "Indoor temperature sensor",
           "indoor_humidity": "Indoor humidity sensor",
           "outdoor_temperature": "Outdoor temperature sensor",
-          "outdoor_humidity": "Outdoor humidity sensor"
+          "outdoor_humidity": "Outdoor humidity sensor",
+          "pollen": "Pollen sensors (optional)"
+        },
+        "data_description": {
+          "pollen": "Sensors reporting a pollen index from 0 to 5 or a level from None to Very High (such as the grass, tree and weed index sensors of Google Pollen), or IQVIA's Allergy index: today. The highest level counts. Sensors without a current level are ignored."
         }
       }
     },
@@ -56,7 +65,8 @@
       "sensors_not_unique": "Sensors must be unique.",
       "entity_not_found": "Entity not found.",
       "invalid_units": "The sensor must report temperature in °C, °F or K, or humidity in %.",
-      "simmer_index_range": "The lowest comfortable simmer index must be below the highest."
+      "simmer_index_range": "The lowest comfortable simmer index must be below the highest.",
+      "invalid_pollen": "Pollen sensors must report an index from 0 to 5, a level from None to Very High, or an IQVIA allergy index."
     },
     "abort": {
       "already_configured": "An integration with the same input sensors already exists.",
@@ -72,7 +82,7 @@
           "simmer_index_max": "Highest comfortable summer simmer index",
           "dew_point_max": "Highest comfortable dew point.",
           "humidity_max": "Highest comfortable relative humidity.",
-          "pollen_max": "Highest comfortable pollen level (if available from weather provider).",
+          "pollen_max": "Highest acceptable pollen level",
           "cooling_temperature_min": "Lowest outdoor temperature for cooling with outside air",
           "temperature_tolerance": "Temperature tolerance",
           "hysteresis": "Temperature margin for closing",
@@ -83,7 +93,8 @@
           "cooling_temperature_min": "When the house is warmer than comfortable, cooler and drier outdoor air is let in even if it's below the comfortable range, but never below this temperature.",
           "temperature_tolerance": "How much outdoor air may work against the heating or cooling before comfortable outdoor air is no longer let in.",
           "hysteresis": "Once windows can be open, they stay open until the simmer index, dew point, cooling temperature or indoor/outdoor comparison is past its limit by this much. Prevents switching back and forth near a limit.",
-          "humidity_hysteresis": "Once windows can be open, they stay open until the humidity is above its maximum by this much."
+          "humidity_hysteresis": "Once windows can be open, they stay open until the humidity is above its maximum by this much.",
+          "pollen_max": "Used only when pollen sensors are selected. Above this level, windows stay closed."
         }
       },
       "device": {
@@ -110,7 +121,8 @@
               "free_cooling": "Outside air cools the house",
               "adds_heat": "Outside air would warm the house",
               "adds_chill": "Outside air would chill the house",
-              "uncomfortable": "Uncomfortable outside"
+              "uncomfortable": "Uncomfortable outside",
+              "high_pollen": "Too much pollen"
             }
           }
         },

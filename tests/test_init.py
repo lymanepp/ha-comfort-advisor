@@ -337,3 +337,46 @@ async def test_open_time_remaining_sensor(
     close_at = datetime.fromisoformat(hass.states.get(CLOSE_WINDOWS_AT).state)
     hours = (close_at - dt_util.utcnow()).total_seconds() / 3600
     assert abs(float(state.state) - hours) <= 0.25
+
+
+async def test_pollen_sensors(hass: HomeAssistant, freezer: FrozenDateTimeFactory):
+    """The highest pollen level counts; unavailable pollen sensors are ignored."""
+    hass.states.async_set("sensor.grass_pollen", "1")
+    hass.states.async_set("sensor.tree_pollen", "Very High")
+    entry = MockConfigEntry(
+        domain="comfort_advisor",
+        data=ENTRY_DATA | {"pollen": ["sensor.grass_pollen", "sensor.tree_pollen"]},
+        unique_id="test",
+    )
+    entry.add_to_hass(hass)
+    await setup_entry(hass, entry)
+    assert hass.states.get(CAN_OPEN_WINDOWS).state == "off"
+    assert hass.states.get(CAN_OPEN_WINDOWS).attributes["reason"] == "high_pollen"
+
+    hass.states.async_set("sensor.tree_pollen", STATE_UNAVAILABLE)
+    await poll(hass, freezer, timedelta(seconds=1))
+    assert hass.states.get(CAN_OPEN_WINDOWS).state == "on"  # grass "1" is within "low"
+
+    hass.states.async_set("sensor.grass_pollen", "3")
+    await poll(hass, freezer, timedelta(seconds=1))
+    assert hass.states.get(CAN_OPEN_WINDOWS).state == "off"
+
+
+async def test_iqvia_allergy_index(hass: HomeAssistant, freezer: FrozenDateTimeFactory):
+    """An IQVIA allergy index (0-12) is recognized and converted."""
+    iqvia = er.async_get(hass).async_get_or_create(
+        "sensor", "iqvia", "10001_allergy_index_today", suggested_object_id="allergy_index_today"
+    )
+    hass.states.async_set(iqvia.entity_id, "7.5")  # Medium-High: level 4
+    entry = MockConfigEntry(
+        domain="comfort_advisor",
+        data=ENTRY_DATA | {"pollen": [iqvia.entity_id]},
+        unique_id="test",
+    )
+    entry.add_to_hass(hass)
+    await setup_entry(hass, entry)
+    assert hass.states.get(CAN_OPEN_WINDOWS).attributes["reason"] == "high_pollen"
+
+    hass.states.async_set(iqvia.entity_id, "4.0")  # Low-Medium: level 2, the maximum
+    await poll(hass, freezer, timedelta(seconds=1))
+    assert hass.states.get(CAN_OPEN_WINDOWS).state == "on"

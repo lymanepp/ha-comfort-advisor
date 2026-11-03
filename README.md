@@ -62,6 +62,76 @@ values are rounded to one decimal place, so small changes don't record new state
 > the diagnostic sensors **Forecast Temperature Offset** and **Forecast Dew Point Offset**
 > (not enabled by default).
 
+## Pollen (optional)
+
+Comfort Advisor can keep the windows closed when pollen is above the **highest acceptable pollen
+level** (default: *low*). Select one or more pollen sensors during setup (or later with
+**Reconfigure**); the highest level among them counts. The **Can Open Windows** reason is then
+`high_pollen`.
+
+Pollen sensors must report either a **0–5 index** or a **level name** (None, Very Low, Low,
+Medium/Moderate, High, Very High). Pollen data is a daily forecast, so the current level applies
+to the whole forecast. Sensors that are unavailable or have no current level are ignored, so a
+pollen service outage doesn't stop the advice.
+
+Two sources are recommended (US coverage):
+
+### No API key: IQVIA (built in)
+
+1. [Add the IQVIA integration](https://my.home-assistant.io/redirect/config_flow_start/?domain=iqvia) and enter your ZIP
+   code.
+2. [Open Comfort Advisor](https://my.home-assistant.io/redirect/integration/?domain=comfort_advisor), choose
+   **⋮ → Reconfigure**, and select the **Allergy index: today** sensor as the pollen sensor.
+
+IQVIA reports one overall allergy index from 0 to 12 (from pollen.com), not separate grass, tree
+and weed levels. Comfort Advisor recognizes IQVIA sensors and converts the index by IQVIA's
+ratings:
+
+| IQVIA index | IQVIA rating | Pollen level |
+|---|---|---|
+| 0 | | None |
+| up to 2.4 | Low | Very Low |
+| up to 4.8 | Low-Medium | Low |
+| up to 7.2 | Medium | Medium |
+| up to 9.6 | Medium-High | High |
+| up to 12 | High | Very High |
+
+### More detail: Google Pollen
+
+[Google Pollen](https://github.com/robbybarnes/google_pollen) gives separate grass, tree and weed
+levels (a 0–5 index) and is what this integration's maintainer uses. It needs a Google Cloud API
+key. Google requires a billing account for it, but a few updates a day stay within the free
+monthly usage. To create the key (keep the new project selected at the top of each page):
+
+1. [Create a project](https://console.cloud.google.com/projectcreate), for example
+   "Home Assistant".
+2. [Link a billing account](https://console.cloud.google.com/billing/linkedaccount) to it.
+   Optionally, [add a budget alert](https://console.cloud.google.com/billing/budgets) of a dollar
+   or so to be notified of any charges.
+3. [Enable the Pollen API](https://console.cloud.google.com/apis/library/pollen.googleapis.com).
+4. On [Credentials](https://console.cloud.google.com/apis/credentials), choose
+   **Create credentials → API key**. Under **API restrictions**, keep only **Pollen API**
+   (Google strongly recommends restricting keys), then create the key and copy it.
+   ([Google's instructions](https://developers.google.com/maps/documentation/pollen/get-api-key))
+5. [Open Google Pollen in HACS](https://my.home-assistant.io/redirect/hacs_repository/?owner=robbybarnes&repository=google_pollen&category=integration)
+   (this adds the custom repository) and **Download** it. Restart Home Assistant, then
+   [add the Google Pollen integration](https://my.home-assistant.io/redirect/config_flow_start/?domain=google_pollen) and paste
+   the key.
+6. [Open Comfort Advisor](https://my.home-assistant.io/redirect/integration/?domain=comfort_advisor), choose
+   **⋮ → Reconfigure**, and select the **grass, tree and weed pollen index** sensors.
+
+### Other sources
+
+| Integration | Install | Sensors to select | Notes |
+|---|---|---|---|
+| [Pollen Levels](https://github.com/eXPerience83/pollenlevels) (Google Pollen API) | [HACS (default store)](https://my.home-assistant.io/redirect/hacs_repository/?owner=eXPerience83&repository=pollenlevels&category=integration) | Grass, tree and weed pollen (0–5 index) | Same data and API key as Google Pollen. Requires Home Assistant 2026.5 or newer. |
+| [Tomorrow.io](https://www.home-assistant.io/integrations/tomorrowio/) | [Built in](https://my.home-assistant.io/redirect/config_flow_start/?domain=tomorrowio) | Tree, weed and grass pollen index (None–Very High) | Needs a Tomorrow.io API key; the free plan has tight request limits. |
+
+AccuWeather reports pollen counts on another scale; a
+[template sensor](https://www.home-assistant.io/integrations/template/) can convert them to 0–5.
+All of these are modeled daily forecasts, not measured counts, so compare them with local
+reports for a season before relying on one.
+
 ## Recommended: condition the input sensors
 
 Raw temperature and humidity sensors often report small changes every few seconds, and

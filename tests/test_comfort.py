@@ -960,3 +960,104 @@ class TestOpenTimeRemaining:
         clock.now = hour(1)  # the next forecast hour arrives
         assert calc.refresh_state()
         assert self.remaining(calc) == 2.0
+
+
+@pytest.mark.parametrize(
+    ("state", "expected"),
+    [
+        ("0", 0),
+        ("2.4", 2),
+        ("2.5", 3),
+        ("5", 5),
+        ("5.1", None),
+        ("-1", None),
+        ("None", 0),
+        ("very_low", 1),
+        ("Very Low", 1),
+        ("low", 2),
+        ("Moderate", 3),
+        ("medium", 3),
+        ("High", 4),
+        ("Very High", 5),
+        ("very_high", 5),
+        ("unknown", None),
+        ("unavailable", None),
+        ("lots", None),
+    ],
+)
+def test_pollen_level(state, expected):
+    """Pollen states are a 0-5 index or a level name."""
+    assert comfort_module.pollen_level(state) == expected
+
+
+class TestPollen:
+    """Pollen above the maximum (2, "low") keeps out air that would be let in."""
+
+    def test_blocks_fresh_air(self):
+        """Comfortable air with high pollen is kept out, with its own reason."""
+        calc = make_calculator()
+        args = (72.0, 50.0, 50.0, 78.0, 40.0)
+        assert calc.advise(*args, 2, COOL_INDOOR) is Advice.FRESH_AIR
+        assert calc.advise(*args, 3, COOL_INDOOR) is Advice.HIGH_POLLEN
+
+    def test_blocks_free_cooling(self):
+        """Free cooling is also kept out by high pollen."""
+        calc = make_calculator()
+        args = (64.0, 50.0, 45.0, 60.0, 30.0)
+        assert calc.advise(*args, 0, WARM_INDOOR) is Advice.FREE_COOLING
+        assert calc.advise(*args, 5, WARM_INDOOR) is Advice.HIGH_POLLEN
+
+    def test_other_reasons_take_precedence(self):
+        """When the air would be kept out anyway, the reason doesn't change."""
+        calc = make_calculator()
+        assert calc.advise(90.0, 50.0, 70.0, 103.0, 60.0, 5, COOL_INDOOR) is (Advice.UNCOMFORTABLE)
+        heat = WARM_INDOOR.enthalpy + 5.0
+        assert calc.advise(75.0, 50.0, 50.0, 80.0, heat, 5, WARM_INDOOR) is Advice.ADDS_HEAT
+
+    def test_pollen_change_recalculates(self):
+        """A new pollen level triggers a recalculation and applies to the forecast."""
+        calc = make_calculator(hourly(NICE, NICE, HOT), outdoor=NICE)
+        assert calc.refresh_state()
+        assert calc.get_calculated(Calculated.CAN_OPEN_WINDOWS) is True
+
+        calc.update_pollen(4)
+        assert calc.refresh_state()
+        assert calc.get_calculated(Calculated.CAN_OPEN_WINDOWS) is False
+        assert calc.extra_attributes[ATTR_REASON] is Advice.HIGH_POLLEN
+        assert calc.get_calculated(Calculated.OPEN_WINDOWS_AT) is None
+
+        calc.update_pollen(None)  # no pollen data
+        assert calc.refresh_state()
+        assert calc.get_calculated(Calculated.CAN_OPEN_WINDOWS) is True
+
+    def test_same_level_is_not_a_change(self):
+        """Repeating the pollen level doesn't recalculate."""
+        calc = make_calculator(hourly(NICE))
+        calc.update_pollen(1)
+        assert calc.refresh_state()
+        calc.update_pollen(1)
+        assert not calc.refresh_state()
+
+
+@pytest.mark.parametrize(
+    ("state", "expected"),
+    [
+        ("0", 0),
+        ("1.2", 1),
+        ("2.4", 1),  # Low
+        ("2.5", 2),
+        ("4.8", 2),  # Low-Medium
+        ("4.9", 3),
+        ("7.2", 3),  # Medium
+        ("7.3", 4),
+        ("9.6", 4),  # Medium-High
+        ("9.7", 5),
+        ("12", 5),  # High
+        ("12.1", None),
+        ("-1", None),
+        ("unavailable", None),
+    ],
+)
+def test_iqvia_pollen_level(state, expected):
+    """IQVIA's 0-12 allergy index rating bands map to Very Low..Very High."""
+    assert comfort_module.pollen_level(state, iqvia=True) == expected

@@ -102,6 +102,9 @@ class Advice(StrEnum):
     UNCOMFORTABLE = "uncomfortable"
     """Closed: uncomfortable outside and no cooling benefit."""
 
+    HIGH_POLLEN = "high_pollen"
+    """Closed: the air would be let in, but pollen is above the maximum."""
+
     @property
     def can_open(self) -> bool:
         """Whether this advice means windows can be open."""
@@ -109,6 +112,44 @@ class Advice(StrEnum):
 
 
 ATTR_REASON: Final = "reason"
+
+
+# Pollen levels on the 0-5 scale used by the pollen maximum setting.
+POLLEN_LEVELS: Final = {
+    "none": 0,
+    "very_low": 1,
+    "low": 2,
+    "medium": 3,
+    "moderate": 3,
+    "high": 4,
+    "very_high": 5,
+}
+
+
+# IQVIA's allergy index (0-12) rating bands: Low, Low-Medium, Medium,
+# Medium-High and High count as Very Low through Very High.
+IQVIA_LEVEL_LIMITS: Final = (0.0, 2.4, 4.8, 7.2, 9.6, 12.0)
+
+
+def pollen_level(state: str, *, iqvia: bool = False) -> int | None:
+    """Return the 0-5 pollen level of a sensor state, or None if it isn't one.
+
+    Accepts a 0-5 index (such as Google's Universal Pollen Index), a level name
+    such as "Very Low" or "very_high", or with `iqvia` an IQVIA allergy index
+    (0-12).
+    """
+    try:
+        value = float(state)
+    except ValueError:
+        return POLLEN_LEVELS.get(state.strip().lower().replace(" ", "_").replace("-", "_"))
+    if iqvia:
+        return next(
+            (level for level, limit in enumerate(IQVIA_LEVEL_LIMITS) if 0 <= value <= limit),
+            None,
+        )
+    if not 0 <= value <= 5:
+        return None
+    return math.floor(value + 0.5)
 
 
 @dataclass(frozen=True, slots=True)
@@ -172,6 +213,7 @@ class ComfortCalculator:
         self._temp_unit = temp_unit
         self._humidity_max: float = config[CONF_HUMIDITY_MAX]
         self._pollen_max: int = config[CONF_POLLEN_MAX]
+        self._pollen = 0
         self._dew_point_max = temperature(CONF_DEW_POINT_MAX)
         self._simmer_index_min = temperature(CONF_SIMMER_INDEX_MIN)
         self._simmer_index_max = temperature(CONF_SIMMER_INDEX_MAX)
@@ -233,6 +275,13 @@ class ComfortCalculator:
         """Whether outputs have been calculated from a full set of inputs."""
         return self._calculated[Calculated.CAN_OPEN_WINDOWS] is not None
 
+    def update_pollen(self, level: int | None) -> None:
+        """Update the pollen level; None (no pollen data) counts as no pollen."""
+        level = level or 0
+        if level != self._pollen:
+            self._pollen = level
+            self._have_changes = True
+
     def update_input(self, key: str, value: Any) -> None:
         """Update an input value; None means the input is unavailable."""
         _LOGGER.debug("update_input called with %s=%s", key, str(value))
@@ -276,7 +325,14 @@ class ComfortCalculator:
         # Hysteresis: once windows are open, limits are widened by the margins.
         was_open = self._calculated[Calculated.CAN_OPEN_WINDOWS] is True
         advice_now = self.advise(
-            out_temp, out_humidity, out_dewp, out_ssi, out_enthalpy, 0, indoor, is_open=was_open
+            out_temp,
+            out_humidity,
+            out_dewp,
+            out_ssi,
+            out_enthalpy,
+            self._pollen,
+            indoor,
+            is_open=was_open,
         )
         open_now = advice_now.can_open
 
@@ -428,7 +484,7 @@ class ComfortCalculator:
             enthalpy = self._enthalpy(temp, humidity)
 
             advice = self.advise(
-                temp, humidity, dew_point, ssi, enthalpy, 0, indoor, is_open=is_open
+                temp, humidity, dew_point, ssi, enthalpy, self._pollen, indoor, is_open=is_open
             )
             is_open = advice.can_open
             new_forecast.append(
@@ -482,12 +538,34 @@ class ComfortCalculator:
         While windows are open (`is_open`), every limit that would close them is
         widened by the hysteresis margins, so they only close once a reading is
         past a limit by the margin.
+
+        Pollen above the maximum keeps out air that would otherwise be let in
+        (reported as HIGH_POLLEN, so the reason is clear).
         """
+        advice = self._advise_air(
+            temp, humidity, dew_point, simmer_index, enthalpy, indoor, is_open=is_open
+        )
+        if advice.can_open and pollen > self._pollen_max:
+            return Advice.HIGH_POLLEN
+        return advice
+
+    def _advise_air(  # pylint: disable=too-many-arguments
+        self,
+        temp: float,
+        humidity: float,
+        dew_point: float,
+        simmer_index: float,
+        enthalpy: float,
+        indoor: Indoor,
+        *,
+        is_open: bool,
+    ) -> Advice:
+        """Advise on the air alone (pollen is handled by advise)."""
         m = self._open_margins if is_open else NO_MARGINS
         house_is_warm = indoor.simmer_index > self._simmer_index_target
         house_is_cool = indoor.simmer_index < self._simmer_index_target
 
-        if self.is_comfortable(humidity, dew_point, simmer_index, pollen, m):
+        if self.is_comfortable(humidity, dew_point, simmer_index, 0, m):
             if house_is_warm and enthalpy > indoor.enthalpy + self._enthalpy_tolerance + m.enthalpy:
                 return Advice.ADDS_HEAT
             if house_is_cool and temp < indoor.temperature - self._temp_tolerance - m.temperature:
@@ -499,7 +577,7 @@ class ComfortCalculator:
             and enthalpy < indoor.enthalpy + m.enthalpy
             and temp < indoor.temperature + m.temperature
             and temp >= self._cooling_temp_min - m.temperature
-            and self._is_breathable(humidity, dew_point, pollen, m)
+            and self._is_breathable(humidity, dew_point, 0, m)
         ):
             return Advice.FREE_COOLING
 
