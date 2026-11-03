@@ -15,6 +15,7 @@ from homeassistant.const import (
     UnitOfTemperature,
 )
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.setup import async_setup_component
 from homeassistant.util import dt as dt_util
 import pytest
@@ -92,15 +93,19 @@ class MockWeather(WeatherEntity):
     def __init__(self) -> None:
         """Start with a comfortable day."""
         self.samples: list[tuple[float, float]] = [NICE] * 24
+        self.fail = False
+        self.include_humidity = True
 
     async def async_forecast_hourly(self) -> list[Forecast] | None:
         """Return the hourly forecast starting next hour."""
+        if self.fail:
+            raise HomeAssistantError("forecast unavailable")
         start = dt_util.utcnow().replace(minute=0, second=0, microsecond=0)
         return [
             {
                 "datetime": (start + timedelta(hours=i + 1)).isoformat(),
                 "native_temperature": temp,
-                "humidity": humidity,
+                **({"humidity": humidity} if self.include_humidity else {}),
             }
             for i, (temp, humidity) in enumerate(self.samples)
         ]
@@ -114,6 +119,11 @@ def auto_enable_custom_integrations(enable_custom_integrations):
 
 @pytest.fixture
 async def weather(hass: HomeAssistant) -> MockWeather:
+    """Set up the mock weather entity."""
+    return await async_setup_weather(hass)
+
+
+async def async_setup_weather(hass: HomeAssistant) -> MockWeather:
     """Set up the mock weather entity."""
     entity = MockWeather()
     setup_test_component_platform(hass, WEATHER_DOMAIN, [entity])

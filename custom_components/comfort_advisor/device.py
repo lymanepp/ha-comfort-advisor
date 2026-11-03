@@ -17,6 +17,7 @@ from homeassistant.core import (
     State,
     callback,
 )
+from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
@@ -25,7 +26,6 @@ from homeassistant.util.unit_conversion import TemperatureConverter as TC
 
 from .comfort import ComfortCalculator, Input
 from .const import (
-    _LOGGER,
     CONF_INDOOR_HUMIDITY,
     CONF_INDOOR_TEMPERATURE,
     CONF_WEATHER,
@@ -84,9 +84,12 @@ class ComfortAdvisorDevice:
             ]
         }
 
-    async def async_setup_entry(self, config_entry: ConfigEntry) -> bool:
-        """Set up device."""
-        assert config_entry.unique_id
+    async def async_setup_entry(self, config_entry: ConfigEntry) -> None:
+        """Subscribe to the weather forecast and input sensors.
+
+        Raises ConfigEntryNotReady (so Home Assistant retries) when the weather
+        entity doesn't exist yet, e.g. its integration is still starting.
+        """
 
         @callback
         def forecast_listener(forecast: list[JsonValueType] | None) -> None:
@@ -98,8 +101,11 @@ class ComfortAdvisorDevice:
             self.hass, weather_entity_id, "hourly", forecast_listener
         )
         if unsubscribe is None:
-            _LOGGER.warning("Weather entity not found: %s", weather_entity_id)
-            return False
+            raise ConfigEntryNotReady(
+                translation_domain=DOMAIN,
+                translation_key="weather_not_found",
+                translation_placeholders={"entity_id": weather_entity_id},
+            )
 
         config_entry.async_on_unload(unsubscribe)
 
@@ -119,7 +125,6 @@ class ComfortAdvisorDevice:
                 timedelta(seconds=DEFAULT_POLL_INTERVAL),
             )
         )
-        return True
 
     @property
     def available(self) -> bool:
