@@ -1,6 +1,6 @@
 """Config and options flows for comfort_advisor."""
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Collection, Mapping
 from hashlib import md5
 from typing import Any, Final
 
@@ -30,33 +30,35 @@ from .schemas import DATA_SCHEMA, build_comfort_schema, build_device_schema, bui
 type ErrorsType = dict[str, str]
 
 
-def _validate_inputs(
-    hass: HomeAssistant,
-    errors: ErrorsType,
-    /,
-    indoor_temperature: str,
-    indoor_humidity: str,
-    outdoor_temperature: str,
-    outdoor_humidity: str,
-) -> bool:
-    def validate_sensor_units(entity_ids: Iterable[str], valid_units: Iterable[str | None]) -> bool:
-        for entity_id in entity_ids:
-            state = hass.states.get(entity_id)
-            if not state:
-                errors["base"] = "sensor_entity"
-                errors["sensor"] = entity_id
-                return False
+INPUT_UNITS: Final[dict[str, Collection[str | None]]] = {
+    CONF_INDOOR_TEMPERATURE: TC.VALID_UNITS,
+    CONF_INDOOR_HUMIDITY: (PERCENTAGE,),
+    CONF_OUTDOOR_TEMPERATURE: TC.VALID_UNITS,
+    CONF_OUTDOOR_HUMIDITY: (PERCENTAGE,),
+}
 
-            unit: str | None = state.attributes.get(ATTR_UNIT_OF_MEASUREMENT)
-            if not unit or unit not in valid_units:
-                errors["base"] = "sensor_units"
-                errors["sensor"] = state.name
-                return False
-        return True
 
-    return validate_sensor_units(
-        [indoor_temperature, outdoor_temperature], TC.VALID_UNITS
-    ) and validate_sensor_units([indoor_humidity, outdoor_humidity], [PERCENTAGE])
+def _validate_inputs(hass: HomeAssistant, user_input: Mapping[str, Any]) -> ErrorsType:
+    """Check the selected entities; return errors keyed by field."""
+    errors: ErrorsType = {}
+
+    if (
+        user_input[CONF_INDOOR_TEMPERATURE] == user_input[CONF_OUTDOOR_TEMPERATURE]
+        or user_input[CONF_INDOOR_HUMIDITY] == user_input[CONF_OUTDOOR_HUMIDITY]
+    ):
+        errors["base"] = "sensors_not_unique"
+
+    if hass.states.get(user_input[CONF_WEATHER]) is None:
+        errors[CONF_WEATHER] = "entity_not_found"
+
+    for key, valid_units in INPUT_UNITS.items():
+        state = hass.states.get(user_input[key])
+        if state is None:
+            errors[key] = "entity_not_found"
+        elif state.attributes.get(ATTR_UNIT_OF_MEASUREMENT) not in valid_units:
+            errors[key] = "invalid_units"
+
+    return errors
 
 
 def _create_unique_id(hass: HomeAssistant, inputs_config: ConfigType) -> str:
@@ -108,17 +110,12 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):
         errors: ErrorsType = {}
 
         if user_input:
-            if (
-                user_input[CONF_INDOOR_TEMPERATURE] == user_input[CONF_OUTDOOR_TEMPERATURE]
-                or user_input[CONF_INDOOR_HUMIDITY] == user_input[CONF_OUTDOOR_HUMIDITY]
-            ):
-                errors["base"] = "sensors_not_unique"
-            else:
+            errors = _validate_inputs(self.hass, user_input)
+            if not errors:
                 unique_id = _create_unique_id(self.hass, user_input)
                 await self.async_set_unique_id(unique_id)
                 self._abort_if_unique_id_configured()
 
-                # if _validate_inputs(self.hass, errors, **user_input):
                 self._config.update(user_input)
                 return await self.async_step_comfort()
 
@@ -166,6 +163,35 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):
         schema = build_device_schema(user_input)
 
         return self.async_show_form(step_id="device", data_schema=schema, errors=errors)
+
+    async def async_step_reconfigure(
+        self, user_input: ConfigType | None = None
+    ) -> ConfigFlowResult:
+        """Change the weather provider and sensors of an existing entry."""
+        entry = self._get_reconfigure_entry()
+        errors: ErrorsType = {}
+
+        if user_input:
+            errors = _validate_inputs(self.hass, user_input)
+            if not errors:
+                # The entry keeps its unique ID (entity and device IDs are derived
+                # from it), but another entry may not already use these inputs.
+                unique_id = _create_unique_id(self.hass, user_input)
+                if any(
+                    other.unique_id == unique_id
+                    for other in self._async_current_entries(include_ignore=False)
+                    if other.entry_id != entry.entry_id
+                ):
+                    return self.async_abort(reason="already_configured")
+                return self.async_update_reload_and_abort(entry, data_updates=user_input)
+
+        schema = await build_inputs_schema(self.hass, user_input or entry.data)
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=schema,
+            errors=errors,
+            description_placeholders=USER_PLACEHOLDERS,
+        )
 
     @staticmethod
     @callback

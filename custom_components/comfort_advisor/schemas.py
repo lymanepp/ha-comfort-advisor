@@ -25,6 +25,7 @@ import probatio
 
 from .comfort import Calculated
 from .const import (
+    _LOGGER,
     CONF_COOLING_TEMPERATURE_MIN,
     CONF_DEW_POINT_MAX,
     CONF_ENABLED_SENSORS,
@@ -58,21 +59,25 @@ VALID_TEMP_UNITS = [
 
 
 async def _forecast_has_humidity(hass: HomeAssistant, entity_id: str) -> bool:
-    response = await hass.services.async_call(
-        WEATHER_DOMAIN,
-        SERVICE_GET_FORECASTS,
-        service_data={"type": "hourly"},
-        target={ATTR_ENTITY_ID: entity_id},
-        blocking=True,
-        return_response=True,
-    )
+    """Return True if the entity's hourly forecast includes humidity."""
+    try:
+        response = await hass.services.async_call(
+            WEATHER_DOMAIN,
+            SERVICE_GET_FORECASTS,
+            service_data={"type": "hourly"},
+            target={ATTR_ENTITY_ID: entity_id},
+            blocking=True,
+            return_response=True,
+        )
+    except Exception:
+        _LOGGER.debug("Could not get the hourly forecast of %s", entity_id, exc_info=True)
+        return False
 
     return (
         isinstance(response, Mapping)
-        and (entity_forecast := response.get(entity_id)) is not None
-        and isinstance(entity_forecast, Mapping)
-        and (forecast := entity_forecast.get("forecast")) is not None
-        and isinstance(forecast, Sequence)
+        and isinstance(entity_forecast := response.get(entity_id), Mapping)
+        and isinstance(forecast := entity_forecast.get("forecast"), Sequence)
+        and len(forecast) > 0
         and isinstance(forecast[0], Mapping)
         and forecast[0].get(ATTR_FORECAST_HUMIDITY) is not None
     )
@@ -172,7 +177,7 @@ def build_comfort_schema(hass: HomeAssistant, config: Mapping[str, Any]) -> prob
         }
     )
     humidity_selector = selector(
-        {"number": {"mode": "slider", "unit_of_measurement": PERCENTAGE, "min": 90, "max": 100}}
+        {"number": {"mode": "slider", "unit_of_measurement": PERCENTAGE, "min": 50, "max": 100}}
     )
 
     return probatio.Schema(

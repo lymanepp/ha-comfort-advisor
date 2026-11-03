@@ -8,7 +8,6 @@ from typing import Final
 
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.start import async_at_start
 from homeassistant.loader import async_get_integration
 
 from .const import DOMAIN
@@ -26,11 +25,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ComfortAdvisorConfigEntr
     integration = await async_get_integration(hass, DOMAIN)
     device = ComfortAdvisorDevice(hass, entry, sw_version=str(integration.version))
     entry.runtime_data = device
-
-    async def on_started(hass: HomeAssistant) -> None:
-        await device.async_setup_entry(entry)
-
-    entry.async_on_unload(async_at_start(hass, on_started))
+    await device.async_setup_entry(entry)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
