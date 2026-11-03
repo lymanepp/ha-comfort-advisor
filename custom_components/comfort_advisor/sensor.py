@@ -1,7 +1,9 @@
 """Sensor platform for comfort_advisor."""
 
+from collections.abc import Mapping
+from datetime import datetime
 from enum import StrEnum
-from typing import cast
+from typing import Any, cast
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -11,9 +13,10 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from homeassistant.helpers.typing import StateType
 
 from .comfort import Calculated
-from .const import _LOGGER, CONF_ENABLED_SENSORS, DOMAIN
+from .const import _LOGGER, CONF_ENABLED_SENSORS, DOMAIN, OUTPUT_PRECISION
 from .device import ComfortAdvisorConfigEntry, ComfortAdvisorDevice
 
 
@@ -69,22 +72,25 @@ class ComfortAdvisorSensor(SensorEntity):
             self._attr_native_unit_of_measurement = hass.config.units.temperature_unit
 
     async def async_added_to_hass(self) -> None:
-        """Run when entity about to be added to hass."""
-        self.async_on_remove(self._device.add_entity(self))
-        self.async_schedule_update_ha_state(force_refresh=True)
+        """Write the state whenever the calculated values change."""
+        self.async_on_remove(self._device.async_add_listener(self.async_write_ha_state))
 
     @property
     def available(self) -> bool:
         """Unavailable while any input is unavailable."""
         return self._device.available
 
-    async def async_update(self) -> None:
-        """Update the state of the sensor."""
-        value = self._device.get_calculated(self.entity_description.key)
-        _LOGGER.debug("async_update called for %s - state(%s)", self.entity_id, str(value))
-        self._attr_native_value = value
+    @property
+    def native_value(self) -> StateType | datetime:
+        """Return the calculated value."""
+        return cast(StateType | datetime, self._device.get_calculated(self.entity_description.key))
+
+    @property
+    def extra_state_attributes(self) -> Mapping[str, Any] | None:
+        """Return the reason for the "can open windows" advice."""
         if self.entity_description.key == Calculated.CAN_OPEN_WINDOWS:
-            self._attr_extra_state_attributes = dict(self._device.extra_attributes)
+            return dict(self._device.extra_attributes)
+        return None
 
 
 class ComfortAdvisorDeviceClass(StrEnum):
@@ -98,16 +104,19 @@ SENSOR_DESCRIPTIONS = [
         key=Calculated.AVERAGE_TEMPERATURE,
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=OUTPUT_PRECISION,
     ),
     SensorEntityDescription(
         key=Calculated.ENTHALPY,
         state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=OUTPUT_PRECISION,
         native_unit_of_measurement="kJ/kg",
     ),
     SensorEntityDescription(
         key=Calculated.SIMMER_INDEX,
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=OUTPUT_PRECISION,
     ),
     SensorEntityDescription(
         key=Calculated.CAN_OPEN_WINDOWS,
@@ -126,20 +135,24 @@ SENSOR_DESCRIPTIONS = [
         key=Calculated.HIGH_SIMMER_INDEX,
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=OUTPUT_PRECISION,
     ),
     SensorEntityDescription(
         key=Calculated.LOW_SIMMER_INDEX,
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=OUTPUT_PRECISION,
     ),
     SensorEntityDescription(
         key=Calculated.HIGH_ENTHALPY,
         state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=OUTPUT_PRECISION,
         native_unit_of_measurement="kJ/kg",
     ),
     SensorEntityDescription(
         key=Calculated.LOW_ENTHALPY,
         state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=OUTPUT_PRECISION,
         native_unit_of_measurement="kJ/kg",
     ),
 ]

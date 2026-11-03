@@ -5,7 +5,11 @@
 Comfort Advisor provides the following calculated sensors for Home Assistant.
 
 All sensors are unavailable while any input sensor or the hourly forecast is unavailable.
-Results are recalculated when an input changes and as each forecast hour arrives.
+
+Results are recalculated when an input changes and as each forecast hour arrives. Input
+changes that arrive within a second of each other (such as a temperature and humidity
+published together) are combined into one recalculation, and temperature and enthalpy
+values are rounded to one decimal place, so small changes don't record new states.
 
 ## Sensors
 
@@ -31,6 +35,31 @@ Results are recalculated when an input changes and as each forecast hour arrives
 
 > The next time the windows are recommended to be opened or closed, based on the hourly forecast.
 > Forecast hours are compared against the current indoor conditions.
+
+## Recommended: condition the input sensors
+
+Raw temperature and humidity sensors often report small changes every few seconds, and
+temperature and humidity separately. For steadier advice and fewer recorded states, put a
+[Signal Conditioner](https://github.com/lymanepp/ha-signal-conditioner) in front of each of
+the four input sensors and select the conditioned sensors in Comfort Advisor. With the same
+time window on every conditioner, all four publish together at each interval boundary, and
+Comfort Advisor recalculates once per interval.
+
+```yaml
+signal_conditioner:
+  outdoor_temperature:
+    source: sensor.outdoor_temperature_raw
+    window:
+      duration: 60   # seconds; use the same window for all four
+      output: mean
+    rounding:
+      precision: 1
+    availability:
+      stale_after: 900   # for sensors that never report unavailable on their own
+  # ...and the same for outdoor humidity, indoor temperature and indoor humidity
+```
+
+Signal Conditioner can also calibrate sensors and reject out-of-range readings.
 
 ## Usage
 

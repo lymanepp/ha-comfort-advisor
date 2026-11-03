@@ -4,13 +4,23 @@ from datetime import datetime, timedelta
 
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.config_entries import ConfigEntryState
-from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
+from homeassistant.const import (
+    ATTR_DEVICE_CLASS,
+    ATTR_UNIT_OF_MEASUREMENT,
+    EVENT_STATE_CHANGED,
+    STATE_UNAVAILABLE,
+    STATE_UNKNOWN,
+)
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.util import dt as dt_util
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry, async_fire_time_changed
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry,
+    async_capture_events,
+    async_fire_time_changed,
+)
 
 from custom_components.comfort_advisor.formulas import calc_simmer_index
 
@@ -19,6 +29,7 @@ from .conftest import (
     HOT,
     INDOOR_HUMIDITY,
     NICE,
+    OUTDOOR_HUMIDITY,
     OUTDOOR_TEMPERATURE,
     MockWeather,
     set_sensors,
@@ -31,6 +42,9 @@ SIMMER_INDEX = "sensor.comfort_advisor_simmer_index"
 HIGH_SIMMER_INDEX = "sensor.comfort_advisor_high_simmer_index"
 
 pytestmark = pytest.mark.usefixtures("weather", "sensors")
+
+TEMPERATURE_ATTRS = {ATTR_DEVICE_CLASS: "temperature", ATTR_UNIT_OF_MEASUREMENT: "°C"}
+HUMIDITY_ATTRS = {ATTR_DEVICE_CLASS: "humidity", ATTR_UNIT_OF_MEASUREMENT: "%"}
 
 
 async def setup_entry(hass: HomeAssistant, entry: MockConfigEntry) -> None:
@@ -50,9 +64,7 @@ async def test_setup_creates_sensors(hass: HomeAssistant, config_entry: MockConf
     assert hass.states.get(CAN_OPEN_WINDOWS).state == "on"
     assert hass.states.get(CAN_OPEN_WINDOWS).attributes["reason"] == "fresh_air"
     assert hass.states.get(CLOSE_WINDOWS_AT).state == STATE_UNKNOWN
-    assert float(hass.states.get(SIMMER_INDEX).state) == pytest.approx(
-        calc_simmer_index(*NICE, "°C")
-    )
+    assert float(hass.states.get(SIMMER_INDEX).state) == round(calc_simmer_index(*NICE, "°C"), 1)
     assert hass.states.get(SIMMER_INDEX).attributes["unit_of_measurement"] == "°C"
 
 
@@ -188,3 +200,72 @@ async def test_close_time_moves_forward_when_it_passes(
     new_close_at = datetime.fromisoformat(hass.states.get(CLOSE_WINDOWS_AT).state)
     assert new_close_at == datetime.fromisoformat(forecast[4]["datetime"])
     assert new_close_at > dt_util.utcnow()
+
+
+async def test_temperature_and_humidity_are_combined(
+    hass: HomeAssistant, config_entry: MockConfigEntry, freezer: FrozenDateTimeFactory
+):
+    """Temperature and humidity arriving together cause one recalculation."""
+    await setup_entry(hass, config_entry)
+    events = async_capture_events(hass, EVENT_STATE_CHANGED)
+
+    hass.states.async_set(OUTDOOR_TEMPERATURE, "26.0", TEMPERATURE_ATTRS)
+    freezer.tick(timedelta(milliseconds=500))
+    hass.states.async_set(OUTDOOR_HUMIDITY, "60.0", HUMIDITY_ATTRS)
+    await hass.async_block_till_done()
+
+    # Nothing is published until the inputs have settled.
+    assert not [e for e in events if e.data["entity_id"] == SIMMER_INDEX]
+
+    await poll(hass, freezer, timedelta(seconds=1))
+    changes = [e for e in events if e.data["entity_id"] == SIMMER_INDEX]
+    assert len(changes) == 1
+    assert float(changes[0].data["new_state"].state) == round(
+        calc_simmer_index(26.0, 60.0, "°C"), 1
+    )
+
+
+async def test_tiny_change_records_no_new_state(
+    hass: HomeAssistant, config_entry: MockConfigEntry, freezer: FrozenDateTimeFactory
+):
+    """A change too small to affect the rounded outputs records nothing."""
+    await setup_entry(hass, config_entry)
+    events = async_capture_events(hass, EVENT_STATE_CHANGED)
+
+    hass.states.async_set(OUTDOOR_TEMPERATURE, str(NICE[0] + 0.001), TEMPERATURE_ATTRS)
+    await poll(hass, freezer, timedelta(seconds=1))
+
+    assert [e.data["entity_id"] for e in events] == [OUTDOOR_TEMPERATURE]
+
+
+async def test_recalculates_when_forecast_hour_arrives(
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    weather: MockWeather,
+    freezer: FrozenDateTimeFactory,
+):
+    """Without any input change, a forecast hour that arrives leaves the forecast."""
+    weather.samples = [HOT] + [NICE] * 23
+    await setup_entry(hass, config_entry)
+    forecast = await weather.async_forecast_hourly()
+    high_with_hot_hour = float(hass.states.get(HIGH_SIMMER_INDEX).state)
+
+    freezer.move_to(datetime.fromisoformat(forecast[0]["datetime"]))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+
+    assert float(hass.states.get(HIGH_SIMMER_INDEX).state) < high_with_hot_hour
+
+
+async def test_unload_cancels_timers(hass: HomeAssistant, config_entry: MockConfigEntry):
+    """Unloading cancels the pending recalculation and the forecast-hour timer."""
+    await setup_entry(hass, config_entry)
+    device = config_entry.runtime_data
+    assert device._expiry_timer is not None  # pylint: disable=protected-access
+
+    set_sensors(hass, outdoor=HOT)  # leaves a recalculation pending
+    assert await hass.config_entries.async_unload(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert device._expiry_timer is None  # pylint: disable=protected-access
+    assert device._debouncer._timer_task is None  # pylint: disable=protected-access
