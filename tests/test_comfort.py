@@ -59,10 +59,24 @@ WARM_HOUSE = (80.0, 55.0)  # simmer index ~91
 WARM_DRY_HOUSE = (78.0, 30.0)  # simmer index ~82, but little moisture
 
 
+class Clock:
+    """Adjustable stand-in for the calculator's clock."""
+
+    def __init__(self) -> None:
+        """Start at NOW."""
+        self.now = NOW
+
+    def __call__(self) -> datetime:
+        """Return the current time."""
+        return self.now
+
+
 @pytest.fixture(autouse=True)
-def freeze_now(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Pin the calculator's notion of "now"."""
-    monkeypatch.setattr(comfort_module, "utcnow", lambda: NOW)
+def clock(monkeypatch: pytest.MonkeyPatch) -> Clock:
+    """Pin the calculator's notion of "now"; tests can move it forward."""
+    clock = Clock()
+    monkeypatch.setattr(comfort_module, "utcnow", clock)
+    return clock
 
 
 def hourly(*samples: tuple[float, float], start: int = 1) -> list[dict[str, Any]]:
@@ -209,6 +223,13 @@ class TestMakeComfortForecast:
         assert entry["enthalpy"] == pytest.approx(39.27, abs=0.01)
         assert entry["comfortable"] is True
 
+    def test_uses_provider_dew_point_of_zero(self):
+        """A provider dew point of exactly 0 is used, not treated as missing."""
+        forecast = hourly(NICE)
+        forecast[0]["dew_point"] = 0.0
+        (entry,) = make_calculator().make_comfort_forecast(forecast, INDOOR)
+        assert entry["dew_point"] == 0.0
+
     def test_uses_provider_dew_point_when_present(self):
         """A dew point supplied by the weather provider takes precedence."""
         forecast = hourly(NICE)
@@ -233,13 +254,40 @@ class TestMakeComfortForecast:
 class TestUpdateInput:
     """Change tracking for inputs."""
 
-    def test_none_is_ignored(self):
-        """A None input keeps the previous value."""
+    @pytest.mark.parametrize("key", list(Input))
+    def test_unavailable_input_clears_outputs(self, key):
+        """When any input becomes unavailable, all outputs are cleared."""
+        calc = make_calculator(hourly(NICE))
+        assert calc.refresh_state()
+        assert calc.available
+
+        calc.update_input(key, None)
+        assert calc.refresh_state()
+        assert not calc.available
+        assert all(calc.get_calculated(x) is None for x in Calculated)
+        assert calc.extra_attributes == {}
+
+        # nothing more to clear
+        assert not calc.refresh_state()
+
+    def test_outputs_return_with_input(self):
+        """Outputs are recalculated when the input comes back."""
         calc = make_calculator(hourly(NICE))
         assert calc.refresh_state()
         calc.update_input(Input.OUTDOOR_TEMPERATURE, None)
-        assert not calc.refresh_state()
+        assert calc.refresh_state()
+        calc.update_input(Input.OUTDOOR_TEMPERATURE, NICE[0])
+        assert calc.refresh_state()
+        assert calc.available
         assert calc.get_calculated(Calculated.CAN_OPEN_WINDOWS) == "on"
+
+    def test_empty_forecast_clears_outputs(self):
+        """A forecast with no usable hours clears the outputs."""
+        calc = make_calculator(hourly(NICE))
+        assert calc.refresh_state()
+        calc.update_input(Input.FORECAST, hourly(NICE, start=-3))
+        assert calc.refresh_state()
+        assert not calc.available
 
     def test_unchanged_value_does_not_trigger_refresh(self):
         """Repeating the same value is not a change."""
@@ -508,3 +556,42 @@ class TestIndoorAwareRefresh:
         calc.update_input(Input.INDOOR_HUMIDITY, WARM_HOUSE[1])
         assert calc.refresh_state()
         assert calc.get_calculated(Calculated.CAN_OPEN_WINDOWS) == "on"
+
+
+class TestTimePassing:
+    """Results are recalculated as forecast hours pass, without input changes."""
+
+    def test_no_recalculation_before_next_forecast_hour(self, clock: Clock):
+        """Nothing is recalculated until the first forecast hour arrives."""
+        calc = make_calculator(hourly(NICE, NICE, HOT))
+        assert calc.refresh_state()
+        clock.now = hour(1) - timedelta(seconds=1)
+        assert not calc.refresh_state()
+
+    def test_recalculates_when_forecast_hour_arrives(self, clock: Clock):
+        """Reaching the first forecast hour triggers a recalculation."""
+        calc = make_calculator(hourly(NICE, NICE, HOT))
+        assert calc.refresh_state()
+        clock.now = hour(1)
+        assert calc.refresh_state()
+
+    def test_change_times_never_in_the_past(self, clock: Clock):
+        """Once the close time passes, the next change time is used."""
+        calc = make_calculator(hourly(NICE, NICE, HOT, NICE, HOT), outdoor=NICE)
+        assert calc.refresh_state()
+        assert calc.get_calculated(Calculated.CLOSE_WINDOWS_AT) == hour(3)
+
+        # The outdoor sensor still reads NICE after the forecast said HOT.
+        clock.now = hour(3) + timedelta(minutes=1)
+        assert calc.refresh_state()
+        assert calc.get_calculated(Calculated.CAN_OPEN_WINDOWS) == "on"
+        assert calc.get_calculated(Calculated.CLOSE_WINDOWS_AT) == hour(5)
+        assert calc.get_calculated(Calculated.CLOSE_WINDOWS_AT) > clock.now
+
+    def test_stale_forecast_clears_outputs(self, clock: Clock):
+        """When every forecast hour has passed, outputs become unavailable."""
+        calc = make_calculator(hourly(NICE, NICE))
+        assert calc.refresh_state()
+        clock.now = hour(3)
+        assert calc.refresh_state()
+        assert not calc.available

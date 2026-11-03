@@ -1,18 +1,28 @@
 """Tests for setting up the integration and its sensors."""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
+from freezegun.api import FrozenDateTimeFactory
 from homeassistant.config_entries import ConfigEntryState
-from homeassistant.const import STATE_UNKNOWN
+from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+from homeassistant.util import dt as dt_util
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_fire_time_changed
 
 from custom_components.comfort_advisor.formulas import calc_simmer_index
 
-from .conftest import ENTRY_DATA, HOT, NICE, MockWeather, set_sensors
+from .conftest import (
+    ENTRY_DATA,
+    HOT,
+    INDOOR_HUMIDITY,
+    NICE,
+    OUTDOOR_TEMPERATURE,
+    MockWeather,
+    set_sensors,
+)
 
 CAN_OPEN_WINDOWS = "sensor.comfort_advisor_can_open_windows"
 CLOSE_WINDOWS_AT = "sensor.comfort_advisor_close_windows_at"
@@ -108,3 +118,73 @@ async def test_unload(hass: HomeAssistant, config_entry: MockConfigEntry):
     assert await hass.config_entries.async_unload(config_entry.entry_id)
     await hass.async_block_till_done()
     assert config_entry.state is ConfigEntryState.NOT_LOADED
+
+
+async def poll(hass: HomeAssistant, freezer: FrozenDateTimeFactory, delta=timedelta(seconds=60)):
+    """Advance time past the next update cycle."""
+    freezer.tick(delta)
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+
+
+async def test_unavailable_sensor_makes_outputs_unavailable(
+    hass: HomeAssistant, config_entry: MockConfigEntry, freezer: FrozenDateTimeFactory
+):
+    """Outputs follow an input sensor into and out of unavailability."""
+    await setup_entry(hass, config_entry)
+
+    hass.states.async_set(OUTDOOR_TEMPERATURE, STATE_UNAVAILABLE)
+    await poll(hass, freezer)
+    assert hass.states.get(CAN_OPEN_WINDOWS).state == STATE_UNAVAILABLE
+    assert hass.states.get(SIMMER_INDEX).state == STATE_UNAVAILABLE
+
+    set_sensors(hass)
+    await poll(hass, freezer)
+    assert hass.states.get(CAN_OPEN_WINDOWS).state == "on"
+
+
+async def test_removed_sensor_makes_outputs_unavailable(
+    hass: HomeAssistant, config_entry: MockConfigEntry, freezer: FrozenDateTimeFactory
+):
+    """A removed input sensor doesn't crash the update and clears the outputs."""
+    await setup_entry(hass, config_entry)
+
+    hass.states.async_remove(INDOOR_HUMIDITY)
+    await poll(hass, freezer)
+    assert hass.states.get(CAN_OPEN_WINDOWS).state == STATE_UNAVAILABLE
+
+
+async def test_empty_forecast_makes_outputs_unavailable(
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    weather: MockWeather,
+    freezer: FrozenDateTimeFactory,
+):
+    """A weather provider returning no forecast clears the outputs."""
+    await setup_entry(hass, config_entry)
+
+    weather.samples = []
+    await weather.async_update_listeners(["hourly"])
+    await poll(hass, freezer)
+    assert hass.states.get(CAN_OPEN_WINDOWS).state == STATE_UNAVAILABLE
+
+
+async def test_close_time_moves_forward_when_it_passes(
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    weather: MockWeather,
+    freezer: FrozenDateTimeFactory,
+):
+    """Without any input change, a passed close time is replaced by the next one."""
+    weather.samples = [NICE, NICE, HOT, NICE, HOT]
+    await setup_entry(hass, config_entry)
+    forecast = await weather.async_forecast_hourly()
+    close_at = datetime.fromisoformat(hass.states.get(CLOSE_WINDOWS_AT).state)
+    assert close_at == datetime.fromisoformat(forecast[2]["datetime"])
+
+    # The outdoor sensor still reads NICE after the forecast said HOT.
+    freezer.move_to(close_at + timedelta(minutes=1))
+    await poll(hass, freezer)
+    new_close_at = datetime.fromisoformat(hass.states.get(CLOSE_WINDOWS_AT).state)
+    assert new_close_at == datetime.fromisoformat(forecast[4]["datetime"])
+    assert new_close_at > dt_util.utcnow()

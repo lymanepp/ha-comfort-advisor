@@ -4,6 +4,9 @@
 
 Comfort Advisor provides the following calculated sensors for Home Assistant.
 
+All sensors are unavailable while any input sensor or the hourly forecast is unavailable.
+Results are recalculated when an input changes and as each forecast hour arrives.
+
 ## Sensors
 
 **Can Open Windows**
