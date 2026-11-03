@@ -39,6 +39,12 @@ values are rounded to one decimal place, so small changes don't record new state
 
 > The next time the windows are recommended to be opened or closed, based on the hourly forecast.
 > Forecast hours are compared against the current indoor conditions.
+>
+> The forecast is corrected by how far the outdoor sensor is from it right now (temperature and
+> dew point, limited to 10°F), fading out over the next 3 hours. So if it's warmer here than
+> forecast, the forecast cool-down is expected later. The current corrections are available as
+> the diagnostic sensors **Forecast Temperature Offset** and **Forecast Dew Point Offset**
+> (not enabled by default).
 
 ## Recommended: condition the input sensors
 

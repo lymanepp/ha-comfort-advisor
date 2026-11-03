@@ -10,6 +10,7 @@ from homeassistant.const import (
     EVENT_STATE_CHANGED,
     STATE_UNAVAILABLE,
     STATE_UNKNOWN,
+    EntityCategory,
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
@@ -59,7 +60,7 @@ async def test_setup_creates_sensors(hass: HomeAssistant, config_entry: MockConf
     assert config_entry.state is ConfigEntryState.LOADED
 
     entries = er.async_entries_for_config_entry(er.async_get(hass), config_entry.entry_id)
-    assert len(entries) == 10
+    assert len(entries) == 12
 
     assert hass.states.get(CAN_OPEN_WINDOWS).state == "on"
     assert hass.states.get(CAN_OPEN_WINDOWS).attributes["reason"] == "fresh_air"
@@ -304,3 +305,21 @@ async def test_old_can_open_windows_sensor_is_removed(
     assert registry.async_get(old.entity_id) is None
     assert registry.async_get(CAN_OPEN_WINDOWS)
     assert hass.states.get(CAN_OPEN_WINDOWS).state == "on"
+
+
+async def test_forecast_offset_sensors(hass: HomeAssistant, config_entry: MockConfigEntry):
+    """The forecast offsets are diagnostic temperature-difference sensors."""
+    await setup_entry(hass, config_entry)
+    registry = er.async_get(hass)
+    for entity_id in (
+        "sensor.comfort_advisor_forecast_temperature_offset",
+        "sensor.comfort_advisor_forecast_dew_point_offset",
+    ):
+        entry = registry.async_get(entity_id)
+        assert entry
+        assert entry.entity_category is EntityCategory.DIAGNOSTIC
+        assert entry.original_device_class == "temperature_delta"
+        state = hass.states.get(entity_id)
+        assert state.attributes["unit_of_measurement"] == "°C"
+        # The outdoor sensors read exactly the forecast's first hour.
+        assert float(state.state) == 0.0

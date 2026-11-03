@@ -31,6 +31,7 @@ from custom_components.comfort_advisor.const import (
 from custom_components.comfort_advisor.formulas import (
     calc_dew_point,
     calc_moist_air_enthalpy,
+    calc_relative_humidity,
     calc_simmer_index,
 )
 
@@ -398,13 +399,16 @@ class TestRefreshState:
         assert calc.get_calculated(Calculated.CLOSE_WINDOWS_AT) is None
 
     def test_current_state_uses_sensors_not_forecast(self):
-        """Current state comes from the sensors, not the forecast."""
+        """Current state comes from the sensors, not the forecast.
+
+        The forecast starts after the correction window, so it isn't corrected.
+        """
         # Sensors say it's hot now even though the next forecast hour is nice.
-        calc = make_calculator(hourly(NICE, NICE, HOT), outdoor=HOT)
+        calc = make_calculator(hourly(NICE, NICE, HOT, start=4), outdoor=HOT)
         assert calc.refresh_state()
         assert calc.get_calculated(Calculated.CAN_OPEN_WINDOWS) is False
-        assert calc.get_calculated(Calculated.OPEN_WINDOWS_AT) == hour(1)
-        assert calc.get_calculated(Calculated.CLOSE_WINDOWS_AT) == hour(3)
+        assert calc.get_calculated(Calculated.OPEN_WINDOWS_AT) == hour(4)
+        assert calc.get_calculated(Calculated.CLOSE_WINDOWS_AT) == hour(6)
 
 
 def advise(
@@ -599,11 +603,13 @@ class TestTimePassing:
         assert calc.refresh_state()
         assert calc.get_calculated(Calculated.CLOSE_WINDOWS_AT) == hour(3)
 
-        # The outdoor sensor still reads NICE after the forecast said HOT.
+        # The outdoor sensor still reads NICE after the forecast said HOT, so the
+        # forecast is running warm and is corrected cooler: hour 4 (NICE) becomes
+        # too cool, which is the next change.
         clock.now = hour(3) + timedelta(minutes=1)
         assert calc.refresh_state()
         assert calc.get_calculated(Calculated.CAN_OPEN_WINDOWS) is True
-        assert calc.get_calculated(Calculated.CLOSE_WINDOWS_AT) == hour(5)
+        assert calc.get_calculated(Calculated.CLOSE_WINDOWS_AT) == hour(4)
         assert calc.get_calculated(Calculated.CLOSE_WINDOWS_AT) > clock.now
 
     def test_stale_forecast_clears_outputs(self, clock: Clock):
@@ -753,11 +759,11 @@ class TestHysteresis:
 
     def test_forecast_carries_state_between_hours(self):
         """An hour that opens the windows keeps them open through the next, within the margin."""
-        calc = make_calculator(hourly(SSI_84, SSI_85_5, SSI_86_5), outdoor=SSI_86_5)
+        calc = make_calculator(hourly(SSI_84, SSI_85_5, SSI_86_5, start=4), outdoor=SSI_86_5)
         assert calc.refresh_state()
         assert calc.get_calculated(Calculated.CAN_OPEN_WINDOWS) is False
-        assert calc.get_calculated(Calculated.OPEN_WINDOWS_AT) == hour(1)
-        assert calc.get_calculated(Calculated.CLOSE_WINDOWS_AT) == hour(3)
+        assert calc.get_calculated(Calculated.OPEN_WINDOWS_AT) == hour(4)
+        assert calc.get_calculated(Calculated.CLOSE_WINDOWS_AT) == hour(6)
 
     def test_forecast_open_time_follows_hysteresis(self):
         """While closed, hours within the margin don't count as an opening."""
@@ -801,3 +807,108 @@ class TestHysteresisSettings:
         margins = calc._open_margins  # pylint: disable=protected-access
         assert margins.temperature == pytest.approx(5.0)
         assert margins.humidity == 5.0
+
+
+class TestForecastCorrection:
+    """The forecast is shifted by how far the outdoor sensor is from it right now."""
+
+    def offsets(self, forecast, outdoor, config=None, unit_system=US_CUSTOMARY_SYSTEM):
+        """Return the offsets for an outdoor (temperature, humidity) sample."""
+        calc = make_calculator(config=config, unit_system=unit_system)
+        unit = calc._temp_unit  # pylint: disable=protected-access
+        return calc.forecast_offsets(forecast, outdoor[0], calc_dew_point(*outdoor, unit))
+
+    def test_interpolates_between_forecast_hours(self, clock: Clock):
+        """The forecast at now is interpolated between the hours around it."""
+        forecast = hourly((70.0, 50.0), (80.0, 50.0), start=0)
+        clock.now = hour(0) + timedelta(minutes=30)
+        offsets = self.offsets(forecast, (77.0, 50.0))
+        assert offsets.temperature == pytest.approx(2.0)
+
+    def test_uses_nearest_hour_within_an_hour(self):
+        """With no earlier hour, the next hour (within an hour) is used."""
+        offsets = self.offsets(hourly((70.0, 50.0)), (73.0, 50.0))
+        assert offsets.temperature == pytest.approx(3.0)
+        assert offsets.dew_point == pytest.approx(
+            calc_dew_point(73.0, 50.0, "°F") - calc_dew_point(70.0, 50.0, "°F")
+        )
+
+    def test_no_correction_without_a_nearby_hour(self):
+        """No forecast hour within an hour of now means no correction."""
+        offsets = self.offsets(hourly(NICE, start=2), (90.0, 50.0))
+        assert offsets == comfort_module.NO_OFFSETS
+
+    def test_skips_incomplete_hours(self):
+        """Hours missing temperature or humidity aren't used."""
+        forecast = hourly((70.0, 50.0), start=0) + hourly((80.0, 50.0))
+        forecast[1]["humidity"] = None
+        offsets = self.offsets(forecast, (72.0, 50.0))
+        assert offsets.temperature == pytest.approx(2.0)
+
+    def test_limited_to_10_fahrenheit(self):
+        """A large difference (e.g. a sun-heated sensor) is limited to 10°F."""
+        offsets = self.offsets(hourly((70.0, 40.0)), (95.0, 40.0))
+        assert offsets.temperature == pytest.approx(10.0)
+        offsets = self.offsets(hourly((70.0, 40.0)), (45.0, 40.0))
+        assert offsets.temperature == pytest.approx(-10.0)
+
+    def test_limit_converted_to_celsius(self):
+        """The 10°F limit is a temperature difference: 5.56°C."""
+        offsets = self.offsets(hourly((20.0, 40.0)), (35.0, 40.0), unit_system=METRIC_SYSTEM)
+        assert offsets.temperature == pytest.approx(5.556, abs=0.001)
+
+    def test_correction_fades_over_three_hours(self):
+        """Hours 1, 2 and 3 get 2/3, 1/3 and none of the offset."""
+        forecast = hourly(*[(70.0, 50.0)] * 4)
+        offsets = comfort_module.ForecastOffsets(temperature=3.0, dew_point=0.0)
+        result = make_calculator().make_comfort_forecast(forecast, INDOOR, offsets=offsets)
+        assert [e.temperature for e in result] == pytest.approx([72.0, 71.0, 70.0, 70.0])
+
+    def test_humidity_recalculated_from_corrected_values(self):
+        """Corrected temperature and dew point give a consistent humidity."""
+        forecast = hourly((70.0, 50.0))
+        offsets = comfort_module.ForecastOffsets(temperature=3.0, dew_point=1.5)
+        (entry,) = make_calculator().make_comfort_forecast(forecast, INDOOR, offsets=offsets)
+        dew_point = calc_dew_point(70.0, 50.0, "°F") + 1.0  # 2/3 of 1.5
+        assert entry.temperature == pytest.approx(72.0)
+        assert entry.dew_point == pytest.approx(dew_point)
+        assert entry.simmer_index == pytest.approx(
+            calc_simmer_index(72.0, calc_relative_humidity(72.0, dew_point, "°F"), "°F")
+        )
+
+    def test_dew_point_never_above_temperature(self):
+        """A dew point corrected above the temperature is limited to it (100%)."""
+        forecast = hourly((60.0, 95.0))
+        offsets = comfort_module.ForecastOffsets(temperature=0.0, dew_point=9.0)
+        (entry,) = make_calculator().make_comfort_forecast(forecast, INDOOR, offsets=offsets)
+        assert entry.dew_point == pytest.approx(entry.temperature)
+
+    def test_offsets_published(self):
+        """The offsets are published, rounded to 0.1."""
+        calc = make_calculator(hourly((70.0, 50.0)), outdoor=(72.04, 50.0))
+        assert calc.refresh_state()
+        assert calc.get_calculated(Calculated.FORECAST_TEMPERATURE_OFFSET) == 2.0
+        assert calc.get_calculated(Calculated.FORECAST_DEW_POINT_OFFSET) == round(
+            calc_dew_point(72.04, 50.0, "°F") - calc_dew_point(70.0, 50.0, "°F"), 1
+        )
+
+    def test_no_offsets_when_sensor_matches_forecast(self):
+        """A sensor agreeing with the forecast leaves it unchanged."""
+        calc = make_calculator(hourly(NICE, HOT), outdoor=NICE)
+        assert calc.refresh_state()
+        assert calc.get_calculated(Calculated.FORECAST_TEMPERATURE_OFFSET) == 0.0
+        assert calc.get_calculated(Calculated.CLOSE_WINDOWS_AT) == hour(2)
+
+    def test_warmer_sensor_moves_open_time_later(self):
+        """If it's warmer here than forecast, the forecast cool-down comes later."""
+        # Forecast: hot now, cooling to comfortable at hours 1 and 2.
+        forecast = hourly(HOT, NICE, NICE, NICE, start=0)
+        calc = make_calculator(forecast, outdoor=HOT)
+        assert calc.refresh_state()
+        assert calc.get_calculated(Calculated.OPEN_WINDOWS_AT) == hour(1)
+
+        # The sensor reads 12°F warmer than forecast (limited to 10°F): hour 1 is
+        # corrected +6.7°F (simmer index 85.7, too warm), hour 2 +3.3°F (81.1).
+        calc = make_calculator(forecast, outdoor=(HOT[0] + 12, HOT[1]))
+        assert calc.refresh_state()
+        assert calc.get_calculated(Calculated.OPEN_WINDOWS_AT) == hour(2)

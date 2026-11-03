@@ -166,6 +166,14 @@ def calc_dew_point(temp: float, rh: float, temp_unit: str) -> float:
     return round(TC.convert(t_d, UnitOfTemperature.CELSIUS, temp_unit), 2)
 
 
+def calc_relative_humidity(temp: float, dew_point: float, temp_unit: str) -> float:
+    """Calculate relative humidity [%] from temperature and dew-point."""
+    t = TC.convert(temp, temp_unit, UnitOfTemperature.CELSIUS)
+    t_d = TC.convert(dew_point, temp_unit, UnitOfTemperature.CELSIUS)
+
+    return relative_humidity_from_dew_point(t, t_d)
+
+
 def calc_simmer_index(temp: float, rh: float, temp_unit: str) -> float:
     """Calculate summer simmer index from temperature and humidity."""
     tf = TC.convert(temp, temp_unit, UnitOfTemperature.FAHRENHEIT)

@@ -9,6 +9,7 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.typing import StateType
@@ -66,7 +67,10 @@ class ComfortAdvisorSensor(SensorEntity):
         self._attr_entity_registry_enabled_default = enabled_default
         if device.unique_id:
             self._attr_unique_id = f"{device.unique_id}_{entity_description.key}"
-        if entity_description.device_class == SensorDeviceClass.TEMPERATURE:
+        if entity_description.device_class in (
+            SensorDeviceClass.TEMPERATURE,
+            SensorDeviceClass.TEMPERATURE_DELTA,
+        ):
             self._attr_native_unit_of_measurement = hass.config.units.temperature_unit
 
     async def async_added_to_hass(self) -> None:
@@ -134,5 +138,19 @@ SENSOR_DESCRIPTIONS = [
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=OUTPUT_PRECISION,
         native_unit_of_measurement="kJ/kg",
+    ),
+    SensorEntityDescription(
+        key=Calculated.FORECAST_TEMPERATURE_OFFSET,
+        device_class=SensorDeviceClass.TEMPERATURE_DELTA,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=OUTPUT_PRECISION,
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    SensorEntityDescription(
+        key=Calculated.FORECAST_DEW_POINT_OFFSET,
+        device_class=SensorDeviceClass.TEMPERATURE_DELTA,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=OUTPUT_PRECISION,
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
 ]
