@@ -18,18 +18,23 @@ from homeassistant.components.weather import (
 from homeassistant.const import CONF_TEMPERATURE_UNIT, UnitOfPressure, UnitOfTemperature
 from homeassistant.util.dt import utcnow
 from homeassistant.util.unit_conversion import TemperatureConverter as TC
+from homeassistant.util.unit_conversion import TemperatureDeltaConverter as TDC
 from homeassistant.util.unit_system import UnitSystem
 
 from .const import (
     _LOGGER,
     CONF_COOLING_TEMPERATURE_MIN,
     CONF_DEW_POINT_MAX,
+    CONF_HUMIDITY_HYSTERESIS,
     CONF_HUMIDITY_MAX,
+    CONF_HYSTERESIS,
     CONF_POLLEN_MAX,
     CONF_SIMMER_INDEX_MAX,
     CONF_SIMMER_INDEX_MIN,
     CONF_TEMPERATURE_TOLERANCE,
     DEFAULT_COOLING_TEMPERATURE_MIN,
+    DEFAULT_HUMIDITY_HYSTERESIS,
+    DEFAULT_HYSTERESIS,
     DEFAULT_TEMPERATURE_TOLERANCE,
     OUTPUT_PRECISION,
 )
@@ -104,6 +109,18 @@ class Indoor:
 
 
 @dataclass(frozen=True, slots=True)
+class Margins:
+    """How far limits are widened while windows are open (hysteresis)."""
+
+    temperature: float = 0.0
+    enthalpy: float = 0.0
+    humidity: float = 0.0
+
+
+NO_MARGINS: Final = Margins()
+
+
+@dataclass(frozen=True, slots=True)
 class ComfortForecast:
     """A forecast hour with the derived comfort values."""
 
@@ -144,16 +161,27 @@ class ComfortCalculator:
             self._cooling_temp_min = TC.convert(
                 DEFAULT_COOLING_TEMPERATURE_MIN, UnitOfTemperature.FAHRENHEIT, temp_unit
             )
-        if CONF_TEMPERATURE_TOLERANCE in config:
-            tolerance, tolerance_unit = config[CONF_TEMPERATURE_TOLERANCE], config_temp_unit
-        else:
-            tolerance, tolerance_unit = (
-                DEFAULT_TEMPERATURE_TOLERANCE,
-                UnitOfTemperature.FAHRENHEIT,
+
+        # Temperature differences, as (in the current unit, as enthalpy [kJ/kg]).
+        def interval(key: str, default_fahrenheit: float) -> tuple[float, float]:
+            value, unit = (
+                (config[key], config_temp_unit)
+                if key in config
+                else (default_fahrenheit, UnitOfTemperature.FAHRENHEIT)
             )
-        self._temp_tolerance = TC.convert_interval(tolerance, tolerance_unit, temp_unit)
-        self._enthalpy_tolerance = DRY_AIR_SPECIFIC_HEAT * TC.convert_interval(
-            tolerance, tolerance_unit, UnitOfTemperature.CELSIUS
+            return (
+                TDC.convert(value, unit, temp_unit),
+                DRY_AIR_SPECIFIC_HEAT * TDC.convert(value, unit, UnitOfTemperature.CELSIUS),
+            )
+
+        self._temp_tolerance, self._enthalpy_tolerance = interval(
+            CONF_TEMPERATURE_TOLERANCE, DEFAULT_TEMPERATURE_TOLERANCE
+        )
+        temp_margin, enthalpy_margin = interval(CONF_HYSTERESIS, DEFAULT_HYSTERESIS)
+        self._open_margins = Margins(
+            temperature=temp_margin,
+            enthalpy=enthalpy_margin,
+            humidity=config.get(CONF_HUMIDITY_HYSTERESIS, DEFAULT_HUMIDITY_HYSTERESIS),
         )
 
         # state
@@ -212,17 +240,24 @@ class ComfortCalculator:
             enthalpy=self._enthalpy(in_temp, in_humidity),
         )
 
-        # Future indoor conditions aren't known, so forecast hours are compared
-        # against the current indoor conditions.
-        forecast = self.make_comfort_forecast(self._input[Input.FORECAST], indoor)
-        if not forecast:
-            return self._clear()
-
         out_temp: float = self._input[Input.OUTDOOR_TEMPERATURE]
         out_humidity: float = self._input[Input.OUTDOOR_HUMIDITY]
         out_dewp = calc_dew_point(out_temp, out_humidity, self._temp_unit)
         out_ssi = calc_simmer_index(out_temp, out_humidity, self._temp_unit)
         out_enthalpy = self._enthalpy(out_temp, out_humidity)
+
+        # Hysteresis: once windows are open, limits are widened by the margins.
+        was_open = self._calculated[Calculated.CAN_OPEN_WINDOWS] is True
+        advice_now = self.advise(
+            out_temp, out_humidity, out_dewp, out_ssi, out_enthalpy, 0, indoor, is_open=was_open
+        )
+        open_now = advice_now.can_open
+
+        # Future indoor conditions aren't known, so forecast hours are compared
+        # against the current indoor conditions.
+        forecast = self.make_comfort_forecast(self._input[Input.FORECAST], indoor, open_now)
+        if not forecast:
+            return self._clear()
 
         temp_arr = [entry.temperature for entry in forecast]
         avg_temp = sum(temp_arr) / len(temp_arr)
@@ -234,9 +269,6 @@ class ComfortCalculator:
         enthalpy_arr = [entry.enthalpy for entry in forecast]
         low_enthalpy = min(enthalpy_arr)
         high_enthalpy = max(enthalpy_arr)
-
-        advice_now = self.advise(out_temp, out_humidity, out_dewp, out_ssi, out_enthalpy, 0, indoor)
-        open_now = advice_now.can_open
 
         first_time: datetime | None = None
         second_time: datetime | None = None
@@ -270,9 +302,13 @@ class ComfortCalculator:
         # TODO: check if temperature forecast is rising or falling currently
 
     def make_comfort_forecast(
-        self, forecast: list[Forecast], indoor: Indoor
+        self, forecast: list[Forecast], indoor: Indoor, is_open: bool = False
     ) -> list[ComfortForecast]:
-        """Convert the next 24 hours of the weather forecast into comfort entries."""
+        """Convert the next 24 hours of the weather forecast into comfort entries.
+
+        Each hour is advised with the windows state carried from the hour before
+        (starting with `is_open`), so change times follow the hysteresis.
+        """
         start_time = utcnow()
         end_time = start_time + timedelta(hours=24)
         new_forecast: list[ComfortForecast] = []
@@ -297,6 +333,10 @@ class ComfortCalculator:
             ssi = calc_simmer_index(temp, humidity, self._temp_unit)
             enthalpy = self._enthalpy(temp, humidity)
 
+            advice = self.advise(
+                temp, humidity, dew_point, ssi, enthalpy, 0, indoor, is_open=is_open
+            )
+            is_open = advice.can_open
             new_forecast.append(
                 ComfortForecast(
                     time=dt,
@@ -305,19 +345,26 @@ class ComfortCalculator:
                     simmer_index=ssi,
                     enthalpy=enthalpy,
                     comfortable=self.is_comfortable(humidity, dew_point, ssi, 0),
-                    advice=self.advise(temp, humidity, dew_point, ssi, enthalpy, 0, indoor),
+                    advice=advice,
                 )
             )
 
         return new_forecast
 
     def is_comfortable(
-        self, humidity: float, dew_point: float, simmer_index: float, pollen: int
+        self,
+        humidity: float,
+        dew_point: float,
+        simmer_index: float,
+        pollen: int,
+        margins: Margins = NO_MARGINS,
     ) -> bool:
-        """Return True if all values are within the configured comfort limits."""
+        """Return True if all values are within the comfort limits (widened by `margins`)."""
         return (
-            self._simmer_index_min <= simmer_index <= self._simmer_index_max
-            and self._is_breathable(humidity, dew_point, pollen)
+            self._simmer_index_min - margins.temperature
+            <= simmer_index
+            <= self._simmer_index_max + margins.temperature
+            and self._is_breathable(humidity, dew_point, pollen, margins)
         )
 
     def advise(  # pylint: disable=too-many-arguments
@@ -329,29 +376,36 @@ class ComfortCalculator:
         enthalpy: float,
         pollen: int,
         indoor: Indoor,
+        *,
+        is_open: bool = False,
     ) -> Advice:
         """Decide whether outdoor air should be let in.
 
         Comfortable outdoor air is let in for fresh air unless it would make the
         heating or cooling work harder. Cooler, drier air is also let in to cool
         a warm house, even when it's below the comfortable range.
+
+        While windows are open (`is_open`), every limit that would close them is
+        widened by the hysteresis margins, so they only close once a reading is
+        past a limit by the margin.
         """
+        m = self._open_margins if is_open else NO_MARGINS
         house_is_warm = indoor.simmer_index > self._simmer_index_target
         house_is_cool = indoor.simmer_index < self._simmer_index_target
 
-        if self.is_comfortable(humidity, dew_point, simmer_index, pollen):
-            if house_is_warm and enthalpy > indoor.enthalpy + self._enthalpy_tolerance:
+        if self.is_comfortable(humidity, dew_point, simmer_index, pollen, m):
+            if house_is_warm and enthalpy > indoor.enthalpy + self._enthalpy_tolerance + m.enthalpy:
                 return Advice.ADDS_HEAT
-            if house_is_cool and temp < indoor.temperature - self._temp_tolerance:
+            if house_is_cool and temp < indoor.temperature - self._temp_tolerance - m.temperature:
                 return Advice.ADDS_CHILL
             return Advice.FRESH_AIR
 
         if (
-            house_is_warm
-            and enthalpy < indoor.enthalpy
-            and temp < indoor.temperature
-            and temp >= self._cooling_temp_min
-            and self._is_breathable(humidity, dew_point, pollen)
+            indoor.simmer_index > self._simmer_index_target - m.temperature
+            and enthalpy < indoor.enthalpy + m.enthalpy
+            and temp < indoor.temperature + m.temperature
+            and temp >= self._cooling_temp_min - m.temperature
+            and self._is_breathable(humidity, dew_point, pollen, m)
         ):
             return Advice.FREE_COOLING
 
@@ -366,10 +420,12 @@ class ComfortCalculator:
         self._extra_attributes = {}
         return True
 
-    def _is_breathable(self, humidity: float, dew_point: float, pollen: int) -> bool:
+    def _is_breathable(
+        self, humidity: float, dew_point: float, pollen: int, margins: Margins = NO_MARGINS
+    ) -> bool:
         return (
-            dew_point <= self._dew_point_max
-            and humidity <= self._humidity_max
+            dew_point <= self._dew_point_max + margins.temperature
+            and humidity <= self._humidity_max + margins.humidity
             and pollen <= self._pollen_max
         )
 

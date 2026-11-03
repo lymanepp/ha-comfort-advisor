@@ -19,7 +19,9 @@ from custom_components.comfort_advisor.comfort import (
 from custom_components.comfort_advisor.const import (
     CONF_COOLING_TEMPERATURE_MIN,
     CONF_DEW_POINT_MAX,
+    CONF_HUMIDITY_HYSTERESIS,
     CONF_HUMIDITY_MAX,
+    CONF_HYSTERESIS,
     CONF_POLLEN_MAX,
     CONF_SIMMER_INDEX_MAX,
     CONF_SIMMER_INDEX_MIN,
@@ -441,7 +443,7 @@ class TestAdvise:
 
     def test_heat_within_tolerance_is_fresh_air(self):
         """Slightly more heat than a warm house is within the tolerance."""
-        # 41.59 vs 41.23 kJ/kg; 1°F is worth about 0.56 kJ/kg
+        # 41.59 vs 41.23 kJ/kg; the 2°F tolerance is worth about 1.12 kJ/kg
         assert advise((74.0, 40.0), WARM_DRY_HOUSE) is Advice.FRESH_AIR
 
     def test_adds_chill(self):
@@ -508,19 +510,19 @@ class TestAdviceSettings:
     """The new settings are converted and defaulted like the others."""
 
     def test_defaults_for_older_entries(self):
-        """Entries saved before these settings existed use 60°F and 1°F."""
+        """Entries saved before these settings existed use 60°F and 2°F."""
         assert CONF_COOLING_TEMPERATURE_MIN not in CONFIG_F
         calc = make_calculator()
         assert calc._cooling_temp_min == pytest.approx(60.0)  # pylint: disable=protected-access
-        assert calc._temp_tolerance == pytest.approx(1.0)  # pylint: disable=protected-access
+        assert calc._temp_tolerance == pytest.approx(2.0)  # pylint: disable=protected-access
 
     def test_defaults_converted_to_metric(self):
         """Defaults are converted to °C on a metric system."""
         calc = make_calculator(unit_system=METRIC_SYSTEM)
         # pylint: disable=protected-access
         assert calc._cooling_temp_min == pytest.approx(15.56, abs=0.01)
-        assert calc._temp_tolerance == pytest.approx(0.556, abs=0.001)
-        assert calc._enthalpy_tolerance == pytest.approx(0.559, abs=0.001)
+        assert calc._temp_tolerance == pytest.approx(1.111, abs=0.001)
+        assert calc._enthalpy_tolerance == pytest.approx(1.118, abs=0.001)
 
     def test_saved_fahrenheit_settings_converted_to_metric(self):
         """The floor converts as a temperature, the tolerance as a difference."""
@@ -611,3 +613,191 @@ class TestTimePassing:
         clock.now = hour(3)
         assert calc.refresh_state()
         assert not calc.available
+
+
+# Outdoor samples (°F, %) around the 85 simmer index maximum: SSI(t, 40%) ≈ 1.3266·t − 18.93
+SSI_84 = (77.6, 40.0)
+SSI_85_5 = (78.72, 40.0)  # past the maximum, within the 1°F margin
+SSI_86_5 = (79.48, 40.0)  # past the maximum by more than the margin
+
+COOL_INDOOR = Indoor(temperature=72.0, simmer_index=75.0, enthalpy=40.0)
+WARM_INDOOR = Indoor(temperature=80.0, simmer_index=90.0, enthalpy=41.0)
+
+
+def advise_values(  # pylint: disable=too-many-arguments
+    *,
+    is_open: bool,
+    indoor: Indoor = COOL_INDOOR,
+    temp: float = 72.0,
+    humidity: float = 50.0,
+    dew_point: float = 50.0,
+    simmer_index: float = 78.0,
+    enthalpy: float = 40.0,
+) -> Advice:
+    """Advise for explicit values, with the default margins (1°F, 2%)."""
+    return make_calculator().advise(
+        temp, humidity, dew_point, simmer_index, enthalpy, 0, indoor, is_open=is_open
+    )
+
+
+class TestHysteresis:
+    """Once open, windows close only when a limit is passed by the margin."""
+
+    @pytest.mark.parametrize(
+        ("change", "within_margin", "beyond_margin"),
+        [
+            ("simmer_index", 85.5, 86.5),  # maximum 85
+            ("simmer_index", 69.5, 68.5),  # minimum 70
+            ("dew_point", 60.5, 61.5),  # maximum 60
+            ("humidity", 96.0, 97.5),  # maximum 95, margin 2%
+        ],
+    )
+    def test_comfort_limits(self, change, within_margin, beyond_margin):
+        """Comfort limits are widened by the margin while open."""
+        assert advise_values(is_open=False, **{change: within_margin}) is Advice.UNCOMFORTABLE
+        assert advise_values(is_open=True, **{change: within_margin}) is Advice.FRESH_AIR
+        assert advise_values(is_open=True, **{change: beyond_margin}) is Advice.UNCOMFORTABLE
+
+    def test_adds_heat(self):
+        """The heat tolerance is widened by the margin (~0.56 kJ/kg per °F) while open."""
+        # tolerance 1.118 kJ/kg (2°F); margin 0.559 kJ/kg (1°F)
+        within = WARM_INDOOR.enthalpy + 1.118 + 0.3
+        beyond = WARM_INDOOR.enthalpy + 1.118 + 0.6
+        assert advise_values(is_open=False, indoor=WARM_INDOOR, enthalpy=within) is (
+            Advice.ADDS_HEAT
+        )
+        assert advise_values(is_open=True, indoor=WARM_INDOOR, enthalpy=within) is (
+            Advice.FRESH_AIR
+        )
+        assert advise_values(is_open=True, indoor=WARM_INDOOR, enthalpy=beyond) is (
+            Advice.ADDS_HEAT
+        )
+
+    def test_adds_chill(self):
+        """The chill tolerance is widened by the margin while open."""
+        # indoor 72°F, tolerance 2°F, margin 1°F
+        assert advise_values(is_open=False, temp=69.5) is Advice.ADDS_CHILL
+        assert advise_values(is_open=True, temp=69.5) is Advice.FRESH_AIR
+        assert advise_values(is_open=True, temp=68.5) is Advice.ADDS_CHILL
+
+    def test_free_cooling_floor(self):
+        """The free cooling floor is lowered by the margin while open."""
+        cool_night = {"indoor": WARM_INDOOR, "simmer_index": 60.0, "enthalpy": 30.0}
+        assert advise_values(is_open=False, temp=59.5, **cool_night) is Advice.UNCOMFORTABLE
+        assert advise_values(is_open=True, temp=59.5, **cool_night) is Advice.FREE_COOLING
+        assert advise_values(is_open=True, temp=58.5, **cool_night) is Advice.UNCOMFORTABLE
+
+    @pytest.mark.parametrize(
+        ("change", "within_margin", "beyond_margin"),
+        [
+            ("enthalpy", 41.3, 41.7),  # indoor 41.0 kJ/kg, margin 0.559
+            ("temp", 80.5, 81.5),  # indoor 80°F, margin 1°F
+        ],
+    )
+    def test_free_cooling_comparisons(self, change, within_margin, beyond_margin):
+        """Free cooling's indoor/outdoor comparisons are widened by the margin while open."""
+        cool_night = {"indoor": WARM_INDOOR, "temp": 64.0, "simmer_index": 60.0, "enthalpy": 30.0}
+        assert advise_values(is_open=False, **cool_night | {change: within_margin}) is (
+            Advice.UNCOMFORTABLE
+        )
+        assert advise_values(is_open=True, **cool_night | {change: within_margin}) is (
+            Advice.FREE_COOLING
+        )
+        assert advise_values(is_open=True, **cool_night | {change: beyond_margin}) is (
+            Advice.UNCOMFORTABLE
+        )
+
+    def test_free_cooling_continues_past_target(self):
+        """Free cooling stops once the house is below the target by the margin."""
+        cool_night = {"temp": 64.0, "simmer_index": 66.0, "enthalpy": 30.0}
+        nearly_cooled = Indoor(temperature=72.0, simmer_index=77.0, enthalpy=40.0)
+        cooled = Indoor(temperature=71.0, simmer_index=76.0, enthalpy=39.0)
+        assert advise_values(is_open=False, indoor=nearly_cooled, **cool_night) is (
+            Advice.UNCOMFORTABLE
+        )
+        assert advise_values(is_open=True, indoor=nearly_cooled, **cool_night) is (
+            Advice.FREE_COOLING
+        )
+        assert advise_values(is_open=True, indoor=cooled, **cool_night) is Advice.UNCOMFORTABLE
+
+    def test_no_margin_configured(self):
+        """With zero margins, opening and closing use the same limits."""
+        calc = make_calculator(config=CONFIG_F | {CONF_HYSTERESIS: 0.0})
+        assert calc.advise(72.0, 50.0, 50.0, 85.5, 40.0, 0, COOL_INDOOR, is_open=True) is (
+            Advice.UNCOMFORTABLE
+        )
+
+    def test_live_readings_creeping_past_the_limit(self):
+        """Readings drifting just past the maximum don't flip the windows back and forth."""
+        calc = make_calculator(hourly(SSI_84), outdoor=SSI_84)
+
+        def read(sample: tuple[float, float]) -> bool:
+            calc.update_input(Input.OUTDOOR_TEMPERATURE, sample[0])
+            calc.update_input(Input.OUTDOOR_HUMIDITY, sample[1])
+            calc.refresh_state()
+            return calc.get_calculated(Calculated.CAN_OPEN_WINDOWS)
+
+        assert calc.refresh_state()
+        assert calc.get_calculated(Calculated.CAN_OPEN_WINDOWS) is True
+        assert read(SSI_85_5) is True  # within the margin: stays open
+        assert read(SSI_86_5) is False  # beyond the margin: closes
+        assert read(SSI_85_5) is False  # within the margin: stays closed
+        assert read(SSI_84) is True  # back within the limit: opens
+
+    def test_forecast_close_time_follows_hysteresis(self):
+        """Forecast hours carry the windows state, so the close time matches the live advice."""
+        calc = make_calculator(hourly(SSI_84, SSI_85_5, SSI_85_5, SSI_86_5), outdoor=SSI_84)
+        assert calc.refresh_state()
+        assert calc.get_calculated(Calculated.CAN_OPEN_WINDOWS) is True
+        assert calc.get_calculated(Calculated.CLOSE_WINDOWS_AT) == hour(4)
+
+    def test_forecast_carries_state_between_hours(self):
+        """An hour that opens the windows keeps them open through the next, within the margin."""
+        calc = make_calculator(hourly(SSI_84, SSI_85_5, SSI_86_5), outdoor=SSI_86_5)
+        assert calc.refresh_state()
+        assert calc.get_calculated(Calculated.CAN_OPEN_WINDOWS) is False
+        assert calc.get_calculated(Calculated.OPEN_WINDOWS_AT) == hour(1)
+        assert calc.get_calculated(Calculated.CLOSE_WINDOWS_AT) == hour(3)
+
+    def test_forecast_open_time_follows_hysteresis(self):
+        """While closed, hours within the margin don't count as an opening."""
+        calc = make_calculator(hourly(SSI_85_5, SSI_85_5, SSI_84), outdoor=SSI_86_5)
+        assert calc.refresh_state()
+        assert calc.get_calculated(Calculated.CAN_OPEN_WINDOWS) is False
+        assert calc.get_calculated(Calculated.OPEN_WINDOWS_AT) == hour(3)
+
+    def test_starts_closed_after_outputs_were_cleared(self):
+        """After an input outage, the strict limits apply again."""
+        calc = make_calculator(hourly(SSI_85_5), outdoor=SSI_84)
+        assert calc.refresh_state()
+        calc.update_input(Input.OUTDOOR_TEMPERATURE, None)
+        assert calc.refresh_state()
+        calc.update_input(Input.OUTDOOR_TEMPERATURE, SSI_85_5[0])
+        assert calc.refresh_state()
+        assert calc.get_calculated(Calculated.CAN_OPEN_WINDOWS) is False
+
+
+class TestHysteresisSettings:
+    """The margins are converted and defaulted like the other settings."""
+
+    def test_defaults_for_older_entries(self):
+        """Entries saved before these settings existed use 1°F and 2%."""
+        margins = make_calculator()._open_margins  # pylint: disable=protected-access
+        assert margins.temperature == pytest.approx(1.0)
+        assert margins.enthalpy == pytest.approx(0.559, abs=0.001)
+        assert margins.humidity == 2
+
+    def test_defaults_converted_to_metric(self):
+        """The temperature margin is a difference: 1°F is 0.56°C."""
+        calc = make_calculator(unit_system=METRIC_SYSTEM)
+        margins = calc._open_margins  # pylint: disable=protected-access
+        assert margins.temperature == pytest.approx(0.556, abs=0.001)
+        assert margins.enthalpy == pytest.approx(0.559, abs=0.001)
+
+    def test_saved_settings(self):
+        """Saved margins are used, the temperature one converted as a difference."""
+        config = CONFIG_F | {CONF_HYSTERESIS: 9.0, CONF_HUMIDITY_HYSTERESIS: 5.0}
+        calc = make_calculator(config=config, unit_system=METRIC_SYSTEM)
+        margins = calc._open_margins  # pylint: disable=protected-access
+        assert margins.temperature == pytest.approx(5.0)
+        assert margins.humidity == 5.0

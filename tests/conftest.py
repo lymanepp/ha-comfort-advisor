@@ -29,7 +29,9 @@ from custom_components.comfort_advisor.const import (
     CONF_COOLING_TEMPERATURE_MIN,
     CONF_DEW_POINT_MAX,
     CONF_ENABLED_SENSORS,
+    CONF_HUMIDITY_HYSTERESIS,
     CONF_HUMIDITY_MAX,
+    CONF_HYSTERESIS,
     CONF_INDOOR_HUMIDITY,
     CONF_INDOOR_TEMPERATURE,
     CONF_OUTDOOR_HUMIDITY,
@@ -65,6 +67,8 @@ COMFORT: dict[str, Any] = {
     CONF_POLLEN_MAX: 2,
     CONF_COOLING_TEMPERATURE_MIN: 15.5,
     CONF_TEMPERATURE_TOLERANCE: 0.5,
+    CONF_HYSTERESIS: 0.5,
+    CONF_HUMIDITY_HYSTERESIS: 2.0,
 }
 
 ENTRY_DATA: dict[str, Any] = {
@@ -115,6 +119,23 @@ class MockWeather(WeatherEntity):
 def auto_enable_custom_integrations(enable_custom_integrations):
     """Enable custom integrations in all tests."""
     return
+
+
+@pytest.fixture(autouse=True)
+def fail_on_deprecation_warnings(caplog: pytest.LogCaptureFixture):
+    """Fail a test if Home Assistant reports this integration using a deprecated API.
+
+    Home Assistant only logs these, and removes the API a few releases later.
+    """
+    yield
+    # In teardown, caplog.records only has teardown records; check setup and call too.
+    records = caplog.get_records("setup") + caplog.get_records("call")
+    reports = [
+        r.getMessage()
+        for r in records
+        if "deprecated" in r.getMessage() and "comfort_advisor" in r.getMessage()
+    ]
+    assert not reports, reports
 
 
 @pytest.fixture

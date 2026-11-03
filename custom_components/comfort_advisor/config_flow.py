@@ -22,6 +22,8 @@ from .const import (
     CONF_INDOOR_TEMPERATURE,
     CONF_OUTDOOR_HUMIDITY,
     CONF_OUTDOOR_TEMPERATURE,
+    CONF_SIMMER_INDEX_MAX,
+    CONF_SIMMER_INDEX_MIN,
     CONF_WEATHER,
     DOMAIN,
 )
@@ -59,6 +61,13 @@ def _validate_inputs(hass: HomeAssistant, user_input: Mapping[str, Any]) -> Erro
             errors[key] = "invalid_units"
 
     return errors
+
+
+def _validate_comfort(user_input: Mapping[str, Any]) -> ErrorsType:
+    """Check the comfort settings; return errors keyed by field."""
+    if user_input[CONF_SIMMER_INDEX_MIN] >= user_input[CONF_SIMMER_INDEX_MAX]:
+        return {CONF_SIMMER_INDEX_MAX: "simmer_index_range"}
+    return {}
 
 
 def _create_unique_id(hass: HomeAssistant, inputs_config: ConfigType) -> str:
@@ -130,9 +139,11 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):
         temp_unit = self.hass.config.units.temperature_unit
 
         if user_input:
-            self._config.update(user_input)
-            self._config[CONF_TEMPERATURE_UNIT] = temp_unit
-            return await self.async_step_device()
+            errors = _validate_comfort(user_input)
+            if not errors:
+                self._config.update(user_input)
+                self._config[CONF_TEMPERATURE_UNIT] = temp_unit
+                return await self.async_step_device()
 
         schema = build_comfort_schema(self.hass, user_input)
         placeholders = _build_comfort_placeholders(temp_unit)
@@ -210,12 +221,14 @@ class ComfortAdvisorOptionsFlow(OptionsFlow):
         errors: ErrorsType = {}
 
         if user_input:
-            self._config.update(user_input)
-            return await self.async_step_device()
+            errors = _validate_comfort(user_input)
+            if not errors:
+                self._config.update(user_input)
+                return await self.async_step_device()
 
         temp_unit = self.hass.config.units.temperature_unit
 
-        schema = build_comfort_schema(self.hass, self._original)
+        schema = build_comfort_schema(self.hass, user_input or self._original)
         placeholders = _build_comfort_placeholders(temp_unit)
 
         return self.async_show_form(
