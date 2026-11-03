@@ -21,7 +21,7 @@ async def test_retries_until_weather_entity_exists(
     await hass.async_block_till_done()
     assert config_entry.state is ConfigEntryState.SETUP_RETRY
     assert "weather.test_weather" in config_entry.reason
-    assert hass.states.get("sensor.comfort_advisor_can_open_windows") is None
+    assert hass.states.get("binary_sensor.comfort_advisor_can_open_windows") is None
 
     await async_setup_weather(hass)
     freezer.tick(timedelta(minutes=1))
@@ -29,4 +29,4 @@ async def test_retries_until_weather_entity_exists(
     await hass.async_block_till_done(wait_background_tasks=True)
 
     assert config_entry.state is ConfigEntryState.LOADED
-    assert hass.states.get("sensor.comfort_advisor_can_open_windows").state == "on"
+    assert hass.states.get("binary_sensor.comfort_advisor_can_open_windows").state == "on"

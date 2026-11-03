@@ -13,7 +13,7 @@ values are rounded to one decimal place, so small changes don't record new state
 
 ## Sensors
 
-**Can Open Windows**
+**Can Open Windows** (binary sensor, shown as Yes/No)
 
 > Whether windows can be open, for fresh air and to save energy. Windows can be open when:
 >

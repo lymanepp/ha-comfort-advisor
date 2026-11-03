@@ -78,11 +78,6 @@ def _create_unique_id(hass: HomeAssistant, inputs_config: ConfigType) -> str:
     return md5(str(values).encode("utf8")).hexdigest()
 
 
-USER_PLACEHOLDERS: Final = {
-    "blueprint_url": "https://github.com/lymanepp/ha-blueprints/blob/main/comfort-advisor.yaml",
-}
-
-
 def _build_comfort_placeholders(temp_unit: str) -> dict[str, str]:
     return {
         "simmer_index_url": "http://summersimmer.com/home.htm",
@@ -125,7 +120,6 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="user",
             data_schema=schema,
             errors=errors,
-            description_placeholders=USER_PLACEHOLDERS,
         )
 
     async def async_step_comfort(self, user_input: ConfigType | None = None) -> ConfigFlowResult:
@@ -190,7 +184,6 @@ class ComfortAdvisorConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="reconfigure",
             data_schema=schema,
             errors=errors,
-            description_placeholders=USER_PLACEHOLDERS,
         )
 
     @staticmethod

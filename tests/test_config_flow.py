@@ -54,7 +54,6 @@ async def test_user_flow(hass: HomeAssistant):
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "user"
-    assert result["description_placeholders"]["blueprint_url"].startswith("https://")
 
     result = await hass.config_entries.flow.async_configure(result["flow_id"], INPUTS)
     assert result["type"] is FlowResultType.FORM

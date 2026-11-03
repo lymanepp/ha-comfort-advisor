@@ -8,12 +8,14 @@ from typing import Final
 
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from homeassistant.loader import async_get_integration
 
+from .comfort import Calculated
 from .const import DOMAIN
 from .device import ComfortAdvisorConfigEntry, ComfortAdvisorDevice
 
-PLATFORMS: Final = [Platform.SENSOR]
+PLATFORMS: Final = [Platform.BINARY_SENSOR, Platform.SENSOR]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ComfortAdvisorConfigEntry) -> bool:
@@ -25,6 +27,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ComfortAdvisorConfigEntr
     integration = await async_get_integration(hass, DOMAIN)
     device = ComfortAdvisorDevice(hass, entry, sw_version=str(integration.version))
     entry.runtime_data = device
+    _remove_old_can_open_windows_sensor(hass, entry)
     await device.async_setup_entry(entry)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -41,3 +44,13 @@ async def async_update_options(hass: HomeAssistant, entry: ComfortAdvisorConfigE
 async def async_unload_entry(hass: HomeAssistant, entry: ComfortAdvisorConfigEntry) -> bool:
     """Remove entry via user interface."""
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+
+
+def _remove_old_can_open_windows_sensor(
+    hass: HomeAssistant, entry: ComfortAdvisorConfigEntry
+) -> None:
+    """Remove the "can open windows" sensor, now a binary sensor."""
+    registry = er.async_get(hass)
+    unique_id = f"{entry.unique_id}_{Calculated.CAN_OPEN_WINDOWS}"
+    if entity_id := registry.async_get_entity_id(Platform.SENSOR, DOMAIN, unique_id):
+        registry.async_remove(entity_id)
