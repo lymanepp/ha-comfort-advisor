@@ -31,4 +31,11 @@ DEFAULT_SIMMER_INDEX_MAX: Final = 85
 DEFAULT_SIMMER_INDEX_MIN: Final = 70
 DEFAULT_COOLING_TEMPERATURE_MIN: Final = 60  # °F
 DEFAULT_TEMPERATURE_TOLERANCE: Final = 1  # °F interval
-DEFAULT_POLL_INTERVAL: Final = 30
+
+# Input changes arriving within this many seconds (e.g. temperature and humidity
+# published together) are combined into one recalculation.
+INPUT_COOLDOWN: Final = 1.0
+
+# Decimal places for published temperature and enthalpy values, so tiny input
+# changes don't record new states.
+OUTPUT_PRECISION: Final = 1

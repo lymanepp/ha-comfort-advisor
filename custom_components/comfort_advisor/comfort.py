@@ -31,6 +31,7 @@ from .const import (
     CONF_TEMPERATURE_TOLERANCE,
     DEFAULT_COOLING_TEMPERATURE_MIN,
     DEFAULT_TEMPERATURE_TOLERANCE,
+    OUTPUT_PRECISION,
 )
 from .formulas import calc_dew_point, calc_moist_air_enthalpy, calc_simmer_index
 
@@ -168,6 +169,11 @@ class ComfortCalculator:
         return self._extra_attributes
 
     @property
+    def expires_at(self) -> datetime | None:
+        """When the results go stale: the first forecast hour, or None."""
+        return self._expires_at
+
+    @property
     def available(self) -> bool:
         """Whether outputs have been calculated from a full set of inputs."""
         return self._calculated[Calculated.CAN_OPEN_WINDOWS] is not None
@@ -241,14 +247,16 @@ class ComfortCalculator:
             if change := list(dropwhile(lambda x: x.advice.can_open != open_now, change)):
                 second_time = change[0].time
 
-        self._calculated[Calculated.AVERAGE_TEMPERATURE] = avg_temp
-        self._calculated[Calculated.ENTHALPY] = out_enthalpy
-        self._calculated[Calculated.SIMMER_INDEX] = out_ssi
+        # Published values are rounded so tiny input changes don't record new
+        # states. Decisions above use the unrounded values.
+        self._calculated[Calculated.AVERAGE_TEMPERATURE] = round(avg_temp, OUTPUT_PRECISION)
+        self._calculated[Calculated.ENTHALPY] = round(out_enthalpy, OUTPUT_PRECISION)
+        self._calculated[Calculated.SIMMER_INDEX] = round(out_ssi, OUTPUT_PRECISION)
         self._calculated[Calculated.CAN_OPEN_WINDOWS] = "on" if open_now else "off"
-        self._calculated[Calculated.LOW_SIMMER_INDEX] = low_simmer_index
-        self._calculated[Calculated.HIGH_SIMMER_INDEX] = high_simmer_index
-        self._calculated[Calculated.LOW_ENTHALPY] = low_enthalpy
-        self._calculated[Calculated.HIGH_ENTHALPY] = high_enthalpy
+        self._calculated[Calculated.LOW_SIMMER_INDEX] = round(low_simmer_index, OUTPUT_PRECISION)
+        self._calculated[Calculated.HIGH_SIMMER_INDEX] = round(high_simmer_index, OUTPUT_PRECISION)
+        self._calculated[Calculated.LOW_ENTHALPY] = round(low_enthalpy, OUTPUT_PRECISION)
+        self._calculated[Calculated.HIGH_ENTHALPY] = round(high_enthalpy, OUTPUT_PRECISION)
         self._calculated[Calculated.OPEN_WINDOWS_AT] = second_time if open_now else first_time
         self._calculated[Calculated.CLOSE_WINDOWS_AT] = first_time if open_now else second_time
         self._extra_attributes = {ATTR_REASON: advice_now}
@@ -271,7 +279,7 @@ class ComfortCalculator:
 
         for entry in forecast:
             dt = datetime.fromisoformat(entry[ATTR_FORECAST_TIME])
-            if dt < start_time:
+            if dt <= start_time:  # the current hour comes from the sensors
                 continue
             if dt > end_time:
                 break

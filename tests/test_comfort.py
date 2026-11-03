@@ -206,12 +206,27 @@ class TestMakeComfortForecast:
     """Conversion of the weather forecast into comfort entries."""
 
     def test_skips_past_entries_and_limits_to_24_hours(self):
-        """Only entries from now through the next 24 hours are used."""
+        """Only entries after now, through the next 24 hours, are used.
+
+        The hour starting now is skipped: current conditions come from the sensors.
+        """
         forecast = hourly(*[NICE] * 30, start=-3)
         result = make_calculator().make_comfort_forecast(forecast, INDOOR)
-        assert result[0].time == hour(0)
+        assert result[0].time == hour(1)
         assert result[-1].time == hour(24)
-        assert len(result) == 25
+        assert len(result) == 24
+
+    def test_expiry_moves_past_the_current_hour(self, clock: Clock):
+        """When the first forecast hour arrives, the next one becomes the expiry.
+
+        Otherwise a timer set for the expiry would fire again immediately.
+        """
+        calc = make_calculator(hourly(NICE, NICE, NICE))
+        assert calc.refresh_state()
+        assert calc.expires_at == hour(1)
+        clock.now = hour(1)
+        assert calc.refresh_state()
+        assert calc.expires_at == hour(2)
 
     def test_entry_fields(self):
         """Each entry carries the derived comfort values."""
@@ -327,18 +342,19 @@ class TestRefreshState:
         calc = make_calculator(hourly(NICE, HOT, COLD))
         assert calc.refresh_state()
 
+        # Published values are rounded to 0.1.
         ssi = [calc_simmer_index(*s, "°F") for s in (NICE, HOT, COLD)]
-        assert calc.get_calculated(Calculated.AVERAGE_TEMPERATURE) == pytest.approx(74.0)
-        assert calc.get_calculated(Calculated.LOW_SIMMER_INDEX) == pytest.approx(min(ssi))
-        assert calc.get_calculated(Calculated.HIGH_SIMMER_INDEX) == pytest.approx(max(ssi))
+        assert calc.get_calculated(Calculated.AVERAGE_TEMPERATURE) == 74.0
+        assert calc.get_calculated(Calculated.LOW_SIMMER_INDEX) == round(min(ssi), 1)
+        assert calc.get_calculated(Calculated.HIGH_SIMMER_INDEX) == round(max(ssi), 1)
         assert calc.get_calculated(Calculated.LOW_ENTHALPY) < calc.get_calculated(
             Calculated.HIGH_ENTHALPY
         )
         # current values come from the outdoor sensors, not the forecast
-        assert calc.get_calculated(Calculated.SIMMER_INDEX) == pytest.approx(
-            calc_simmer_index(*NICE, "°F")
+        assert calc.get_calculated(Calculated.SIMMER_INDEX) == round(
+            calc_simmer_index(*NICE, "°F"), 1
         )
-        assert calc.get_calculated(Calculated.ENTHALPY) == pytest.approx(39.27, abs=0.01)
+        assert calc.get_calculated(Calculated.ENTHALPY) == 39.3
 
     def test_comfortable_now_then_close_then_reopen(self):
         """Close at the first bad hour, reopen at the next good one."""

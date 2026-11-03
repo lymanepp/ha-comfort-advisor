@@ -1,8 +1,8 @@
 """Device for comfort_advisor."""
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 import contextlib
-from datetime import datetime, timedelta
+from datetime import datetime
 import math
 from typing import Any
 
@@ -18,21 +18,25 @@ from homeassistant.core import (
     callback,
 )
 from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.helpers.debounce import Debouncer
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
-from homeassistant.helpers.entity import Entity
-from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
+from homeassistant.helpers.event import (
+    async_track_point_in_utc_time,
+    async_track_state_change_event,
+)
 from homeassistant.util.json import JsonValueType
 from homeassistant.util.unit_conversion import TemperatureConverter as TC
 
 from .comfort import ComfortCalculator, Input
 from .const import (
+    _LOGGER,
     CONF_INDOOR_HUMIDITY,
     CONF_INDOOR_TEMPERATURE,
     CONF_WEATHER,
     DEFAULT_MANUFACTURER,
     DEFAULT_NAME,
-    DEFAULT_POLL_INTERVAL,
     DOMAIN,
+    INPUT_COOLDOWN,
 )
 from .helpers import async_subscribe_forecast, get_entity_area
 
@@ -71,8 +75,12 @@ class ComfortAdvisorDevice:
         )
 
         self._temp_unit = self.hass.config.units.temperature_unit
-        self._entities: list[Entity] = []
-        self._first_time = True
+        self._listeners: list[Callable[[], None]] = []
+        self._debouncer = Debouncer(
+            hass, _LOGGER, cooldown=INPUT_COOLDOWN, immediate=False, function=self._refresh
+        )
+        self._expiry_timer: CALLBACK_TYPE | None = None
+        self._expiry_timer_at: datetime | None = None
 
         self._entity_id_to_input: dict[str, Input] = {
             self._config[input]: input
@@ -94,7 +102,7 @@ class ComfortAdvisorDevice:
         @callback
         def forecast_listener(forecast: list[JsonValueType] | None) -> None:
             self._comfort.update_input(Input.FORECAST, forecast or None)
-            self._update_if_first_time()
+            self._debouncer.async_schedule_call()
 
         weather_entity_id = self._config[CONF_WEATHER]
         unsubscribe = await async_subscribe_forecast(
@@ -115,16 +123,15 @@ class ComfortAdvisorDevice:
             )
         )
 
+        config_entry.async_on_unload(self._cancel_expiry_timer)
+        config_entry.async_on_unload(self._debouncer.async_shutdown)
+
         for entity_id in self._entity_id_to_input:
             self._update_input_from_state(entity_id, self.hass.states.get(entity_id))
 
-        config_entry.async_on_unload(
-            async_track_time_interval(
-                self.hass,
-                self._async_update_scheduled,
-                timedelta(seconds=DEFAULT_POLL_INTERVAL),
-            )
-        )
+        # Calculate now so the sensors start with values.
+        self._debouncer.async_cancel()
+        self._refresh()
 
     @property
     def available(self) -> bool:
@@ -140,14 +147,16 @@ class ComfortAdvisorDevice:
         """Extra attributes for the "can open windows" sensor."""
         return self._comfort.extra_attributes
 
-    def add_entity(self, entity: Entity) -> CALLBACK_TYPE:
-        """Add entity to receive callback when the calculated state is updated."""
-        self._entities.append(entity)
-        return lambda: self._entities.remove(entity)
+    @callback
+    def async_add_listener(self, listener: Callable[[], None]) -> CALLBACK_TYPE:
+        """Call `listener` whenever the calculated state changes; return a remover."""
+        self._listeners.append(listener)
+        return lambda: self._listeners.remove(listener)
 
     # Internal methods
 
-    async def _input_event_handler(self, event: Event[EventStateChangedData]) -> None:
+    @callback
+    def _input_event_handler(self, event: Event[EventStateChangedData]) -> None:
         self._update_input_from_state(event.data["entity_id"], event.data["new_state"])
 
     def _update_input_from_state(self, entity_id: str, state: State | None) -> None:
@@ -162,7 +171,7 @@ class ComfortAdvisorDevice:
                     value = TC.convert(value, unit, self._temp_unit)
 
         self._comfort.update_input(self._entity_id_to_input[entity_id], value)
-        self._update_if_first_time()
+        self._debouncer.async_schedule_call()
 
     @staticmethod
     def _get_state_value(state: State) -> float | None:
@@ -172,16 +181,31 @@ class ComfortAdvisorDevice:
                 return value
         return None
 
-    # `async_track_time_interval` adds a `now` arg that must be stripped
-    async def _async_update_scheduled(self, _: datetime) -> None:
-        await self._async_update()
-
-    def _update_if_first_time(self) -> None:
-        if self._first_time:
-            self.hass.async_create_task(self._async_update())
-
-    async def _async_update(self, force_refresh: bool = True) -> None:
+    @callback
+    def _refresh(self) -> None:
+        """Recalculate if needed, notify listeners, and schedule the next expiry."""
         if self._comfort.refresh_state():
-            self._first_time = False
-            for entity in self._entities:
-                entity.async_schedule_update_ha_state(force_refresh)
+            for listener in list(self._listeners):
+                listener()
+
+        expires_at = self._comfort.expires_at
+        if expires_at != self._expiry_timer_at:
+            self._cancel_expiry_timer()
+            if expires_at is not None:
+                self._expiry_timer = async_track_point_in_utc_time(
+                    self.hass, self._handle_expiry, expires_at
+                )
+                self._expiry_timer_at = expires_at
+
+    @callback
+    def _handle_expiry(self, _: datetime) -> None:
+        self._expiry_timer = None
+        self._expiry_timer_at = None
+        self._refresh()
+
+    @callback
+    def _cancel_expiry_timer(self) -> None:
+        if self._expiry_timer:
+            self._expiry_timer()
+        self._expiry_timer = None
+        self._expiry_timer_at = None
