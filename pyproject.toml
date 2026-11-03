@@ -122,7 +122,7 @@ overgeneral-exceptions = ["BaseException", "Exception", "HomeAssistantError"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 norecursedirs = [".git", "testing_config", ".tox"]
-addopts = "--cov=weatherbitpypi --cov-append"
+addopts = "--strict-markers --cov=custom_components"
 
 [tool.mypy]
 # https://mypy.readthedocs.io/en/stable/config_file.html

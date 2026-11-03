@@ -1,3 +1,5 @@
 # Strictly for tests
-# https://github.com/MatthewFlamm/pytest-homeassistant-custom-component/releases
-pytest-homeassistant-custom-component>=0.13.111
+pytest==8.3.5
+pytest-cov==6.1.1
+# homeassistant 2024.4 doesn't import with josepy 2.x (pulled in via acme)
+josepy<2
