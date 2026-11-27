@@ -1,3 +1,4 @@
 homeassistant==2026.10.4
 colorlog==6.12.0
 ruff==0.17.3
+comfort-advisor==0.1.0

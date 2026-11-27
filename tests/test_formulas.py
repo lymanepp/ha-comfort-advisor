@@ -1,10 +1,6 @@
 """Tests for the psychrometric formulas used by the comfort calculation."""
 
-from homeassistant.const import UnitOfPressure, UnitOfTemperature
-from homeassistant.util.unit_conversion import TemperatureConverter as TC
-import pytest
-
-from custom_components.comfort_advisor.formulas import (
+from comfort_advisor.formulas import (
     calc_dew_point,
     calc_moist_air_enthalpy,
     calc_simmer_index,
@@ -14,6 +10,9 @@ from custom_components.comfort_advisor.formulas import (
     saturation_vapor_pressure,
     summer_simmer_index,
 )
+from homeassistant.const import UnitOfPressure, UnitOfTemperature
+from homeassistant.util.unit_conversion import TemperatureConverter as TC
+import pytest
 
 C = UnitOfTemperature.CELSIUS
 F = UnitOfTemperature.FAHRENHEIT

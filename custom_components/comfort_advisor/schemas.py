@@ -3,6 +3,27 @@
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from comfort_advisor import Calculated
+from comfort_advisor.const import (
+    CONF_COOLING_TEMPERATURE_MIN,
+    CONF_DEW_POINT_MAX,
+    CONF_HUMIDITY_HYSTERESIS,
+    CONF_HUMIDITY_MAX,
+    CONF_HYSTERESIS,
+    CONF_POLLEN_MAX,
+    CONF_SIMMER_INDEX_MAX,
+    CONF_SIMMER_INDEX_MIN,
+    CONF_TEMPERATURE_TOLERANCE,
+    DEFAULT_COOLING_TEMPERATURE_MIN,
+    DEFAULT_DEWPOINT_MAX,
+    DEFAULT_HUMIDITY_HYSTERESIS,
+    DEFAULT_HUMIDITY_MAX,
+    DEFAULT_HYSTERESIS,
+    DEFAULT_POLLEN_MAX,
+    DEFAULT_SIMMER_INDEX_MAX,
+    DEFAULT_SIMMER_INDEX_MIN,
+    DEFAULT_TEMPERATURE_TOLERANCE,
+)
 from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.components.weather import ATTR_FORECAST_HUMIDITY
 from homeassistant.components.weather.const import DOMAIN as WEATHER_DOMAIN
@@ -23,35 +44,16 @@ from homeassistant.util.unit_conversion import TemperatureConverter as TC
 from homeassistant.util.unit_conversion import TemperatureDeltaConverter as TDC
 import probatio
 
-from .comfort import Calculated
 from .const import (
     _LOGGER,
-    CONF_COOLING_TEMPERATURE_MIN,
-    CONF_DEW_POINT_MAX,
     CONF_ENABLED_SENSORS,
-    CONF_HUMIDITY_HYSTERESIS,
-    CONF_HUMIDITY_MAX,
-    CONF_HYSTERESIS,
     CONF_INDOOR_HUMIDITY,
     CONF_INDOOR_TEMPERATURE,
     CONF_OUTDOOR_HUMIDITY,
     CONF_OUTDOOR_TEMPERATURE,
     CONF_POLLEN,
-    CONF_POLLEN_MAX,
-    CONF_SIMMER_INDEX_MAX,
-    CONF_SIMMER_INDEX_MIN,
-    CONF_TEMPERATURE_TOLERANCE,
     CONF_WEATHER,
-    DEFAULT_COOLING_TEMPERATURE_MIN,
-    DEFAULT_DEWPOINT_MAX,
-    DEFAULT_HUMIDITY_HYSTERESIS,
-    DEFAULT_HUMIDITY_MAX,
-    DEFAULT_HYSTERESIS,
     DEFAULT_NAME,
-    DEFAULT_POLLEN_MAX,
-    DEFAULT_SIMMER_INDEX_MAX,
-    DEFAULT_SIMMER_INDEX_MIN,
-    DEFAULT_TEMPERATURE_TOLERANCE,
 )
 from .helpers import domain_entity_ids
 

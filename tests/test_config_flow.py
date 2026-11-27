@@ -2,6 +2,10 @@
 
 from typing import Any
 
+from comfort_advisor.const import (
+    CONF_SIMMER_INDEX_MAX,
+    CONF_SIMMER_INDEX_MIN,
+)
 from homeassistant.config_entries import SOURCE_USER
 from homeassistant.const import (
     ATTR_DEVICE_CLASS,
@@ -24,8 +28,6 @@ from custom_components.comfort_advisor.const import (
     CONF_INDOOR_TEMPERATURE,
     CONF_OUTDOOR_HUMIDITY,
     CONF_OUTDOOR_TEMPERATURE,
-    CONF_SIMMER_INDEX_MAX,
-    CONF_SIMMER_INDEX_MIN,
     CONF_WEATHER,
     DOMAIN,
 )

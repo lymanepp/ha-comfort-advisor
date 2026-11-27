@@ -3,6 +3,18 @@
 from datetime import timedelta
 from typing import Any
 
+from comfort_advisor import Calculated
+from comfort_advisor.const import (
+    CONF_COOLING_TEMPERATURE_MIN,
+    CONF_DEW_POINT_MAX,
+    CONF_HUMIDITY_HYSTERESIS,
+    CONF_HUMIDITY_MAX,
+    CONF_HYSTERESIS,
+    CONF_POLLEN_MAX,
+    CONF_SIMMER_INDEX_MAX,
+    CONF_SIMMER_INDEX_MIN,
+    CONF_TEMPERATURE_TOLERANCE,
+)
 from homeassistant.components.weather import DOMAIN as WEATHER_DOMAIN
 from homeassistant.components.weather import Forecast, WeatherEntity, WeatherEntityFeature
 from homeassistant.const import (
@@ -24,22 +36,12 @@ from pytest_homeassistant_custom_component.common import (
     setup_test_component_platform,
 )
 
-from custom_components.comfort_advisor.comfort import Calculated
 from custom_components.comfort_advisor.const import (
-    CONF_COOLING_TEMPERATURE_MIN,
-    CONF_DEW_POINT_MAX,
     CONF_ENABLED_SENSORS,
-    CONF_HUMIDITY_HYSTERESIS,
-    CONF_HUMIDITY_MAX,
-    CONF_HYSTERESIS,
     CONF_INDOOR_HUMIDITY,
     CONF_INDOOR_TEMPERATURE,
     CONF_OUTDOOR_HUMIDITY,
     CONF_OUTDOOR_TEMPERATURE,
-    CONF_POLLEN_MAX,
-    CONF_SIMMER_INDEX_MAX,
-    CONF_SIMMER_INDEX_MIN,
-    CONF_TEMPERATURE_TOLERANCE,
     CONF_WEATHER,
     DOMAIN,
 )
