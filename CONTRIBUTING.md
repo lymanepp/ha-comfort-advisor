@@ -36,20 +36,34 @@ In short, when you submit code changes, your submissions are understood to be un
 
 ## Test Suite
 
-1. Setup local tests:
+Install the integration's runtime and test dependencies:
 
 ```bash
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.test.txt
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt -r requirements_test.txt
 ```
 
-2. Run local tests:
+When changing the algorithms alongside the integration, install the sibling
+library checkout after installing the pinned dependencies:
 
 ```bash
-source venv/bin/activate
-pytest
+python -m pip install -e ../comfort-advisor
+python -m pytest
 ```
+
+Keep the local library version aligned with the integration's manifest pin during
+development so Home Assistant accepts the editable install. For integration-only
+work, run the same pytest command with the pinned dependency.
+
+Put algorithm and formula regression tests in the standalone library. Keep
+algorithm configuration constants and defaults in `comfort_advisor.const` in
+that library. This repository tests how Home Assistant supplies inputs and
+configuration to the library and exposes its results.
+
+Publish a library release when a deployable integration release needs library
+changes. Update the pin in both the integration manifest and `requirements.txt`,
+then run the integration suite against the published version.
 
 ## Style Guideline
 
