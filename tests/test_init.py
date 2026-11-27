@@ -2,6 +2,7 @@
 
 from datetime import datetime, timedelta
 
+from comfort_advisor.formulas import calc_simmer_index
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import (
@@ -22,8 +23,6 @@ from pytest_homeassistant_custom_component.common import (
     async_capture_events,
     async_fire_time_changed,
 )
-
-from custom_components.comfort_advisor.formulas import calc_simmer_index
 
 from .conftest import (
     ENTRY_DATA,

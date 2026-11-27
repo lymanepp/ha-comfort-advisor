@@ -3,12 +3,9 @@
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from homeassistant.const import CONF_TEMPERATURE_UNIT, UnitOfTemperature
-from homeassistant.util.unit_system import METRIC_SYSTEM, US_CUSTOMARY_SYSTEM
-import pytest
-
-from custom_components.comfort_advisor import comfort as comfort_module
-from custom_components.comfort_advisor.comfort import (
+from comfort_advisor import METRIC_SYSTEM, US_CUSTOMARY_SYSTEM
+from comfort_advisor import comfort as comfort_module
+from comfort_advisor.comfort import (
     ATTR_REASON,
     Advice,
     Calculated,
@@ -16,7 +13,7 @@ from custom_components.comfort_advisor.comfort import (
     Indoor,
     Input,
 )
-from custom_components.comfort_advisor.const import (
+from comfort_advisor.const import (
     CONF_COOLING_TEMPERATURE_MIN,
     CONF_DEW_POINT_MAX,
     CONF_HUMIDITY_HYSTERESIS,
@@ -26,13 +23,18 @@ from custom_components.comfort_advisor.const import (
     CONF_SIMMER_INDEX_MAX,
     CONF_SIMMER_INDEX_MIN,
     CONF_TEMPERATURE_TOLERANCE,
-    CONF_WEATHER,
 )
-from custom_components.comfort_advisor.formulas import (
+from comfort_advisor.formulas import (
     calc_dew_point,
     calc_moist_air_enthalpy,
     calc_relative_humidity,
     calc_simmer_index,
+)
+from homeassistant.const import CONF_TEMPERATURE_UNIT, UnitOfTemperature
+import pytest
+
+from custom_components.comfort_advisor.const import (
+    CONF_WEATHER,
 )
 
 NOW = datetime(2026, 7, 1, 12, 0, tzinfo=UTC)

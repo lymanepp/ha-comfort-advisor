@@ -6,6 +6,7 @@ from datetime import datetime
 import math
 from typing import Any
 
+from comfort_advisor import ComfortCalculator, Input, UnitOfTemperature, UnitSystem, pollen_level
 from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_DEVICE_CLASS, ATTR_UNIT_OF_MEASUREMENT, CONF_NAME
@@ -24,10 +25,10 @@ from homeassistant.helpers.event import (
     async_track_point_in_utc_time,
     async_track_state_change_event,
 )
+from homeassistant.util.dt import utcnow
 from homeassistant.util.json import JsonValueType
 from homeassistant.util.unit_conversion import TemperatureConverter as TC
 
-from .comfort import ComfortCalculator, Input, pollen_level
 from .const import (
     _LOGGER,
     CONF_INDOOR_HUMIDITY,
@@ -57,7 +58,10 @@ class ComfortAdvisorDevice:
         self._config = config_entry.data | config_entry.options
         self.hass = hass
         self.unique_id = config_entry.unique_id
-        self._comfort = ComfortCalculator(hass.config.units, self._config)
+        self._temp_unit = hass.config.units.temperature_unit
+        self._comfort = ComfortCalculator(
+            UnitSystem(UnitOfTemperature(self._temp_unit)), self._config, clock=utcnow
+        )
 
         suggested_area = get_entity_area(
             hass, self._config[CONF_INDOOR_TEMPERATURE]
@@ -75,7 +79,6 @@ class ComfortAdvisorDevice:
             sw_version=sw_version,
         )
 
-        self._temp_unit = self.hass.config.units.temperature_unit
         self._listeners: list[Callable[[], None]] = []
         self._debouncer = Debouncer(
             hass, _LOGGER, cooldown=INPUT_COOLDOWN, immediate=False, function=self._refresh

@@ -4,6 +4,11 @@ from collections.abc import Collection, Mapping
 from hashlib import md5
 from typing import Any, Final
 
+from comfort_advisor import pollen_level
+from comfort_advisor.const import (
+    CONF_SIMMER_INDEX_MAX,
+    CONF_SIMMER_INDEX_MIN,
+)
 from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
 from homeassistant.const import (
     ATTR_UNIT_OF_MEASUREMENT,
@@ -19,15 +24,12 @@ from homeassistant.helpers import entity_registry
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.util.unit_conversion import TemperatureConverter as TC
 
-from .comfort import pollen_level
 from .const import (
     CONF_INDOOR_HUMIDITY,
     CONF_INDOOR_TEMPERATURE,
     CONF_OUTDOOR_HUMIDITY,
     CONF_OUTDOOR_TEMPERATURE,
     CONF_POLLEN,
-    CONF_SIMMER_INDEX_MAX,
-    CONF_SIMMER_INDEX_MIN,
     CONF_WEATHER,
     DOMAIN,
 )

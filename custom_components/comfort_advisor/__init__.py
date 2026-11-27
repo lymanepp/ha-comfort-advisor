@@ -6,12 +6,12 @@ https://github.com/lymanepp/ha-comfort-advisor
 
 from typing import Final
 
+from comfort_advisor import Calculated
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from homeassistant.loader import async_get_integration
 
-from .comfort import Calculated
 from .const import DOMAIN
 from .device import ComfortAdvisorConfigEntry, ComfortAdvisorDevice
 

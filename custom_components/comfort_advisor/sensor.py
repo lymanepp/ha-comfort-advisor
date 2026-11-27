@@ -3,6 +3,8 @@
 from datetime import datetime
 from typing import cast
 
+from comfort_advisor import Calculated
+from comfort_advisor.const import OUTPUT_PRECISION
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
@@ -14,8 +16,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.typing import StateType
 
-from .comfort import Calculated
-from .const import _LOGGER, CONF_ENABLED_SENSORS, OUTPUT_PRECISION
+from .const import _LOGGER, CONF_ENABLED_SENSORS
 from .device import ComfortAdvisorConfigEntry, ComfortAdvisorDevice
 
 

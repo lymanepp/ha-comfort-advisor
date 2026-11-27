@@ -3,11 +3,11 @@
 from collections.abc import Mapping
 from typing import Any
 
+from comfort_advisor import Calculated
 from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-from .comfort import Calculated
 from .const import CONF_ENABLED_SENSORS
 from .device import ComfortAdvisorConfigEntry, ComfortAdvisorDevice
 
