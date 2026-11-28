@@ -106,7 +106,7 @@ class ComfortAdvisorDevice:
 
         @callback
         def forecast_listener(forecast: list[JsonValueType] | None) -> None:
-            self._comfort.update_input(Input.FORECAST, forecast or None)
+            self._comfort.set_input(Input.FORECAST, forecast or None)
             self._debouncer.async_schedule_call()
 
         weather_entity_id = self._config[CONF_WEATHER]
@@ -202,7 +202,7 @@ class ComfortAdvisorDevice:
                 if unit and unit != self._temp_unit:
                     value = TC.convert(value, unit, self._temp_unit)
 
-        self._comfort.update_input(self._entity_id_to_input[entity_id], value)
+        self._comfort.set_input(self._entity_id_to_input[entity_id], value)
         self._debouncer.async_schedule_call()
 
     @staticmethod
@@ -216,7 +216,7 @@ class ComfortAdvisorDevice:
     @callback
     def _refresh(self) -> None:
         """Recalculate if needed, notify listeners, and schedule the next expiry."""
-        if self._comfort.refresh_state():
+        if self._comfort.recalculate():
             for listener in list(self._listeners):
                 listener()
 
